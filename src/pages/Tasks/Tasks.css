@@ -1,0 +1,24 @@
+.card-compact{padding:8px}
+.task-tags{margin-top:8px}
+.task-meta{display:flex;gap:8px;align-items:center;margin-top:8px}
+.task-status-open{background:#e0f2fe;border-color:#bae6fd}
+.task-status-in_progress{background:#e9d5ff;border-color:#d8b4fe}
+.task-status-done{background:#dcfce7;border-color:#bbf7d0}
+.task-status-closed{background:#f1f5f9;border-color:#e2e8f0}
+
+.task-page{position:relative}
+@media (max-width: 768px){
+  .task-page{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+  .task-action-bar{
+    position:fixed;left:0;right:0;bottom:0;z-index:1000;
+    background:rgba(255,255,255,.96);
+    backdrop-filter:blur(8px);
+    border-top:1px solid var(--border);
+    box-shadow:0 -8px 24px rgba(2,6,23,.08);
+    padding:12px max(12px, env(safe-area-inset-left)) calc(12px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-right));
+  }
+  .task-action-bar .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+}
+@media (max-width: 380px){
+  .task-action-bar .actions{grid-template-columns:repeat(2,1fr)}
+}

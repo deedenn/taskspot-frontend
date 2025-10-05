@@ -1,0 +1,58 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap');
+:root{--bg:#f8fafc;--surface:#ffffff;--muted:#64748b;--ink:#0f172a;--border:#e5e7eb;--primary:#6366f1;--accent:#06b6d4;--success:#16a34a;--warning:#f59e0b;--danger:#ef4444;--radius:14px;--shadow:0 10px 24px rgba(15,23,42,.08)}
+*{box-sizing:border-box}
+html,body,#root{height:100%}
+body{margin:0;font-family:'Manrope',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:radial-gradient(1200px 800px at -10% -10%,#e0f2fe,transparent 60%),radial-gradient(1200px 800px at 110% -10%,#ede9fe,transparent 60%),linear-gradient(180deg,#f9fafb 0%,var(--bg) 100%)}
+.ant-layout{background:transparent}
+.ant-layout-header{background:rgba(255,255,255,.9);backdrop-filter:saturate(1.2) blur(6px);border-bottom:1px solid var(--border);box-shadow:0 6px 20px rgba(2,6,23,.06)}
+.logo-text{white-space:nowrap}
+.user-name{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ant-menu{background:transparent;border-bottom:none}
+.ant-menu-item{color:var(--muted)}
+.ant-menu-item-selected,.ant-menu-item:hover{color:var(--ink)}
+.ant-menu-item-selected::after{border-bottom:2px solid var(--accent)}
+.ant-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);animation:fadeUp .35s ease both}
+.ant-card-hoverable:hover{transform:translateY(-3px)}
+.ant-typography{color:var(--ink)}
+.ant-typography-secondary{color:var(--muted)!important}
+.ant-input,.ant-input-affix-wrapper,.ant-select-selector,.ant-picker{background:#fff!important;border:1px solid var(--border)!important;color:var(--ink);border-radius:12px!important;transition:box-shadow .2s ease,border-color .2s ease}
+.ant-input::placeholder{color:var(--muted)}
+.ant-input:focus,.ant-input-affix-wrapper-focused,.ant-select-focused .ant-select-selector,.ant-picker-focused{box-shadow:0 0 0 3px rgba(99,102,241,.22);border-color:rgba(99,102,241,.5)!important}
+.ant-btn{border-radius:12px;border-color:var(--border);transition:transform .15s ease,filter .2s ease}
+.ant-btn-default{background:#fff;color:var(--ink)}
+.ant-btn-default:hover{filter:brightness(1.02)}
+.ant-btn-primary{background:linear-gradient(90deg,var(--primary),var(--accent));border:none;color:#fff;box-shadow:0 10px 22px rgba(99,102,241,.25)}
+.ant-btn-primary:hover{transform:translateY(-1px)}
+.ant-tag{color:var(--ink);background:#fff;border:1px solid var(--border);border-radius:999px;padding:0 10px}
+.ant-list-split .ant-list-item{border-color:var(--border);animation:fadeUp .3s ease both}
+.ant-divider{border-color:var(--border)}
+.ant-descriptions-bordered .ant-descriptions-view{background:transparent;border:1px solid var(--border)}
+.ant-descriptions-bordered .ant-descriptions-row>th,.ant-descriptions-bordered .ant-descriptions-row>td{border-color:var(--border)}
+.ant-tabs-nav{margin-bottom:12px}
+.ant-tabs-ink-bar{background:var(--accent)}
+.ant-tabs-tab{color:var(--muted)}
+.ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn{color:var(--ink)}
+.ant-avatar{background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff}
+.ant-picker-panel{background:#fff;color:var(--ink)}
+.ts-content{padding:24px;max-width:1200px;margin:0 auto;width:100%}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@media (max-width: 992px){
+  .ts-content{padding:16px}
+}
+@media (max-width: 768px){
+  .ts-content{padding:12px}
+  .ant-layout-header{padding-inline:12px!important}
+  .ant-menu{font-size:13px}
+}
+@media (prefers-reduced-motion:reduce){.ant-card,.ant-list-item,.ant-btn-primary{animation:none;transition:none}}
+
+:root{--bg:#f6f7fb;--card-radius:16px}
+html,body,#root{height:100%}
+body{margin:0;background:var(--bg)}
+.ant-layout{background:#fff}
+.ant-card{border-radius:var(--card-radius);transition:transform .2s ease,box-shadow .2s ease}
+.ant-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.06)}
+.ant-typography{margin-bottom:8px}
+.ant-divider{margin:16px 0}
+.ant-list-item{padding:12px 0}
+.ant-badge-count{font-weight:600}

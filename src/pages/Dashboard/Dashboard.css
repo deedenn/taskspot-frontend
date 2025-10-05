@@ -1,0 +1,11 @@
+.ant-tabs-tab{font-weight:600}
+.ant-badge-count{font-size:12px}
+.dashboard-table .ant-table-tbody > tr:hover > td{background:#f8fafc}
+.dashboard-table .ant-table-tbody > tr.row-closed > td{background:#e8f5e9}
+.dashboard-table .ant-table-tbody > tr.row-closed:hover > td{background:#dff0e3}
+.dashboard-table .ant-table-tbody > tr{cursor:pointer}
+.linklike{color:#111827}
+.linklike:hover{text-decoration:underline}
+@media (max-width: 768px){
+  .dashboard-table .ant-table{font-size:13px}
+}
