@@ -1,0 +1,39 @@
+.project-members-card {
+  margin-bottom: 16px;
+}
+
+.project-members-owner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.project-members-owner-info {
+  display: flex;
+  align-items: center;
+}
+
+.project-members-list {
+  margin-bottom: 8px;
+}
+
+.project-members-empty {
+  margin-top: 4px;
+}
+
+.project-members-invites {
+  margin-top: 8px;
+}
+
+.project-members-invite-meta {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.project-members-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}

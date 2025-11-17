@@ -1,0 +1,80 @@
+.app-layout {
+  min-height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: #ffffff !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.app-header-left {
+  display: flex;
+  align-items: center;
+}
+
+.app-logo {
+  display: flex;
+  align-items: center;
+}
+
+.app-logo-image {
+  height: 32px;
+}
+
+.app-header-right {
+  display: flex;
+  align-items: center;
+}
+
+.app-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-user-name {
+  font-size: 14px;
+}
+
+/* Контент */
+
+.app-content {
+  padding: 16px;
+  background: #f5f5f5;
+}
+
+/* Адаптив */
+
+@media (max-width: 575px) {
+  .app-header {
+    padding: 0 12px;
+  }
+
+  .app-logo-image {
+    height: 28px;
+  }
+
+  .app-user-name {
+    display: none; /* экономим место на маленьких экранах */
+  }
+
+  .app-content {
+    padding: 8px;
+  }
+}
+
+@media (min-width: 576px) and (max-width: 991px) {
+  .app-content {
+    padding: 12px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .app-content {
+    padding: 24px 32px;
+  }
+}

@@ -1,0 +1,9 @@
+.user-efficiency-root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.user-efficiency-main-card {
+  width: 100%;
+}

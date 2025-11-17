@@ -1,0 +1,70 @@
+.project-board {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.project-board-filters {
+  margin-bottom: 8px;
+}
+
+.project-board-row {
+  margin-top: 4px;
+}
+
+.project-board-col {
+  margin-bottom: 16px;
+}
+
+.project-board-column {
+  min-height: 120px;
+  max-height: calc(100vh - 260px);
+  overflow-y: auto;
+}
+
+.project-board-column--drag-over {
+  border: 1px dashed #1677ff;
+}
+
+.project-board-column-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.project-board-column-count {
+  margin-left: 8px;
+}
+
+.project-board-task-card {
+  margin-bottom: 8px;
+}
+
+.project-board-task-card--dragging {
+  box-shadow: 0 0 0 2px #1677ff33;
+}
+
+.project-board-task-title {
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.project-board-task-categories {
+  margin-top: 4px;
+}
+
+.project-board-task-category-tag {
+  margin-right: 4px;
+}
+
+.project-board-task-flag {
+  margin-top: 4px;
+}
+
+/* Адаптив: на мобилках одна колонка, на планшетах 2 */
+
+@media (max-width: 575px) {
+  .project-board-column {
+    max-height: none;
+  }
+}

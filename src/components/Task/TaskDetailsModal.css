@@ -1,0 +1,14 @@
+.task-details-description {
+  white-space: pre-wrap;
+}
+
+.task-details-category-tag {
+  margin-right: 4px;
+}
+
+.task-details-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}

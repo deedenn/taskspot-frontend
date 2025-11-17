@@ -1,0 +1,97 @@
+.landing-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(circle at top left, #e6f4ff 0, #ffffff 45%);
+}
+
+.landing-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+}
+
+.landing-logo-block {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.landing-logo {
+  height: 32px;
+}
+
+.landing-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.landing-main {
+  flex: 1;
+  padding: 32px 24px 24px;
+  max-width: 1120px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.landing-hero {
+  max-width: 520px;
+}
+
+.landing-badge {
+  margin-bottom: 8px;
+}
+
+.landing-title {
+  margin-bottom: 12px;
+}
+
+.landing-subtitle {
+  font-size: 15px;
+  color: #4b5563;
+}
+
+.landing-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.landing-info {
+  font-size: 13px;
+}
+
+.landing-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.landing-card {
+  border-radius: 12px;
+}
+
+.landing-footer {
+  padding: 16px 24px;
+  text-align: center;
+  border-top: 1px solid #f0f0f0;
+  background: #ffffffcc;
+}
+
+/* мобильные */
+
+@media (max-width: 575px) {
+  .landing-main {
+    padding: 16px 12px 24px;
+  }
+
+  .landing-header {
+    padding: 12px 12px 8px;
+  }
+
+  .landing-logo {
+    height: 28px;
+  }
+}
