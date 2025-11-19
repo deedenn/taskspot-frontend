@@ -1,82 +1,64 @@
 import React, { useEffect, useState } from 'react';
 import {
   Card,
-  Row,
   Col,
+  Row,
   Statistic,
   Table,
   Typography,
+  Spin,
   Form,
   Input,
-  Switch,
   Button,
+  Switch,
   message,
 } from 'antd';
-import {
-  fetchGlobalStatsApi,
-  fetchLandingMetricsApi,
-  fetchUsersAdminApi,
-  createUserAdminApi,
-} from '../api/admin';
+import { fetchGlobalStatsApi, fetchUsersApi, createUserApi } from '../api/admin';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
-function AdminDashboardPage() {
-  const [globalStats, setGlobalStats] = useState(null);
-  const [landingStats, setLandingStats] = useState(null);
+export default function AdminDashboardPage() {
+  const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
-  const [loadingStats, setLoadingStats] = useState(true);
-  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [loadingStats, setLoadingStats] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [createForm] = Form.useForm();
   const [creatingUser, setCreatingUser] = useState(false);
-  const [form] = Form.useForm();
 
   useEffect(() => {
     async function loadStats() {
       setLoadingStats(true);
       try {
-        const [global, landing] = await Promise.all([
-          fetchGlobalStatsApi(),
-          fetchLandingMetricsApi(),
-        ]);
-        setGlobalStats(global);
-        setLandingStats(landing);
+        const data = await fetchGlobalStatsApi();
+        setStats(data);
       } catch (e) {
         console.error(e);
-        message.error('Не удалось загрузить статистику');
       } finally {
         setLoadingStats(false);
       }
     }
-
     async function loadUsers() {
       setLoadingUsers(true);
       try {
-        const data = await fetchUsersAdminApi();
-        setUsers(data);
+        const list = await fetchUsersApi();
+        setUsers(list);
       } catch (e) {
         console.error(e);
-        message.error('Не удалось загрузить пользователей');
       } finally {
         setLoadingUsers(false);
       }
     }
-
     loadStats();
     loadUsers();
   }, []);
 
   const handleCreateUser = async () => {
     try {
-      const values = await form.validateFields();
+      const values = await createForm.validateFields();
       setCreatingUser(true);
-      const created = await createUserAdminApi({
-        name: values.name,
-        email: values.email,
-        password: values.password,
-        isAdmin: values.isAdmin || false,
-      });
-      setUsers((prev) => [...prev, { ...created, stats: { projectsCount: 0, tasksCount: 0 } }]);
-      form.resetFields();
+      const created = await createUserApi(values);
+      setUsers((prev) => [...prev, created]);
+      createForm.resetFields();
       message.success('Пользователь создан');
     } catch (e) {
       if (e?.errorFields) return;
@@ -90,131 +72,85 @@ function AdminDashboardPage() {
     {
       title: 'Имя',
       dataIndex: 'name',
+      key: 'name',
     },
     {
       title: 'Email',
       dataIndex: 'email',
+      key: 'email',
     },
     {
-      title: 'Роль',
+      title: 'Админ',
       dataIndex: 'isAdmin',
-      render: (val) => (val ? 'Админ' : 'Пользователь'),
-    },
-    {
-      title: 'Проекты',
-      dataIndex: ['stats', 'projectsCount'],
-      render: (val) => val ?? 0,
-    },
-    {
-      title: 'Задачи (исполн.)',
-      dataIndex: ['stats', 'tasksCount'],
-      render: (val) => val ?? 0,
+      key: 'isAdmin',
+      render: (v) => (v ? 'Да' : 'Нет'),
     },
   ];
 
   return (
     <div>
-      <Row gutter={[16, 16]}>
-        <Col span={24}>
-          <Title level={4}>Админский дашборд</Title>
-        </Col>
-
-        <Col xs={24} md={12}>
-          <Card title="Сводка по сервису" loading={loadingStats}>
-            {globalStats && (
-              <Row gutter={[16, 16]}>
-                <Col span={12}>
-                  <Statistic
-                    title="Пользователей"
-                    value={globalStats.usersCount}
-                  />
-                </Col>
-                <Col span={12}>
-                  <Statistic
-                    title="Проектов"
-                    value={globalStats.projectsCount}
-                  />
-                </Col>
-                <Col span={12}>
-                  <Statistic
-                    title="Задач всего"
-                    value={globalStats.tasksCount}
-                  />
-                </Col>
-                <Col span={12}>
-                  <Statistic
-                    title="Просроченных задач"
-                    value={globalStats.tasksOverdue}
-                  />
-                </Col>
-                <Col span={12}>
-                  <Statistic
-                    title="Активных проектов"
-                    value={globalStats.activeProjects}
-                  />
-                </Col>
-                <Col span={12}>
-                  <Statistic
-                    title="Завершённых проектов"
-                    value={globalStats.completedProjects}
-                  />
-                </Col>
-              </Row>
-            )}
-          </Card>
-        </Col>
-
-        <Col xs={24} md={12}>
-          <Card title="Лендинг TaskSpot" loading={loadingStats}>
-            {landingStats && (
-              <Row gutter={[16, 16]}>
-                <Col span={12}>
-                  <Statistic
-                    title="Просмотры"
-                    value={landingStats.visits}
-                  />
-                </Col>
-                <Col span={12}>
-                  <Statistic
-                    title="Клики по регистрации"
-                    value={landingStats.registerClicks}
-                  />
-                </Col>
-                <Col span={24}>
-                  <Statistic
-                    title="Конверсия в клик регистрации"
-                    value={landingStats.conversion}
-                    suffix="%"
-                  />
-                </Col>
-              </Row>
-            )}
-          </Card>
-        </Col>
-
-        <Col span={24}>
-          <Card
-            title="Пользователи"
-            loading={loadingUsers}
-          >
-            <Table
-              rowKey="_id"
-              dataSource={users}
-              columns={userColumns}
-              pagination={{ pageSize: 10 }}
+      <Title level={4}>Админ-дэшборд</Title>
+      <Row gutter={[12, 12]}>
+        <Col xs={24} md={4}>
+          <Card loading={loadingStats}>
+            <Statistic
+              title="Пользователи"
+              value={stats?.usersCount ?? 0}
             />
           </Card>
         </Col>
+        <Col xs={24} md={4}>
+          <Card loading={loadingStats}>
+            <Statistic
+              title="Проекты"
+              value={stats?.projectsCount ?? 0}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} md={4}>
+          <Card loading={loadingStats}>
+            <Statistic
+              title="Задачи"
+              value={stats?.tasksCount ?? 0}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} md={4}>
+          <Card loading={loadingStats}>
+            <Statistic
+              title="Просроченных задач"
+              value={stats?.tasksOverdue ?? 0}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} md={4}>
+          <Card loading={loadingStats}>
+            <Statistic
+              title="Активные проекты"
+              value={stats?.activeProjects ?? 0}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} md={4}>
+          <Card loading={loadingStats}>
+            <Statistic
+              title="Завершённые проекты"
+              value={stats?.completedProjects ?? 0}
+            />
+          </Card>
+        </Col>
+      </Row>
 
-        <Col span={24}>
+      <Row gutter={[12, 12]} style={{ marginTop: 16 }}>
+        <Col xs={24} md={10}>
           <Card title="Создать пользователя">
-            <Form layout="inline" form={form}>
+            <Form layout="vertical" form={createForm}>
               <Form.Item
                 label="Имя"
                 name="name"
                 rules={[{ required: true, message: 'Введите имя' }]}
               >
-                <Input placeholder="Имя" />
+                <Input />
               </Form.Item>
               <Form.Item
                 label="Email"
@@ -224,20 +160,17 @@ function AdminDashboardPage() {
                   { type: 'email', message: 'Некорректный email' },
                 ]}
               >
-                <Input placeholder="email@example.com" />
+                <Input />
               </Form.Item>
               <Form.Item
                 label="Пароль"
                 name="password"
-                rules={[
-                  { required: true, message: 'Введите пароль' },
-                  { min: 6, message: 'Минимум 6 символов' },
-                ]}
+                rules={[{ required: true, message: 'Введите пароль' }]}
               >
                 <Input.Password />
               </Form.Item>
               <Form.Item
-                label="Админ"
+                label="Администратор"
                 name="isAdmin"
                 valuePropName="checked"
               >
@@ -255,9 +188,30 @@ function AdminDashboardPage() {
             </Form>
           </Card>
         </Col>
+        <Col xs={24} md={14}>
+          <Card title="Пользователи">
+            {loadingUsers ? (
+              <div
+                style={{
+                  minHeight: 120,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Spin />
+              </div>
+            ) : (
+              <Table
+                dataSource={users}
+                columns={userColumns}
+                rowKey="_id"
+                size="small"
+              />
+            )}
+          </Card>
+        </Col>
       </Row>
     </div>
   );
 }
-
-export default AdminDashboardPage;

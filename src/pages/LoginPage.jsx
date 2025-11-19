@@ -1,24 +1,24 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Card, Form, Input, Button, Typography, Alert } from 'antd';
+import React from 'react';
+import { Button, Card, Form, Input, Typography, message } from 'antd';
+import { Link, useNavigate } from 'react-router-dom';
 import { loginApi } from '../api/auth';
+import Logo from '../components/Logo';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
-function LoginPage({ onLogin }) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+export default function LoginPage() {
+  const [form] = Form.useForm();
   const navigate = useNavigate();
+  const [loading, setLoading] = React.useState(false);
 
-  const onFinish = async (values) => {
+  const handleFinish = async (values) => {
     setLoading(true);
-    setError(null);
     try {
-      const data = await loginApi(values);
-      onLogin && onLogin(data.user);
-      navigate('/app');
+      await loginApi(values);
+      message.success('Успешный вход');
+      navigate('/app/tasks');
     } catch (e) {
-      setError(e.message || 'Ошибка входа');
+      message.error(e.message || 'Ошибка входа');
     } finally {
       setLoading(false);
     }
@@ -28,25 +28,21 @@ function LoginPage({ onLogin }) {
     <div
       style={{
         minHeight: '100vh',
-        background: '#f5f5f5',
+        background: '#000',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         padding: 16,
       }}
     >
-      <Card style={{ maxWidth: 400, width: '100%' }}>
+      <Card style={{ maxWidth: 360, width: '100%' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+          <Logo />
+        </div>
         <Title level={3} style={{ textAlign: 'center', marginBottom: 24 }}>
-          Вход в TaskSpot
+          Вход
         </Title>
-        {error && (
-          <Alert
-            type="error"
-            message={error}
-            style={{ marginBottom: 16 }}
-          />
-        )}
-        <Form layout="vertical" onFinish={onFinish}>
+        <Form layout="vertical" form={form} onFinish={handleFinish}>
           <Form.Item
             label="Email"
             name="email"
@@ -55,32 +51,25 @@ function LoginPage({ onLogin }) {
               { type: 'email', message: 'Некорректный email' },
             ]}
           >
-            <Input autoComplete="email" />
+            <Input />
           </Form.Item>
           <Form.Item
             label="Пароль"
             name="password"
             rules={[{ required: true, message: 'Введите пароль' }]}
           >
-            <Input.Password autoComplete="current-password" />
+            <Input.Password />
           </Form.Item>
           <Form.Item>
-            <Button
-              type="primary"
-              htmlType="submit"
-              block
-              loading={loading}
-            >
+            <Button type="primary" htmlType="submit" block loading={loading}>
               Войти
             </Button>
           </Form.Item>
+          <Form.Item style={{ marginBottom: 0 }}>
+            Нет аккаунта? <Link to="/register">Зарегистрироваться</Link>
+          </Form.Item>
         </Form>
-        <Text type="secondary">
-          Нет аккаунта? <Link to="/register">Зарегистрироваться</Link>
-        </Text>
       </Card>
     </div>
   );
 }
-
-export default LoginPage;

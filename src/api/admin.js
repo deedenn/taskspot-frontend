@@ -4,17 +4,13 @@ export function fetchGlobalStatsApi() {
   return apiRequest('/stats/global', { method: 'GET' });
 }
 
-export function fetchLandingMetricsApi() {
-  return apiRequest('/metrics/landing', { method: 'GET' });
-}
-
-export function fetchUsersAdminApi() {
+export function fetchUsersApi() {
   return apiRequest('/users', { method: 'GET' });
 }
 
-export function createUserAdminApi(payload) {
+export function createUserApi({ name, email, password, isAdmin }) {
   return apiRequest('/users', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ name, email, password, isAdmin }),
   });
 }

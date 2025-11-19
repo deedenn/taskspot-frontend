@@ -1,60 +1,55 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Layout, Menu, Dropdown, Avatar, Typography, Space, Badge } from 'antd';
 import {
-  Layout,
-  Menu,
-  Typography,
-  Avatar,
-  Dropdown,
-  Space,
-  Button,
-  message,
-} from 'antd';
-import {
-  AppstoreOutlined,
-  CheckCircleOutlined,
-  HourglassOutlined,
-  LineChartOutlined,
-  ProjectOutlined,
-  UserOutlined,
-  DashboardOutlined,
-  MenuFoldOutlined,
   MenuUnfoldOutlined,
+  MenuFoldOutlined,
+  LogoutOutlined,
+  UnorderedListOutlined,
+  ProjectOutlined,
+  DashboardOutlined,
+  FieldTimeOutlined,
+  CheckCircleOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
-import { logoutApi } from '../api/auth';
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import Logo from '../components/Logo';
+import { logout } from '../api/auth';
 import { fetchProjectsApi } from '../api/projects';
 import TasksPage from './TasksPage';
-import EfficiencyPage from './EfficiencyPage';
 import ProjectsPage from './ProjectsPage';
 import AdminDashboardPage from './AdminDashboardPage';
+import EfficiencyPage from './EfficiencyPage';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 
-function AppShell({ currentUser, setCurrentUser }) {
+export default function AppShell({ currentUser }) {
   const [collapsed, setCollapsed] = useState(false);
   const [projects, setProjects] = useState([]);
   const [currentProjectId, setCurrentProjectId] = useState(null);
-  const [menuKey, setMenuKey] = useState('assigned');
+  const [taskViewKey, setTaskViewKey] = useState('assigned'); // assigned | mine | overdue
+  const [loadingProjects, setLoadingProjects] = useState(false);
+
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     async function loadProjects() {
+      setLoadingProjects(true);
       try {
-        const data = await fetchProjectsApi();
-        setProjects(data);
-        if (!currentProjectId && data.length > 0) {
-          setCurrentProjectId(data[0]._id);
+        const list = await fetchProjectsApi();
+        setProjects(list);
+        if (!currentProjectId && list.length > 0) {
+          setCurrentProjectId(list[0]._id);
         }
       } catch (e) {
         console.error(e);
-        message.error('Не удалось загрузить проекты');
+      } finally {
+        setLoadingProjects(false);
       }
     }
-    if (currentUser) {
-      loadProjects();
-    }
-  }, [currentUser]);
+    loadProjects();
+  }, [currentProjectId]);
 
   const currentProject = useMemo(
     () => projects.find((p) => p._id === currentProjectId) || null,
@@ -62,16 +57,92 @@ function AppShell({ currentUser, setCurrentUser }) {
   );
 
   const handleLogout = () => {
-    logoutApi();
-    setCurrentUser(null);
+    logout();
     navigate('/login');
   };
+
+  // Одно меню для пользователя + эффективность + админ
+  const menuItems = useMemo(() => {
+    const items = [
+      {
+        key: 'assigned',
+        icon: <CheckCircleOutlined />,
+        label: 'Исполняю',
+        onClick: () => {
+          setTaskViewKey('assigned');
+          navigate('/app/tasks');
+        },
+      },
+      {
+        key: 'mine',
+        icon: <UnorderedListOutlined />,
+        label: 'Мои задачи',
+        onClick: () => {
+          setTaskViewKey('mine');
+          navigate('/app/tasks');
+        },
+      },
+      {
+        key: 'overdue',
+        icon: <FieldTimeOutlined />,
+        label: (
+          <Space>
+            Просроченные
+          </Space>
+        ),
+        onClick: () => {
+          setTaskViewKey('overdue');
+          navigate('/app/tasks');
+        },
+      },
+      {
+        type: 'divider',
+      },
+      {
+        key: 'projects',
+        icon: <ProjectOutlined />,
+        label: 'Проекты',
+        onClick: () => navigate('/app/projects'),
+      },
+      {
+        key: 'efficiency',
+        icon: <DashboardOutlined />,
+        label: 'Эффективность',
+        onClick: () => navigate('/app/efficiency'),
+      },
+    ];
+
+    if (currentUser.isAdmin) {
+      items.push(
+        {
+          type: 'divider',
+        },
+        {
+          key: 'admin',
+          icon: <DashboardOutlined />,
+          label: 'Админ-дэшборд',
+          onClick: () => navigate('/app/admin'),
+        }
+      );
+    }
+
+    return items;
+  }, [navigate, currentUser.isAdmin]);
+
+  const selectedMenuKey = useMemo(() => {
+    if (location.pathname.startsWith('/app/projects')) return 'projects';
+    if (location.pathname.startsWith('/app/efficiency')) return 'efficiency';
+    if (location.pathname.startsWith('/app/admin')) return 'admin';
+    // tasks + viewKey
+    return taskViewKey;
+  }, [location.pathname, taskViewKey]);
 
   const userMenu = (
     <Menu
       items={[
         {
           key: 'logout',
+          icon: <LogoutOutlined />,
           label: 'Выйти',
           onClick: handleLogout,
         },
@@ -79,169 +150,175 @@ function AppShell({ currentUser, setCurrentUser }) {
     />
   );
 
-  const isAdmin = !!currentUser?.isAdmin;
-
-  const userItems = [
-    {
-      key: 'assigned',
-      icon: <CheckCircleOutlined />,
-      label: (
-        <Space size={4}>
-          <span>Исполняю</span>
-        </Space>
-      ),
-    },
-    {
-      key: 'mine',
-      icon: <AppstoreOutlined />,
-      label: 'Мои задачи',
-    },
-    {
-      key: 'overdue',
-      icon: <HourglassOutlined />,
-      label: (
-        <span>
-          Просроченные
-        </span>
-      ),
-    },
-    {
-      key: 'efficiency',
-      icon: <LineChartOutlined />,
-      label: 'Эффективность',
-    },
-    {
-      key: 'projects',
-      icon: <ProjectOutlined />,
-      label: 'Проекты',
-    },
-  ];
-
-  const adminItems = [
-    {
-      key: 'admin-dashboard',
-      icon: <DashboardOutlined />,
-      label: 'Админ: дашборд',
-    },
-    ...userItems,
-  ];
-
-  const items = isAdmin ? adminItems : userItems;
-
-  useEffect(() => {
-    if (menuKey === 'admin-dashboard') {
-      navigate('/app/admin');
-    } else if (menuKey === 'projects') {
-      navigate('/app/projects');
-    } else if (menuKey === 'efficiency') {
-      navigate('/app/efficiency');
-    } else {
-      navigate('/app/tasks');
-    }
-  }, [menuKey, navigate]);
-
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Sider
         collapsible
         collapsed={collapsed}
-        onCollapse={setCollapsed}
+        onCollapse={(value) => setCollapsed(value)}
         breakpoint="lg"
         collapsedWidth={0}
+        trigger={null} // отключаем встроенный триггер, оставляем только кнопку в хэдере
+        style={{
+          background: '#001529',
+        }}
       >
         <div
           style={{
-            height: 64,
+            padding: '12px 16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: collapsed ? 'center' : 'flex-start',
-            paddingInline: collapsed ? 0 : 16,
-            gap: 8,
+            borderBottom: '1px solid rgba(255,255,255,0.06)',
           }}
         >
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              background:
-                'radial-gradient(circle at 30% 30%, #40a9ff, #722ed1)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 700,
-              color: '#fff',
-              fontSize: 18,
-            }}
-          >
-            TS
-          </div>
-          {!collapsed && (
-            <Text style={{ color: '#fff', fontSize: 18, fontWeight: 600 }}>
-              TaskSpot
-            </Text>
-          )}
+          <Logo size={18} />
         </div>
         <Menu
-          theme="dark"
           mode="inline"
-          selectedKeys={[menuKey]}
-          items={items}
-          onClick={(info) => setMenuKey(info.key)}
+          theme="dark"
+          selectedKeys={[selectedMenuKey]}
+          items={menuItems}
+          style={{ borderRight: 0, paddingTop: 8 }}
         />
       </Sider>
       <Layout>
         <Header
           style={{
-            background: '#fff',
-            paddingInline: 16,
+            background: '#000',
+            padding: '0 12px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: 16,
           }}
         >
           <div
+            className="app-header-flex"
             style={{
               display: 'flex',
               alignItems: 'center',
+              justifyContent: 'space-between',
+              width: '100%',
               gap: 12,
             }}
           >
-            <Button
-              type="text"
-              onClick={() => setCollapsed((prev) => !prev)}
-              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            />
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <Text strong style={{ fontSize: 16 }}>
-                {currentProject ? currentProject.name : 'Нет выбранного проекта'}
-              </Text>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {isAdmin ? 'Администратор сервиса' : 'Пользователь'}
-              </Text>
-            </div>
-          </div>
-          <Dropdown overlay={userMenu} placement="bottomRight">
             <div
+              className="app-header-left"
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                cursor: 'pointer',
-                gap: 8,
+                gap: 12,
+                minWidth: 0,
               }}
             >
-              <Avatar icon={<UserOutlined />} />
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <Text strong>{currentUser?.name}</Text>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {currentUser?.email}
+              <button
+                type="button"
+                onClick={() => setCollapsed((prev) => !prev)}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  fontSize: 18,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 4,
+                }}
+              >
+                {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <Text
+                  style={{
+                    color: '#fff',
+                    fontSize: 14,
+                    fontWeight: 500,
+                    whiteSpace: 'nowrap',
+                    textOverflow: 'ellipsis',
+                    overflow: 'hidden',
+                    maxWidth: 200,
+                  }}
+                >
+                  {currentProject ? currentProject.name : 'Нет проекта'}
+                </Text>
+                <Text
+                  style={{
+                    color: 'rgba(255,255,255,0.6)',
+                    fontSize: 11,
+                  }}
+                >
+                  {currentUser.isAdmin ? 'Администратор сервиса' : 'Пользователь'}
                 </Text>
               </div>
             </div>
-          </Dropdown>
+            <div
+              className="app-header-right"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                justifyContent: 'flex-end',
+                minWidth: 0,
+              }}
+            >
+              <select
+                value={currentProjectId || ''}
+                onChange={(e) => setCurrentProjectId(e.target.value || null)}
+                disabled={loadingProjects || projects.length === 0}
+                style={{
+                  maxWidth: 200,
+                  padding: '4px 8px',
+                  borderRadius: 4,
+                  border: '1px solid #303030',
+                  background: '#000',
+                  color: '#fff',
+                  fontSize: 12,
+                }}
+              >
+                {projects.length === 0 ? (
+                  <option value="">Нет проектов</option>
+                ) : (
+                  projects.map((p) => (
+                    <option key={p._id} value={p._id}>
+                      {p.name}
+                    </option>
+                  ))
+                )}
+              </select>
+              <Dropdown overlay={userMenu} trigger={['click']}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Avatar size={28} icon={<UserOutlined />} />
+                  <Text
+                    style={{
+                      color: '#fff',
+                      maxWidth: 120,
+                      whiteSpace: 'nowrap',
+                      textOverflow: 'ellipsis',
+                      overflow: 'hidden',
+                      fontSize: 12,
+                    }}
+                  >
+                    {currentUser.name}
+                  </Text>
+                </div>
+              </Dropdown>
+            </div>
+          </div>
         </Header>
-        <Content style={{ padding: 16 }}>
+        <Content
+          style={{
+            padding: 12,
+            minHeight: 'calc(100vh - var(--header-height))',
+          }}
+        >
           <Routes>
             <Route
               path="tasks"
@@ -251,33 +328,41 @@ function AppShell({ currentUser, setCurrentUser }) {
                   projects={projects}
                   currentProject={currentProject}
                   setCurrentProjectId={setCurrentProjectId}
-                  viewKey={menuKey}
+                  viewKey={taskViewKey}
                 />
               }
-            />
-            <Route
-              path="efficiency"
-              element={<EfficiencyPage />}
             />
             <Route
               path="projects"
               element={
                 <ProjectsPage
+                  currentUser={currentUser}
                   projects={projects}
                   setProjects={setProjects}
-                  setCurrentProjectId={setCurrentProjectId}
+                  currentProject={currentProject}
                 />
               }
             />
             <Route
-              path="admin"
-              element={<AdminDashboardPage />}
+              path="efficiency"
+              element={<EfficiencyPage currentUser={currentUser} />}
             />
+            <Route
+              path="admin"
+              element={
+                currentUser.isAdmin ? <AdminDashboardPage /> : <div>Нет доступа</div>
+              }
+            />
+            <Route path="*" element={<TasksPage
+              currentUser={currentUser}
+              projects={projects}
+              currentProject={currentProject}
+              setCurrentProjectId={setCurrentProjectId}
+              viewKey={taskViewKey}
+            />} />
           </Routes>
         </Content>
       </Layout>
     </Layout>
   );
 }
-
-export default AppShell;

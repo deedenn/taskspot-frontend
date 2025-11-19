@@ -1,30 +1,42 @@
-import { apiRequest, setAuthToken, clearAuthToken } from './client';
+import { apiRequest, setAuthToken, clearAuthToken, getAuthToken } from './client';
 
 export async function loginApi({ email, password }) {
   const data = await apiRequest('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
-  setAuthToken(data.token);
+  if (data?.token) {
+    setAuthToken(data.token);
+  }
   return data;
 }
 
 export async function registerApi({ name, email, password, inviteToken }) {
   const payload = { name, email, password };
-  if (inviteToken) payload.inviteToken = inviteToken;
-
+  if (inviteToken) {
+    payload.inviteToken = inviteToken;
+  }
   const data = await apiRequest('/auth/register', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
-  setAuthToken(data.token);
+  if (data?.token) {
+    setAuthToken(data.token);
+  }
   return data;
 }
 
-export async function meApi() {
-  return apiRequest('/auth/me', { method: 'GET' });
+export async function getCurrentUserApi() {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Нет токена');
+  }
+  const data = await apiRequest('/auth/me', {
+    method: 'GET',
+  });
+  return data;
 }
 
-export function logoutApi() {
+export function logout() {
   clearAuthToken();
 }

@@ -1,46 +1,39 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { Card, Form, Input, Button, Typography, Alert } from 'antd';
+import React, { useEffect } from 'react';
+import { Button, Card, Form, Input, Typography, message } from 'antd';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { registerApi } from '../api/auth';
 import { getInviteInfoApi } from '../api/projects';
+import Logo from '../components/Logo';
 
-const { Title, Text } = Typography;
+const { Title, Paragraph } = Typography;
 
-function RegisterPage({ onRegister }) {
-  const [searchParams] = useSearchParams();
-  const [inviteInfo, setInviteInfo] = useState(null);
-  const [inviteError, setInviteError] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+export default function RegisterPage() {
+  const [form] = Form.useForm();
   const navigate = useNavigate();
+  const [search] = useSearchParams();
+  const [loading, setLoading] = React.useState(false);
+  const [inviteInfo, setInviteInfo] = React.useState(null);
 
-  const inviteToken = searchParams.get('invite') || undefined;
+  const inviteToken = search.get('invite') || undefined;
 
   useEffect(() => {
-    async function loadInvite() {
-      if (!inviteToken) return;
-      try {
-        const info = await getInviteInfoApi(inviteToken);
-        setInviteInfo(info);
-      } catch (e) {
-        setInviteError(e.message || 'Приглашение не найдено или истекло');
-      }
-    }
-    loadInvite();
+    if (!inviteToken) return;
+    getInviteInfoApi(inviteToken)
+      .then(setInviteInfo)
+      .catch(() => {});
   }, [inviteToken]);
 
-  const onFinish = async (values) => {
+  const handleFinish = async (values) => {
     setLoading(true);
-    setError(null);
     try {
-      const data = await registerApi({
+      await registerApi({
         ...values,
         inviteToken,
       });
-      onRegister && onRegister(data.user);
-      navigate('/app');
+      message.success('Регистрация успешна');
+      navigate('/app/tasks');
     } catch (e) {
-      setError(e.message || 'Ошибка регистрации');
+      message.error(e.message || 'Ошибка регистрации');
     } finally {
       setLoading(false);
     }
@@ -50,55 +43,27 @@ function RegisterPage({ onRegister }) {
     <div
       style={{
         minHeight: '100vh',
-        background: '#f5f5f5',
+        background: '#000',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         padding: 16,
       }}
     >
-      <Card style={{ maxWidth: 440, width: '100%' }}>
-        <Title level={3} style={{ textAlign: 'center', marginBottom: 24 }}>
-          Регистрация в TaskSpot
+      <Card style={{ maxWidth: 400, width: '100%' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+          <Logo />
+        </div>
+        <Title level={3} style={{ textAlign: 'center', marginBottom: 8 }}>
+          Регистрация
         </Title>
-
-        {inviteToken && (
-          <>
-            {inviteError && (
-              <Alert
-                type="error"
-                message={inviteError}
-                style={{ marginBottom: 16 }}
-              />
-            )}
-            {inviteInfo && (
-              <Alert
-                type={inviteInfo.expired ? 'warning' : 'success'}
-                message={
-                  inviteInfo.expired
-                    ? 'Срок действия приглашения истёк'
-                    : `Приглашение в проект "${inviteInfo.projectName}"`
-                }
-                description={
-                  inviteInfo.expired
-                    ? undefined
-                    : `Регистрация на email: ${inviteInfo.email}`
-                }
-                style={{ marginBottom: 16 }}
-              />
-            )}
-          </>
+        {inviteInfo && (
+          <Paragraph type={inviteInfo.expired ? 'danger' : 'secondary'} style={{ fontSize: 13 }}>
+            Приглашение в проект «{inviteInfo.projectName}» для {inviteInfo.email}
+            {inviteInfo.expired ? ' (срок действия истёк)' : ''}.
+          </Paragraph>
         )}
-
-        {error && (
-          <Alert
-            type="error"
-            message={error}
-            style={{ marginBottom: 16 }}
-          />
-        )}
-
-        <Form layout="vertical" onFinish={onFinish}>
+        <Form layout="vertical" form={form} onFinish={handleFinish}>
           <Form.Item
             label="Имя"
             name="name"
@@ -113,37 +78,26 @@ function RegisterPage({ onRegister }) {
               { required: true, message: 'Введите email' },
               { type: 'email', message: 'Некорректный email' },
             ]}
-            initialValue={inviteInfo?.email}
           >
-            <Input disabled={!!inviteInfo?.email} />
+            <Input />
           </Form.Item>
           <Form.Item
             label="Пароль"
             name="password"
-            rules={[
-              { required: true, message: 'Введите пароль' },
-              { min: 6, message: 'Минимум 6 символов' },
-            ]}
+            rules={[{ required: true, message: 'Введите пароль' }]}
           >
-            <Input.Password autoComplete="new-password" />
+            <Input.Password />
           </Form.Item>
           <Form.Item>
-            <Button
-              type="primary"
-              htmlType="submit"
-              block
-              loading={loading}
-            >
+            <Button type="primary" htmlType="submit" block loading={loading}>
               Зарегистрироваться
             </Button>
           </Form.Item>
+          <Form.Item style={{ marginBottom: 0 }}>
+            Уже есть аккаунт? <Link to="/login">Войти</Link>
+          </Form.Item>
         </Form>
-        <Text type="secondary">
-          Уже есть аккаунт? <Link to="/login">Войти</Link>
-        </Text>
       </Card>
     </div>
   );
 }
-
-export default RegisterPage;

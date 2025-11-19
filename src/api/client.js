@@ -40,7 +40,7 @@ export async function apiRequest(path, options = {}) {
   try {
     data = await res.json();
   } catch (e) {
-    // тело может быть пустым — это нормально
+    // тело может быть пустым
   }
 
   if (!res.ok) {

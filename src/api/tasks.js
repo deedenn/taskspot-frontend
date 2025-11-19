@@ -1,12 +1,16 @@
 import { apiRequest } from './client';
 
-export function fetchTasksApi({ projectId, role, overdue }) {
-  const params = new URLSearchParams();
-  if (projectId) params.append('projectId', projectId);
-  if (role) params.append('role', role);
-  if (overdue) params.append('overdue', String(overdue));
-  const qs = params.toString();
-  return apiRequest(`/tasks${qs ? `?${qs}` : ''}`, { method: 'GET' });
+export function fetchTasksApi(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      query.append(key, value);
+    }
+  });
+  const qs = query.toString();
+  return apiRequest(`/tasks${qs ? `?${qs}` : ''}`, {
+    method: 'GET',
+  });
 }
 
 export function createTaskApi(payload) {
@@ -30,10 +34,8 @@ export function updateTaskStatusApi(id, status) {
   });
 }
 
-export function getTaskApi(id) {
-  return apiRequest(`/tasks/${id}`, { method: 'GET' });
-}
-
 export function getTaskHistoryApi(id) {
-  return apiRequest(`/tasks/${id}/history`, { method: 'GET' });
+  return apiRequest(`/tasks/${id}/history`, {
+    method: 'GET',
+  });
 }

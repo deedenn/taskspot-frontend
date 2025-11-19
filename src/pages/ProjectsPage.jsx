@@ -1,183 +1,181 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Card,
   Row,
   Col,
-  Typography,
-  Tag,
   Button,
   Modal,
   Form,
   Input,
+  List,
+  Tag,
+  Space,
+  Typography,
   message,
-  Select,
 } from 'antd';
 import {
+  PlusOutlined,
+  MailOutlined,
+  DeleteOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
+import {
+  fetchProjectsApi,
   createProjectApi,
-  updateProjectApi,
+  fetchProjectMembersApi,
+  addProjectMemberApi,
+  removeProjectMemberApi,
 } from '../api/projects';
-import ProjectMembersPanel from '../components/ProjectMembersPanel';
 
 const { Title, Text } = Typography;
-const { Option } = Select;
 
-function ProjectsPage({ projects, setProjects, setCurrentProjectId }) {
-  const [modalOpen, setModalOpen] = useState(false);
-  const [form] = Form.useForm();
-  const [selectedProjectId, setSelectedProjectId] = useState(null);
+export default function ProjectsPage({ currentUser, projects, setProjects, currentProject }) {
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [memberModalOpen, setMemberModalOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [createForm] = Form.useForm();
+  const [memberForm] = Form.useForm();
+  const [members, setMembers] = useState([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
 
-  const activeProjects = useMemo(
-    () => projects.filter((p) => p.status !== 'completed'),
-    [projects]
-  );
-  const completedProjects = useMemo(
-    () => projects.filter((p) => p.status === 'completed'),
-    [projects]
-  );
+  useEffect(() => {
+    // если проектов нет (или только что зашли на страницу) — обновим список с сервера
+    async function reload() {
+      try {
+        const list = await fetchProjectsApi();
+        setProjects(list);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    if (!projects || projects.length === 0) {
+      reload();
+    }
+  }, [projects, setProjects]);
 
-  const selectedProject =
-    projects.find((p) => p._id === selectedProjectId) || null;
-
-  const openCreateModal = () => {
-    form.resetFields();
-    setModalOpen(true);
+  const openCreate = () => {
+    createForm.resetFields();
+    setCreateModalOpen(true);
   };
 
-  const handleCreate = async () => {
+  const handleCreateProject = async () => {
     try {
-      const values = await form.validateFields();
-      const created = await createProjectApi({
-        name: values.name,
-        description: values.description || '',
-      });
+      const values = await createForm.validateFields();
+      const created = await createProjectApi(values);
       setProjects((prev) => [...prev, created]);
-      setCurrentProjectId(created._id);
-      setSelectedProjectId(created._id);
-      setModalOpen(false);
       message.success('Проект создан');
+      setCreateModalOpen(false);
     } catch (e) {
       if (e?.errorFields) return;
       message.error(e.message || 'Не удалось создать проект');
     }
   };
 
-  const handleChangeStatus = async (project, status) => {
+  const openMembers = async (project) => {
+    setSelectedProject(project);
+    setMembers([]);
+    setMemberModalOpen(true);
+    setLoadingMembers(true);
     try {
-      const updated = await updateProjectApi(project._id, { status });
-      setProjects((prev) =>
-        prev.map((p) => (p._id === project._id ? updated : p))
-      );
-      message.success('Статус проекта обновлён');
+      const data = await fetchProjectMembersApi(project._id);
+      setMembers(data.members || []);
     } catch (e) {
-      message.error(e.message || 'Не удалось обновить проект');
+      console.error(e);
+    } finally {
+      setLoadingMembers(false);
     }
   };
 
-  const handleSelectProject = (project) => {
-    setCurrentProjectId(project._id);
-    setSelectedProjectId(project._id);
+  const handleAddMember = async () => {
+    if (!selectedProject) return;
+    try {
+      const values = await memberForm.validateFields();
+      const resp = await addProjectMemberApi(selectedProject._id, values.email);
+      message.success(resp.message || 'Приглашение отправлено');
+      memberForm.resetFields();
+    } catch (e) {
+      if (e?.errorFields) return;
+      message.error(e.message || 'Не удалось добавить участника');
+    }
   };
 
-  const renderProjectCard = (project) => (
-    <Card
-      key={project._id}
-      hoverable
-      onClick={() => handleSelectProject(project)}
-      style={{ marginBottom: 12 }}
-    >
-      <Row justify="space-between" align="middle">
-        <Col>
-          <Title level={5} style={{ marginBottom: 4 }}>
-            {project.name}
-          </Title>
-          <Text type="secondary">
-            {project.description || 'Без описания'}
-          </Text>
-        </Col>
-        <Col>
-          <Tag color={project.status === 'completed' ? 'default' : 'processing'}>
-            {project.status === 'completed' ? 'Завершён' : 'Активен'}
-          </Tag>
-          {project.status === 'completed' ? (
-            <Button
-              size="small"
-              type="link"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleChangeStatus(project, 'active');
-              }}
-            >
-              Вернуть в активные
-            </Button>
-          ) : (
-            <Button
-              size="small"
-              type="link"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleChangeStatus(project, 'completed');
-              }}
-            >
-              Завершить
-            </Button>
-          )}
-        </Col>
-      </Row>
-    </Card>
-  );
+  const handleRemoveMember = async (userId) => {
+    if (!selectedProject) return;
+    try {
+      await removeProjectMemberApi(selectedProject._id, userId);
+      setMembers((prev) => prev.filter((m) => m._id !== userId));
+      message.success('Участник удалён');
+    } catch (e) {
+      message.error(e.message || 'Не удалось удалить участника');
+    }
+  };
 
   return (
     <div>
-      <Row gutter={[16, 16]}>
-        <Col span={24}>
-          <Card
-            title="Мои проекты"
-            extra={
-              <Button type="primary" onClick={openCreateModal}>
-                Новый проект
-              </Button>
-            }
-          >
-            <Row gutter={[16, 16]}>
-              <Col xs={24} md={12}>
-                <Title level={5}>Активные</Title>
-                {activeProjects.length === 0 && (
-                  <Text type="secondary">Нет активных проектов</Text>
-                )}
-                {activeProjects.map(renderProjectCard)}
-              </Col>
-              <Col xs={24} md={12}>
-                <Title level={5}>Завершённые</Title>
-                {completedProjects.length === 0 && (
-                  <Text type="secondary">Нет завершённых проектов</Text>
-                )}
-                {completedProjects.map(renderProjectCard)}
-              </Col>
-            </Row>
-          </Card>
+      <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
+        <Col xs={24} md={12}>
+          <Title level={4} style={{ margin: 0 }}>
+            Мои проекты
+          </Title>
         </Col>
-
-        <Col span={24}>
-          {selectedProject ? (
-            <ProjectMembersPanel project={selectedProject} />
-          ) : (
-            <Card size="small">
-              <Text type="secondary">
-                Выберите проект, чтобы управлять участниками и приглашениями.
-              </Text>
-            </Card>
-          )}
+        <Col xs={24} md={12} style={{ textAlign: 'right' }}>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={openCreate}
+          >
+            Новый проект
+          </Button>
         </Col>
       </Row>
 
+      <Row gutter={[12, 12]}>
+        {projects && projects.length > 0 ? (
+          projects.map((p) => (
+            <Col xs={24} md={12} lg={8} key={p._id}>
+              <Card
+                size="small"
+                title={p.name}
+                extra={
+                  <Tag color={p.status === 'completed' ? 'default' : 'processing'}>
+                    {p.status === 'completed' ? 'Завершён' : 'Активен'}
+                  </Tag>
+                }
+              >
+                <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {p.description || 'Нет описания'}
+                  </Text>
+                  <Space wrap>
+                    <Button
+                      size="small"
+                      icon={<UserOutlined />}
+                      onClick={() => openMembers(p)}
+                    >
+                      Участники
+                    </Button>
+                  </Space>
+                </Space>
+              </Card>
+            </Col>
+          ))
+        ) : (
+          <Col span={24}>
+            <Card size="small">
+              <Text type="secondary">У вас ещё нет проектов. Создайте первый проект.</Text>
+            </Card>
+          </Col>
+        )}
+      </Row>
+
       <Modal
-        open={modalOpen}
-        onCancel={() => setModalOpen(false)}
-        onOk={handleCreate}
+        open={createModalOpen}
+        onCancel={() => setCreateModalOpen(false)}
+        onOk={handleCreateProject}
         title="Новый проект"
         okText="Создать"
       >
-        <Form layout="vertical" form={form}>
+        <Form layout="vertical" form={createForm}>
           <Form.Item
             label="Название проекта"
             name="name"
@@ -190,8 +188,58 @@ function ProjectsPage({ projects, setProjects, setCurrentProjectId }) {
           </Form.Item>
         </Form>
       </Modal>
+
+      <Modal
+        open={memberModalOpen}
+        onCancel={() => setMemberModalOpen(false)}
+        onOk={handleAddMember}
+        okText="Пригласить"
+        title={
+          selectedProject ? `Участники проекта «${selectedProject.name}»` : 'Участники проекта'
+        }
+      >
+        <Form layout="vertical" form={memberForm}>
+          <Form.Item
+            label="Email участника"
+            name="email"
+            rules={[
+              { required: true, message: 'Введите email' },
+              { type: 'email', message: 'Некорректный email' },
+            ]}
+          >
+            <Input placeholder="user@example.com" prefix={<MailOutlined />} />
+          </Form.Item>
+        </Form>
+        <List
+          style={{ marginTop: 16 }}
+          loading={loadingMembers}
+          dataSource={members}
+          locale={{ emptyText: 'Участников пока нет' }}
+          renderItem={(m) => (
+            <List.Item
+              actions={
+                currentUser.isAdmin || selectedProject?.ownerId === currentUser.id
+                  ? [
+                      <Button
+                        key="remove"
+                        icon={<DeleteOutlined />}
+                        danger
+                        size="small"
+                        onClick={() => handleRemoveMember(m._id)}
+                      />,
+                    ]
+                  : undefined
+              }
+            >
+              <List.Item.Meta
+                avatar={<UserOutlined />}
+                title={m.name}
+                description={m.email}
+              />
+            </List.Item>
+          )}
+        />
+      </Modal>
     </div>
   );
 }
-
-export default ProjectsPage;

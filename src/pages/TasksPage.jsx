@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   Row,
   Col,
@@ -20,6 +20,12 @@ import {
   Descriptions,
   Radio,
 } from 'antd';
+import {
+  PlusOutlined,
+  ReloadOutlined,
+  AppstoreOutlined,
+  UnorderedListOutlined,
+} from '@ant-design/icons';
 import dayjs from 'dayjs';
 import {
   fetchTasksApi,
@@ -31,8 +37,8 @@ import {
 import { fetchCategoriesApi, createCategoryApi } from '../api/categories';
 import { fetchProjectMembersApi } from '../api/projects';
 
-const { Title, Text } = Typography;
 const { Option } = Select;
+const { Text, Title } = Typography;
 
 const STATUS_LABELS = {
   open: 'Открыта',
@@ -61,38 +67,36 @@ const CATEGORY_COLORS = [
   '#fa8c16',
 ];
 
-
-function TasksPage({ currentUser, projects, currentProject, setCurrentProjectId, viewKey }) {
+export default function TasksPage({
+  currentUser,
+  projects,
+  currentProject,
+  setCurrentProjectId,
+  viewKey,
+}) {
   const [tasks, setTasks] = useState([]);
-  const [viewMode, setViewMode] = useState('list'); // list | board
-  const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState([]);
   const [members, setMembers] = useState([]);
-  const [filterCategoryId, setFilterCategoryId] = useState(null);
-  const [filterAssigneeId, setFilterAssigneeId] = useState(null);
-  const [searchText, setSearchText] = useState('');
+  const [loading, setLoading] = useState(false);
+
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [taskModalMode, setTaskModalMode] = useState('create'); // create | edit
   const [currentTask, setCurrentTask] = useState(null);
   const [taskForm] = Form.useForm();
+
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [categoryForm] = Form.useForm();
-
 
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
   const [detailTask, setDetailTask] = useState(null);
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  const getUserById = useCallback(
-    (id) => members.find((u) => u._id === id),
-    [members]
-  );
-
-  const getCategoryById = useCallback(
-    (id) => categories.find((c) => c._id === id),
-    [categories]
-  );
+  const [viewMode, setViewMode] = useState('list'); // list | board
+  const [searchText, setSearchText] = useState('');
+  const [filterStatus, setFilterStatus] = useState(undefined);
+  const [filterCategoryId, setFilterCategoryId] = useState(undefined);
+  const [filterAssigneeId, setFilterAssigneeId] = useState(undefined);
 
   const canManageCategories = useMemo(
     () =>
@@ -100,6 +104,13 @@ function TasksPage({ currentUser, projects, currentProject, setCurrentProjectId,
       (currentUser?.isAdmin || currentProject.ownerId === currentUser?.id),
     [currentProject, currentUser]
   );
+
+  const getCategoryById = useCallback(
+    (id) => categories.find((c) => c._id === id),
+    [categories]
+  );
+
+  const assignees = members;
 
   const loadTasksAndMeta = async () => {
     if (!currentProject) return;
@@ -138,36 +149,6 @@ function TasksPage({ currentUser, projects, currentProject, setCurrentProjectId,
     loadTasksAndMeta();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentProject?._id, viewKey]);
-
-  const handleProjectChange = (projectId) => {
-    setCurrentProjectId(projectId);
-  };
-
-  const assignees = useMemo(() => {
-    return members;
-  }, [members]);
-
-  const filteredTasks = useMemo(() => {
-    return tasks
-      .filter((t) =>
-        filterCategoryId
-          ? (t.categoryIds || []).includes(filterCategoryId)
-          : true
-      )
-      .filter((t) =>
-        filterAssigneeId ? t.assigneeId === filterAssigneeId : true
-      )
-      .filter((t) =>
-        searchText
-          ? t.title.toLowerCase().includes(searchText.toLowerCase())
-          : true
-      )
-      .sort((a, b) => {
-        const ad = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
-        const bd = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
-        return ad - bd;
-      });
-  }, [tasks, filterCategoryId, filterAssigneeId, searchText]);
 
   const openCreateModal = () => {
     setTaskModalMode('create');
@@ -214,45 +195,38 @@ function TasksPage({ currentUser, projects, currentProject, setCurrentProjectId,
     setHistory([]);
     setHistoryLoading(true);
     try {
-      const historyData = await getTaskHistoryApi(task._id);
-      setHistory(Array.isArray(historyData) ? historyData : []);
+      const data = await getTaskHistoryApi(task._id);
+      setHistory(data);
     } catch (e) {
-      // история не критична для работы задач, покажем сообщение и продолжим
       console.error(e);
     } finally {
       setHistoryLoading(false);
     }
   };
 
-  const handleEditFromDetail = () => {
-    if (!detailTask) return;
-    openEditModal(detailTask);
-  };
-
-
   const handleTaskSubmit = async () => {
+    if (!currentProject) return;
     try {
       const values = await taskForm.validateFields();
       const payload = {
         projectId: currentProject._id,
         title: values.title,
-        description: values.description || '',
-        dueDate: values.dueDate ? values.dueDate.toISOString() : null,
+        description: values.description,
+        dueDate: values.dueDate ? values.dueDate.toISOString() : undefined,
         categoryIds: values.categoryIds || [],
-        assigneeId: values.assigneeId || null,
-        watcherIds: [],
+        assigneeId: values.assigneeId || undefined,
       };
+
       if (taskModalMode === 'create') {
         const created = await createTaskApi(payload);
-        setTasks((prev) => [...prev, created]);
+        setTasks((prev) => [created, ...prev]);
         message.success('Задача создана');
       } else if (taskModalMode === 'edit' && currentTask) {
         const updated = await updateTaskApi(currentTask._id, payload);
-        setTasks((prev) =>
-          prev.map((t) => (t._id === currentTask._id ? updated : t))
-        );
+        setTasks((prev) => prev.map((t) => (t._id === currentTask._id ? updated : t)));
         message.success('Задача обновлена');
       }
+
       setTaskModalOpen(false);
     } catch (e) {
       if (e?.errorFields) return;
@@ -260,312 +234,359 @@ function TasksPage({ currentUser, projects, currentProject, setCurrentProjectId,
     }
   };
 
-  const handleStatusChange = async (task, newStatus) => {
+  const handleStatusChange = async (task, status) => {
     try {
-      const updated = await updateTaskStatusApi(task._id, newStatus);
-      setTasks((prev) =>
-        prev.map((t) => (t._id === task._id ? updated : t))
-      );
-      message.success('Статус задачи обновлён');
+      const updated = await updateTaskStatusApi(task._id, status);
+      setTasks((prev) => prev.map((t) => (t._id === task._id ? updated : t)));
+      message.success('Статус обновлён');
     } catch (e) {
-      message.error(e.message || 'Не удалось обновить статус');
+      message.error(e.message || 'Не удалось изменить статус');
     }
   };
 
-  const columns = [
-    {
-      title: 'Название',
-      dataIndex: 'title',
-      render: (text, record) => (
-        <a onClick={() => openDetailDrawer(record)}>{text}</a>
-      ),
-    },
-    {
-      title: 'Срок',
-      dataIndex: 'dueDate',
-      render: (value) =>
-        value ? dayjs(value).format('DD.MM.YYYY') : <Text type="secondary">нет</Text>,
-    },
-    {
-      title: 'Категории',
-      dataIndex: 'categoryIds',
-      render: (value, record) =>
-        Array.isArray(record.categoryIds) && record.categoryIds.length > 0 ? (
-          <Space wrap size={4}>
-            {record.categoryIds.map((cid) => {
-              const cat = getCategoryById(cid);
-              if (!cat) return null;
-              return (
-                <Tag key={cid} color={cat.color || 'default'}>
-                  {cat.name}
-                </Tag>
-              );
-            })}
-          </Space>
-        ) : (
-          <Text type="secondary">нет</Text>
-        ),
-    },
-    {
-      title: 'Статус',
-      dataIndex: 'status',
-      render: (value) => (
-        <Tag color={STATUS_COLORS[value] || 'default'}>
-          {STATUS_LABELS[value] || value}
-        </Tag>
-      ),
-    },
-    {
-      title: 'Исполнитель',
-      dataIndex: 'assigneeId',
-      render: (value) =>
-        assignees.find((u) => u._id === value)?.name || (
-          <Text type="secondary">не назначен</Text>
-        ),
-    },
-  ];
-
-  const boardColumns = ['open', 'in_progress', 'done', 'closed'];
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((t) => {
+      if (searchText) {
+        const s = searchText.toLowerCase();
+        if (
+          !(
+            t.title?.toLowerCase().includes(s) ||
+            t.description?.toLowerCase().includes(s)
+          )
+        ) {
+          return false;
+        }
+      }
+      if (filterStatus && t.status !== filterStatus) return false;
+      if (filterCategoryId) {
+        if (!Array.isArray(t.categoryIds) || !t.categoryIds.includes(filterCategoryId)) {
+          return false;
+        }
+      }
+      if (filterAssigneeId) {
+        if (t.assigneeId !== filterAssigneeId) return false;
+      }
+      return true;
+    });
+  }, [tasks, searchText, filterStatus, filterCategoryId, filterAssigneeId]);
 
   const tasksByStatus = useMemo(() => {
-    const map = {};
-    boardColumns.forEach((s) => {
-      map[s] = [];
-    });
+    const groups = {
+      open: [],
+      in_progress: [],
+      done: [],
+      closed: [],
+    };
     filteredTasks.forEach((t) => {
-      const key = t.status || 'open';
-      if (!map[key]) map[key] = [];
-      map[key].push(t);
+      if (!groups[t.status]) {
+        groups[t.status] = [];
+      }
+      groups[t.status].push(t);
     });
-    return map;
+    return groups;
   }, [filteredTasks]);
+
+  const columns = useMemo(
+    () => [
+      {
+        title: 'Название',
+        dataIndex: 'title',
+        key: 'title',
+        render: (text, record) => (
+          <a onClick={() => openDetailDrawer(record)}>{text}</a>
+        ),
+      },
+      {
+        title: 'Срок',
+        dataIndex: 'dueDate',
+        key: 'dueDate',
+        render: (value) =>
+          value ? dayjs(value).format('DD.MM.YYYY') : <Text type="secondary">нет</Text>,
+      },
+      {
+        title: 'Категории',
+        dataIndex: 'categoryIds',
+        key: 'categories',
+        render: (value, record) =>
+          Array.isArray(record.categoryIds) && record.categoryIds.length > 0 ? (
+            <Space wrap size={4}>
+              {record.categoryIds.map((cid) => {
+                const cat = getCategoryById(cid);
+                if (!cat) return null;
+                return (
+                  <Tag key={cid} color={cat.color || 'default'}>
+                    {cat.name}
+                  </Tag>
+                );
+              })}
+            </Space>
+          ) : (
+            <Text type="secondary">нет</Text>
+          ),
+      },
+      {
+        title: 'Статус',
+        dataIndex: 'status',
+        key: 'status',
+        render: (value) => (
+          <Tag color={STATUS_COLORS[value] || 'default'}>
+            {STATUS_LABELS[value] || value}
+          </Tag>
+        ),
+      },
+      {
+        title: 'Исполнитель',
+        dataIndex: 'assigneeId',
+        key: 'assignee',
+        render: (value) =>
+          assignees.find((u) => u._id === value)?.name || (
+            <Text type="secondary">не назначен</Text>
+          ),
+      },
+    ],
+    [assignees, getCategoryById]
+  );
+
+  const renderBoard = () => (
+    <Row gutter={[8, 8]}>
+      {['open', 'in_progress', 'done', 'closed'].map((statusKey) => (
+        <Col key={statusKey} xs={24} md={6}>
+          <Card
+            size="small"
+            title={STATUS_LABELS[statusKey]}
+            headStyle={{ fontSize: 13 }}
+            bodyStyle={{ padding: 8 }}
+          >
+            <Space direction="vertical" style={{ width: '100%' }} size={8}>
+              {tasksByStatus[statusKey]?.map((task) => (
+                <Card
+                  key={task._id}
+                  size="small"
+                  hoverable
+                  onClick={() => openDetailDrawer(task)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Text strong style={{ fontSize: 13 }}>
+                        {task.title}
+                      </Text>
+                      <div style={{ marginTop: 4 }}>
+                        {Array.isArray(task.categoryIds) &&
+                          task.categoryIds.map((cid) => {
+                            const cat = getCategoryById(cid);
+                            if (!cat) return null;
+                            return (
+                              <Tag
+                                key={cid}
+                                color={cat.color || 'default'}
+                                style={{ marginBottom: 4 }}
+                              >
+                                {cat.name}
+                              </Tag>
+                            );
+                          })}
+                      </div>
+                    </div>
+                    {task.dueDate && (
+                      <Text
+                        type="secondary"
+                        style={{ fontSize: 11, whiteSpace: 'nowrap' }}
+                      >
+                        {dayjs(task.dueDate).format('DD.MM')}
+                      </Text>
+                    )}
+                  </div>
+                </Card>
+              ))}
+              {(!tasksByStatus[statusKey] || tasksByStatus[statusKey].length === 0) && (
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Нет задач
+                </Text>
+              )}
+            </Space>
+          </Card>
+        </Col>
+      ))}
+    </Row>
+  );
+
+  const projectOptions = projects || [];
 
   return (
     <div>
-      <Row gutter={[16, 16]}>
-        <Col span={24}>
-          <Card
-            title="Задачи"
-            extra={
-              <Space>
-                <Select
-                  style={{ minWidth: 200 }}
-                  placeholder="Выберите проект"
-                  value={currentProject?._id}
-                  onChange={handleProjectChange}
-                >
-                  {projects.map((p) => (
-                    <Option key={p._id} value={p._id}>
-                      {p.name}
-                    </Option>
-                  ))}
-                </Select>
-                <Select
-                  style={{ minWidth: 140 }}
-                  value={viewMode}
-                  onChange={setViewMode}
-                >
-                  <Option value="list">Список</Option>
-                  <Option value="board">Доска</Option>
-                </Select>
-                <Button type="primary" onClick={openCreateModal}>
-                  Новая задача
-                </Button>
-              </Space>
-            }
+      <Row
+        gutter={[8, 8]}
+        className="tasks-filters-row"
+        style={{ marginBottom: 12 }}
+      >
+        <Col xs={24} md={8}>
+          <div
+            className="filters-inline"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              width: '100%',
+            }}
           >
-            {!currentProject ? (
-              <Text>Создайте или выберите проект, чтобы работать с задачами.</Text>
-            ) : loading ? (
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  padding: 32,
+            <Input.Search
+              placeholder="Поиск по названию и описанию"
+              allowClear
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              style={{ flex: 1, minWidth: 0 }}
+              size="middle"
+            />
+            <Button
+              type={viewMode === 'list' ? 'primary' : 'default'}
+              icon={<UnorderedListOutlined />}
+              onClick={() => setViewMode('list')}
+              size="middle"
+            />
+            <Button
+              type={viewMode === 'board' ? 'primary' : 'default'}
+              icon={<AppstoreOutlined />}
+              onClick={() => setViewMode('board')}
+              size="middle"
+            />
+          </div>
+        </Col>
+        <Col xs={24} md={8}>
+          <Select
+            allowClear
+            placeholder="Фильтр по статусу"
+            style={{ width: '100%' }}
+            value={filterStatus}
+            onChange={setFilterStatus}
+            size="middle"
+          >
+            {Object.entries(STATUS_LABELS).map(([value, label]) => (
+              <Option key={value} value={value}>
+                {label}
+              </Option>
+            ))}
+          </Select>
+        </Col>
+        <Col xs={24} md={8}>
+          <div
+            className="filters-inline"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              width: '100%',
+            }}
+          >
+            <Select
+              allowClear
+              placeholder="Фильтр по категории"
+              style={{ flex: 1 }}
+              value={filterCategoryId}
+              onChange={setFilterCategoryId}
+              size="middle"
+            >
+              {categories.map((cat) => (
+                <Option key={cat._id} value={cat._id}>
+                  {cat.name}
+                </Option>
+              ))}
+            </Select>
+            {canManageCategories && currentProject && (
+              <Button
+                size="middle"
+                type="primary"
+                onClick={() => {
+                  categoryForm.resetFields();
+                  categoryForm.setFieldsValue({ color: CATEGORY_COLORS[0] });
+                  setCategoryModalOpen(true);
                 }}
               >
-                <Spin />
-              </div>
-            ) : (
-              <>
-                <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-                  <Col xs={24} md={8}>
-                    <Input
-                      placeholder="Поиск по названию"
-                      value={searchText}
-                      onChange={(e) => setSearchText(e.target.value)}
-                    />
-                  </Col>
-                  <Col xs={24} md={8}>
-                    <div
-                      style={{
-                        display: 'flex',
-                        gap: 8,
-                        alignItems: 'center',
-                      }}
-                    >
-                      <Select
-                        allowClear
-                        placeholder="Фильтр по категории"
-                        style={{ flex: 1 }}
-                        value={filterCategoryId}
-                        onChange={setFilterCategoryId}
-                      >
-                        {categories.map((cat) => (
-                          <Option key={cat._id} value={cat._id}>
-                            {cat.name}
-                          </Option>
-                        ))}
-                      </Select>
-                      {canManageCategories && currentProject && (
-                        <Button
-                          size="small"
-                          type="primary"
-                          onClick={() => {
-                            categoryForm.resetFields();
-                            setCategoryModalOpen(true);
-                          }}
-                        >
-                          +
-                        </Button>
-                      )}
-                    </div>
-                  </Col>
-                  <Col xs={24} md={8}>
-                    <Select
-                      allowClear
-                      placeholder="Фильтр по исполнителю"
-                      style={{ width: '100%' }}
-                      value={filterAssigneeId}
-                      onChange={setFilterAssigneeId}
-                    >
-                      {assignees.map((u) => (
-                        <Option key={u._id} value={u._id}>
-                          {u.name}
-                        </Option>
-                      ))}
-                    </Select>
-                  </Col>
-                </Row>
-                {viewMode === 'list' ? (
-                  <Table
-                    size="small"
-                    rowKey="_id"
-                    columns={columns}
-                    dataSource={filteredTasks}
-                    pagination={{ pageSize: 10 }}
-                  />
-                ) : (
-                  <Row gutter={[16, 16]}>
-                    {boardColumns.map((statusKey) => (
-                      <Col xs={24} md={6} key={statusKey}>
-                        <Card
-                          size="small"
-                          title={STATUS_LABELS[statusKey]}
-                          extra={
-                            <Tag color={STATUS_COLORS[statusKey]}>
-                              {tasksByStatus[statusKey]?.length || 0}
-                            </Tag>
-                          }
-                          style={{ minHeight: 200 }}
-                        >
-                          <Space
-                            direction="vertical"
-                            style={{ width: '100%' }}
-                          >
-                            {tasksByStatus[statusKey]?.map((task) => (
-                              <Card
-                                key={task._id}
-                                size="small"
-                                hoverable
-                                onClick={() => openDetailDrawer(task)}
-                              >
-                                <Title level={5} style={{ marginBottom: 4 }}>
-                                  {task.title}
-                                </Title>
-                                {task.dueDate && (
-                                  <Text type="secondary" style={{ fontSize: 12 }}>
-                                    Срок:{' '}
-                                    {dayjs(task.dueDate).format('DD.MM.YYYY')}
-                                  </Text>
-                                )}
-                                <div style={{ marginTop: 8 }}>
-                                  {statusKey !== 'open' && (
-                                    <Button
-                                      size="small"
-                                      type="link"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleStatusChange(task, 'open');
-                                      }}
-                                    >
-                                      В открытые
-                                    </Button>
-                                  )}
-                                  {statusKey !== 'in_progress' && (
-                                    <Button
-                                      size="small"
-                                      type="link"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleStatusChange(
-                                          task,
-                                          'in_progress'
-                                        );
-                                      }}
-                                    >
-                                      В работу
-                                    </Button>
-                                  )}
-                                  {statusKey !== 'done' && (
-                                    <Button
-                                      size="small"
-                                      type="link"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleStatusChange(task, 'done');
-                                      }}
-                                    >
-                                      Выполнено
-                                    </Button>
-                                  )}
-                                  {statusKey !== 'closed' && (
-                                    <Button
-                                      size="small"
-                                      type="link"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleStatusChange(task, 'closed');
-                                      }}
-                                    >
-                                      Закрыть
-                                    </Button>
-                                  )}
-                                </div>
-                              </Card>
-                            ))}
-                            {(!tasksByStatus[statusKey] ||
-                              tasksByStatus[statusKey].length === 0) && (
-                              <Text type="secondary">Нет задач</Text>
-                            )}
-                          </Space>
-                        </Card>
-                      </Col>
-                    ))}
-                  </Row>
-                )}
-              </>
+                +
+              </Button>
             )}
-          </Card>
+          </div>
+        </Col>
+        <Col xs={24} md={8}>
+          <Select
+            allowClear
+            placeholder="Фильтр по исполнителю"
+            style={{ width: '100%' }}
+            value={filterAssigneeId}
+            onChange={setFilterAssigneeId}
+            size="middle"
+          >
+            {assignees.map((u) => (
+              <Option key={u._id} value={u._id}>
+                {u.name}
+              </Option>
+            ))}
+          </Select>
+        </Col>
+        <Col xs={24} md={8}>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={loadTasksAndMeta}
+            block
+            size="middle"
+          >
+            Обновить
+          </Button>
+        </Col>
+        <Col xs={24} md={8}>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={openCreateModal}
+            block
+            size="middle"
+            disabled={!currentProject}
+          >
+            Новая задача
+          </Button>
         </Col>
       </Row>
+
+      {loading ? (
+        <div
+          style={{
+            minHeight: 160,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Spin />
+        </div>
+      ) : viewMode === 'list' ? (
+        <Card size="small">
+          <Table
+            dataSource={filteredTasks}
+            columns={columns}
+            rowKey="_id"
+            size="small"
+            pagination={{ pageSize: 10 }}
+            scroll={{ x: true }}
+          />
+        </Card>
+      ) : (
+        renderBoard()
+      )}
 
       <Modal
         open={taskModalOpen}
         onCancel={() => setTaskModalOpen(false)}
         onOk={handleTaskSubmit}
         title={taskModalMode === 'create' ? 'Новая задача' : 'Редактирование задачи'}
-        okText="Сохранить"
+        okText={taskModalMode === 'create' ? 'Создать' : 'Сохранить'}
+        destroyOnClose
       >
         <Form layout="vertical" form={taskForm}>
           <Form.Item
@@ -578,19 +599,14 @@ function TasksPage({ currentUser, projects, currentProject, setCurrentProjectId,
           <Form.Item label="Описание" name="description">
             <Input.TextArea rows={4} />
           </Form.Item>
-          <Form.Item label="Срок выполнения" name="dueDate">
-            <DatePicker
-              style={{ width: '100%' }}
-              disabledDate={(current) =>
-                current && current.startOf('day') < dayjs().startOf('day')
-              }
-            />
+          <Form.Item label="Срок" name="dueDate">
+            <DatePicker style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item label="Категории" name="categoryIds">
             <Select
               mode="multiple"
               placeholder="Выберите категории"
-              allowClear
+              optionFilterProp="children"
             >
               {categories.map((cat) => (
                 <Option key={cat._id} value={cat._id}>
@@ -600,7 +616,11 @@ function TasksPage({ currentUser, projects, currentProject, setCurrentProjectId,
             </Select>
           </Form.Item>
           <Form.Item label="Исполнитель" name="assigneeId">
-            <Select placeholder="Не назначен" allowClear>
+            <Select
+              allowClear
+              placeholder="Назначить исполнителя"
+              optionFilterProp="children"
+            >
               {assignees.map((u) => (
                 <Option key={u._id} value={u._id}>
                   {u.name}
@@ -617,6 +637,7 @@ function TasksPage({ currentUser, projects, currentProject, setCurrentProjectId,
         onOk={handleCategorySubmit}
         title="Новая категория"
         okText="Создать"
+        destroyOnClose
       >
         <Form layout="vertical" form={categoryForm}>
           <Form.Item
@@ -651,127 +672,112 @@ function TasksPage({ currentUser, projects, currentProject, setCurrentProjectId,
       <Drawer
         open={detailDrawerOpen}
         onClose={() => setDetailDrawerOpen(false)}
-        title={detailTask?.title || 'Карточка задачи'}
-        width={640}
+        title={detailTask ? detailTask.title : 'Задача'}
+        width={480}
         destroyOnClose
-        extra={
-          detailTask && (
-            <Button type="primary" onClick={handleEditFromDetail}>
-              Редактировать
-            </Button>
-          )
-        }
       >
         {detailTask && (
-          <Space direction="vertical" style={{ width: '100%' }} size="large">
-            <div>
-              <Space wrap>
+          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            <Descriptions
+              column={1}
+              size="small"
+              labelStyle={{ width: 120 }}
+              colon={false}
+            >
+              <Descriptions.Item label="Статус">
                 <Tag color={STATUS_COLORS[detailTask.status] || 'default'}>
                   {STATUS_LABELS[detailTask.status] || detailTask.status}
                 </Tag>
-                {detailTask.dueDate && (
-                  <Tag>
-                    Срок: {dayjs(detailTask.dueDate).format('DD.MM.YYYY')}
-                  </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Срок">
+                {detailTask.dueDate ? (
+                  dayjs(detailTask.dueDate).format('DD.MM.YYYY')
+                ) : (
+                  <Text type="secondary">нет</Text>
                 )}
-              </Space>
-            </div>
-            <Descriptions column={1} size="small" bordered>
-              <Descriptions.Item label="Инициатор">
-                {(() => {
-                  const creator = getUserById(detailTask.creatorId);
-                  return creator
-                    ? `${creator.name} (${creator.email})`
-                    : '—';
-                })()}
-              </Descriptions.Item>
-              <Descriptions.Item label="Исполнитель">
-                {(() => {
-                  const assignee = getUserById(detailTask.assigneeId);
-                  return assignee
-                    ? `${assignee.name} (${assignee.email})`
-                    : 'Не назначен';
-                })()}
-              </Descriptions.Item>
-              <Descriptions.Item label="Наблюдатели">
-                {Array.isArray(detailTask.watcherIds) &&
-                detailTask.watcherIds.length > 0
-                  ? detailTask.watcherIds
-                      .map((id) => getUserById(id))
-                      .filter(Boolean)
-                      .map((u) => u.name)
-                      .join(', ')
-                  : 'Нет'}
               </Descriptions.Item>
               <Descriptions.Item label="Категории">
                 {Array.isArray(detailTask.categoryIds) &&
                 detailTask.categoryIds.length > 0 ? (
-                  <Space wrap>
-                    {detailTask.categoryIds.map((cid) => {
-                      const cat = getCategoryById(cid);
-                      return (
-                        <Tag key={cid} color={cat?.color || 'default'}>
-                          {cat?.name || 'Категория'}
-                        </Tag>
-                      );
-                    })}
-                  </Space>
+                  detailTask.categoryIds.map((cid) => {
+                    const cat = getCategoryById(cid);
+                    if (!cat) return null;
+                    return (
+                      <Tag key={cid} color={cat.color || 'default'}>
+                        {cat.name}
+                      </Tag>
+                    );
+                  })
                 ) : (
-                  'Нет'
+                  <Text type="secondary">нет</Text>
+                )}
+              </Descriptions.Item>
+              <Descriptions.Item label="Исполнитель">
+                {detailTask.assigneeId
+                  ? assignees.find((u) => u._id === detailTask.assigneeId)?.name ||
+                    detailTask.assigneeId
+                  : (
+                    <Text type="secondary">не назначен</Text>
+                    )}
+              </Descriptions.Item>
+              <Descriptions.Item label="Описание">
+                {detailTask.description ? (
+                  <div style={{ whiteSpace: 'pre-wrap' }}>{detailTask.description}</div>
+                ) : (
+                  <Text type="secondary">нет</Text>
                 )}
               </Descriptions.Item>
             </Descriptions>
-            <div>
-              <Title level={5}>Описание</Title>
-              <Text>
-                {detailTask.description &&
-                detailTask.description.trim().length > 0
-                  ? detailTask.description
-                  : 'Нет описания'}
-              </Text>
-            </div>
-            <div>
-              <Title level={5}>История изменений</Title>
+
+            <Card size="small" title="Действия со статусом">
+              <Space wrap>
+                {detailTask.status !== 'open' && (
+                  <Button onClick={() => handleStatusChange(detailTask, 'open')}>
+                    Открыта
+                  </Button>
+                )}
+                {detailTask.status !== 'in_progress' && (
+                  <Button onClick={() => handleStatusChange(detailTask, 'in_progress')}>
+                    В работе
+                  </Button>
+                )}
+                {detailTask.status !== 'done' && (
+                  <Button onClick={() => handleStatusChange(detailTask, 'done')}>
+                    Выполнено
+                  </Button>
+                )}
+                {detailTask.status !== 'closed' && (
+                  <Button onClick={() => handleStatusChange(detailTask, 'closed')}>
+                    Закрыта
+                  </Button>
+                )}
+              </Space>
+            </Card>
+
+            <Card size="small" title="История изменений">
               {historyLoading ? (
                 <Spin />
               ) : history.length === 0 ? (
-                <Text type="secondary">История пока пуста</Text>
+                <Text type="secondary">История пока пустая</Text>
               ) : (
                 <Timeline
-                  items={history.map((item) => ({
+                  items={history.map((h) => ({
                     children: (
                       <div>
-                        <Text>{item.message}</Text>
-                        <div>
-                          {item.user && (
-                            <Text
-                              type="secondary"
-                              style={{ fontSize: 12 }}
-                            >
-                              {item.user.name} ({item.user.email})
-                            </Text>
-                          )}
+                        <div>{h.message}</div>
+                        <div style={{ fontSize: 11, color: '#999' }}>
+                          {h.user?.name || 'Система'} ·{' '}
+                          {dayjs(h.createdAt).format('DD.MM.YYYY HH:mm')}
                         </div>
-                        <Text
-                          type="secondary"
-                          style={{ fontSize: 12 }}
-                        >
-                          {dayjs(item.createdAt).format(
-                            'DD.MM.YYYY HH:mm'
-                          )}
-                        </Text>
                       </div>
                     ),
                   }))}
                 />
               )}
-            </div>
+            </Card>
           </Space>
         )}
       </Drawer>
-
     </div>
   );
 }
-
-export default TasksPage;

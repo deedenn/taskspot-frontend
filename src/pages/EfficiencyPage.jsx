@@ -1,23 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Typography, Statistic, Row, Col, Progress, Spin, Alert } from 'antd';
+import { Card, Col, Row, Statistic, Typography, Spin, Progress } from 'antd';
 import { fetchMyEfficiencyApi } from '../api/efficiency';
 
-const { Title, Text } = Typography;
+const { Title, Paragraph } = Typography;
 
-function EfficiencyPage() {
+export default function EfficiencyPage() {
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
-      setError(null);
       try {
-        const res = await fetchMyEfficiencyApi();
-        setData(res);
+        const resp = await fetchMyEfficiencyApi();
+        setData(resp);
       } catch (e) {
-        setError(e.message || 'Не удалось загрузить эффективность');
+        console.error(e);
       } finally {
         setLoading(false);
       }
@@ -25,90 +23,67 @@ function EfficiencyPage() {
     load();
   }, []);
 
-  if (loading) {
+  if (loading || !data) {
     return (
-      <div style={{ padding: 32, textAlign: 'center' }}>
+      <div
+        style={{
+          minHeight: 160,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
         <Spin />
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <Alert type="error" message={error} />
-    );
-  }
-
-  if (!data) return null;
+  const { totalAssigned, completed, completedOnTime, score } = data;
+  const percentCompleted = totalAssigned > 0 ? Math.round((completed / totalAssigned) * 100) : 0;
+  const percentOnTime =
+    completed > 0 ? Math.round((completedOnTime / completed) * 100) : 0;
 
   return (
-    <Card title="Эффективность">
-      <Row gutter={[24, 24]}>
+    <div>
+      <Title level={4}>Моя эффективность</Title>
+      <Row gutter={[12, 12]}>
         <Col xs={24} md={8}>
-          <Statistic
-            title="Общий скоринг"
-            value={data.score}
-            suffix="/ 100"
-          />
-          <Text type="secondary">{data.level}</Text>
-          <div style={{ marginTop: 16 }}>
-            <Progress percent={data.score} />
-          </div>
+          <Card>
+            <Statistic title="Всего задач назначено" value={totalAssigned} />
+          </Card>
         </Col>
-        <Col xs={24} md={16}>
-          <Row gutter={[16, 16]}>
-            <Col xs={12} md={6}>
-              <Statistic
-                title="Назначено задач"
-                value={data.tasksAssigned}
-              />
-            </Col>
-            <Col xs={12} md={6}>
-              <Statistic
-                title="Выполнено"
-                value={data.tasksCompleted}
-              />
-            </Col>
-            <Col xs={12} md={6}>
-              <Statistic
-                title="В срок"
-                value={data.tasksCompletedOnTime}
-              />
-            </Col>
-            <Col xs={12} md={6}>
-              <Statistic
-                title="Просрочено (открыто)"
-                value={data.tasksOverdueOpen}
-              />
-            </Col>
-          </Row>
-          <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-            <Col xs={24} md={8}>
-              <Statistic
-                title="Доля выполненных"
-                value={Math.round((data.completionRate || 0) * 100)}
-                suffix="%"
-              />
-            </Col>
-            <Col xs={24} md={8}>
-              <Statistic
-                title="Доля в срок"
-                value={Math.round((data.onTimeRate || 0) * 100)}
-                suffix="%"
-              />
-            </Col>
-            <Col xs={24} md={8}>
-              <Statistic
-                title="Доля просроченных"
-                value={Math.round((data.overdueRate || 0) * 100)}
-                suffix="%"
-              />
-            </Col>
-          </Row>
+        <Col xs={24} md={8}>
+          <Card>
+            <Statistic
+              title="Выполнено задач"
+              value={completed}
+              suffix={`(${percentCompleted}%)`}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} md={8}>
+          <Card>
+            <Statistic
+              title="Выполнено в срок"
+              value={completedOnTime}
+              suffix={`(${percentOnTime}%)`}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} md={12}>
+          <Card title="Итоговый скоринг">
+            <Progress type="dashboard" percent={Math.round(score)} />
+          </Card>
+        </Col>
+        <Col xs={24} md={12}>
+          <Card title="Как считается скоринг">
+            <Paragraph>
+              Скоринг учитывает долю выполненных задач и долю задач, закрытых в срок. Чем выше
+              значение, тем стабильнее вы выполняете задачи.
+            </Paragraph>
+          </Card>
         </Col>
       </Row>
-    </Card>
+    </div>
   );
 }
-
-export default EfficiencyPage;
