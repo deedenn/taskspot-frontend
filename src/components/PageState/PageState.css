@@ -1,0 +1,7 @@
+.page-state {
+  margin-bottom: 16px;
+}
+
+.page-state--empty {
+  padding: 24px 12px;
+}

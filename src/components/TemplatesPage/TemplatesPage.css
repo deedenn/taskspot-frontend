@@ -1,0 +1,21 @@
+.templates-page {
+  display: grid;
+  gap: 16px;
+}
+
+.templates-page__head h1.ant-typography {
+  margin-bottom: 6px;
+}
+
+.templates-page__grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .templates-page__grid {
+    grid-template-columns: 1fr;
+  }
+}

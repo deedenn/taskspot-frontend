@@ -1,0 +1,50 @@
+.project-tasks {
+  display: grid;
+  gap: 16px;
+}
+
+.project-tasks__loader {
+  display: grid;
+  min-height: 360px;
+  place-items: center;
+}
+
+.project-tasks__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  color: #1f7a8c;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.project-tasks__summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.project-tasks__summary h1.ant-typography {
+  margin-bottom: 6px;
+  font-size: 32px;
+}
+
+@media (max-width: 640px) {
+  .project-tasks {
+    gap: 12px;
+  }
+
+  .project-tasks__summary {
+    flex-direction: column;
+  }
+
+  .project-tasks__summary .ant-card-body {
+    padding: 14px;
+  }
+
+  .project-tasks__summary h1.ant-typography {
+    font-size: 24px;
+  }
+}

@@ -1,0 +1,182 @@
+.tasks {
+  display: grid;
+  gap: 14px;
+}
+
+.tasks__search {
+  margin-bottom: 14px;
+}
+
+.tasks__card {
+  padding: 18px;
+  border: 1px solid #e7edf2;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.tasks__card--due {
+  border-color: #ffccc7;
+  border-left: 4px solid #ff4d4f;
+  background: #fff7f6;
+}
+
+.tasks__card--urgent {
+  border-color: #ffd591;
+  border-left: 4px solid #fa541c;
+  background: #fff7e6;
+}
+
+.tasks__card--due.tasks__card--urgent {
+  border-color: #ffccc7;
+  border-left-color: #ff4d4f;
+  background: #fff7f6;
+}
+
+.tasks__filter {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid #dce5eb;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.tasks__filter-button {
+  width: 40px;
+  min-width: 40px;
+}
+
+.tasks__topline,
+.tasks__controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #6b7a86;
+}
+
+.tasks__due-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tasks__due-date--soon {
+  color: #cf1322;
+  font-weight: 600;
+}
+
+.tasks__card h3.ant-typography {
+  margin: 12px 0;
+  font-size: 20px;
+}
+
+.tasks__title-link {
+  color: #17202a;
+  text-decoration: none;
+}
+
+.tasks__title-link:hover {
+  color: #1f7a8c;
+}
+
+.tasks__meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+  color: #52616b;
+}
+
+.tasks__categories {
+  margin-bottom: 14px;
+}
+
+.tasks__controls {
+  justify-content: flex-start;
+  margin-bottom: 16px;
+}
+
+.tasks__comments {
+  display: grid;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid #edf1f5;
+}
+
+.tasks__comments .ant-form-item {
+  margin-bottom: 8px;
+}
+
+.tasks__full-width {
+  width: 100%;
+}
+
+.tasks__form-list {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.tasks__attachment-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+}
+
+.tasks__attachment-row .ant-form-item {
+  margin-bottom: 0;
+}
+
+.tasks__pending-tag {
+  margin-left: 8px;
+}
+
+@media (max-width: 800px) {
+  .tasks__meta {
+    grid-template-columns: 1fr;
+  }
+
+  .tasks__topline {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 640px) {
+  .tasks__card {
+    padding: 14px;
+  }
+
+  .tasks__filter {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .tasks__card h3.ant-typography {
+    font-size: 18px;
+  }
+
+  .tasks__controls .ant-select {
+    width: 100%;
+  }
+
+  .tasks__comments .ant-btn {
+    width: 100%;
+  }
+
+  .tasks__attachment-row {
+    grid-template-columns: 1fr;
+  }
+
+  .ant-card-extra .ant-space {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .ant-card-extra .ant-space-item:last-child,
+  .ant-card-extra .ant-space-item:last-child .ant-btn {
+    width: 100%;
+  }
+}

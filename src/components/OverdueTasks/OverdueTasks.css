@@ -1,0 +1,44 @@
+.overdue-tasks {
+  display: grid;
+  gap: 16px;
+}
+
+.overdue-tasks__head h1.ant-typography {
+  margin-bottom: 6px;
+}
+
+.overdue-tasks__alert {
+  margin-bottom: 14px;
+}
+
+.overdue-tasks__item {
+  padding-inline: 12px;
+  border-left: 4px solid #ff4d4f;
+  border-radius: 8px;
+  background: #fff1f0;
+}
+
+.overdue-tasks__task-link {
+  color: #1f7a8c;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.overdue-tasks__date {
+  color: #cf1322;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .overdue-tasks__head h1.ant-typography {
+    font-size: 28px;
+  }
+
+  .overdue-tasks > .ant-card .ant-card-body {
+    padding: 12px;
+  }
+
+  .overdue-tasks__item {
+    padding-inline: 8px;
+  }
+}

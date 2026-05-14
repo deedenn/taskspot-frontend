@@ -1,0 +1,153 @@
+.task-details {
+  display: grid;
+  gap: 16px;
+}
+
+.task-details__loader {
+  display: grid;
+  min-height: 360px;
+  place-items: center;
+}
+
+.task-details__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  color: #1f7a8c;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.task-details__main h1.ant-typography {
+  margin: 12px 0 0;
+  font-size: 32px;
+}
+
+.task-details__main--urgent {
+  border-color: #ffccc7;
+  border-left: 4px solid #ff4d4f;
+}
+
+.task-details__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.task-details__meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.task-details__meta .ant-card-body {
+  display: grid;
+  gap: 4px;
+  min-height: 108px;
+}
+
+.task-details__categories,
+.task-details__actions {
+  margin-top: 10px;
+}
+
+.task-details__priority-editor {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  margin-top: 14px;
+}
+
+.task-details__priority-editor .ant-select {
+  width: 160px;
+}
+
+.task-details__alert {
+  margin-top: 16px;
+}
+
+.task-details__recurrence {
+  margin-top: 14px;
+}
+
+.task-details__checklist {
+  display: grid;
+  gap: 10px;
+}
+
+.task-details__attachment-form {
+  margin-top: 16px;
+}
+
+.task-details__comment-form {
+  margin-top: 18px;
+}
+
+.task-details__comment-form .ant-form-item {
+  margin-bottom: 10px;
+}
+
+.task-details__activity p {
+  margin: 4px 0;
+  color: #52616b;
+}
+
+@media (max-width: 900px) {
+  .task-details__meta {
+    grid-template-columns: 1fr;
+  }
+
+  .task-details__main h1.ant-typography {
+    font-size: 25px;
+  }
+}
+
+@media (max-width: 640px) {
+  .task-details {
+    gap: 12px;
+  }
+
+  .task-details__main .ant-card-body,
+  .task-details > .ant-card .ant-card-body {
+    padding: 14px;
+  }
+
+  .task-details__head {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .task-details__main h1.ant-typography {
+    font-size: 22px;
+    line-height: 1.25;
+  }
+
+  .task-details__actions {
+    display: grid;
+    width: 100%;
+  }
+
+  .task-details__actions .ant-space-item,
+  .task-details__actions .ant-btn,
+  .task-details__priority-editor,
+  .task-details__priority-editor .ant-select {
+    width: 100%;
+  }
+
+  .task-details__priority-editor {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .task-details__comment-form .ant-btn {
+    width: 100%;
+  }
+
+  .task-details__attachment-form {
+    display: grid;
+  }
+}

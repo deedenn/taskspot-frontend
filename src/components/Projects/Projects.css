@@ -1,0 +1,127 @@
+.projects__head,
+.projects__summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+
+.projects__head h1.ant-typography,
+.projects__summary h2.ant-typography {
+  margin-bottom: 6px;
+}
+
+.projects__grid {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.projects__list {
+  position: sticky;
+  top: 88px;
+}
+
+.projects__item {
+  cursor: pointer;
+  border-radius: 8px;
+  padding-inline: 12px;
+}
+
+.projects__item:focus-visible {
+  outline: 3px solid rgba(31, 122, 140, 0.32);
+  outline-offset: 2px;
+}
+
+.projects__item--active {
+  background: #e7f4f7;
+}
+
+.projects__workspace {
+  display: grid;
+  gap: 16px;
+}
+
+.projects__summary-actions {
+  justify-content: flex-end;
+}
+
+.projects__admin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.projects__inline-form {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) 140px auto;
+  gap: 8px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+
+.projects__inline-form .ant-form-item {
+  margin-bottom: 0;
+}
+
+.projects__pending {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #edf1f5;
+}
+
+@media (max-width: 1050px) {
+  .projects__grid,
+  .projects__admin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .projects__list {
+    position: static;
+  }
+}
+
+@media (max-width: 620px) {
+  .projects__head,
+  .projects__summary {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .projects__head h1.ant-typography {
+    font-size: 28px;
+  }
+
+  .projects__head .ant-space,
+  .projects__summary-actions,
+  .projects__summary-actions .ant-btn {
+    width: 100%;
+  }
+
+  .projects__head .ant-space-item:last-child,
+  .projects__head .ant-space-item:last-child .ant-btn {
+    width: 100%;
+  }
+
+  .projects__inline-form {
+    grid-template-columns: 1fr;
+  }
+
+  .projects__list .ant-card-body,
+  .projects__workspace .ant-card-body {
+    padding: 14px;
+  }
+
+  .projects__admin-grid {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 420px) {
+  .projects__item {
+    padding-inline: 8px;
+  }
+}

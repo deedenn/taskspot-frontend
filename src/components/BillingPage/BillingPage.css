@@ -1,0 +1,55 @@
+.billing-page {
+  display: grid;
+  gap: 16px;
+}
+
+.billing-page__head h1.ant-typography {
+  margin-bottom: 6px;
+}
+
+.billing-page__usage {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 24px;
+}
+
+.billing-page__usage-row {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.billing-page__plans {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.billing-page__plan--active {
+  border-color: #1f7a8c;
+}
+
+.billing-page__plan h3.ant-typography,
+.billing-page__plan h2.ant-typography {
+  margin: 0;
+}
+
+.billing-page__plan ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.billing-page__plan li {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .billing-page__plans,
+  .billing-page__usage {
+    grid-template-columns: 1fr;
+  }
+}
