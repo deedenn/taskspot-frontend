@@ -23,6 +23,14 @@
   align-items: start;
 }
 
+.projects__layout > *,
+.projects__admin-grid > *,
+.projects__workspace,
+.projects__panel,
+.projects__panel .ant-card-body {
+  min-width: 0;
+}
+
 .projects__catalog {
   position: sticky;
   top: 88px;
@@ -52,8 +60,8 @@
 .projects__project-card {
   width: 100%;
   display: grid;
-  gap: 10px;
-  padding: 14px;
+  gap: 8px;
+  padding: 12px;
   text-align: left;
   background: #ffffff;
   border: 1px solid #e7edf3;
@@ -91,8 +99,8 @@
 .projects__summary-icon {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   border-radius: 10px;
   color: #1f7a8c;
   background: #e7f4f7;
@@ -108,13 +116,12 @@
 
 .projects__project-description {
   display: -webkit-box;
-  min-height: 40px;
   overflow: hidden;
   color: #60717c;
   font-size: 13px;
   line-height: 1.5;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
 }
 
 .projects__project-metrics {
@@ -188,7 +195,7 @@
 
 .projects__admin-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
   gap: 16px;
   align-items: start;
 }
@@ -196,22 +203,38 @@
 .projects__invite-form,
 .projects__category-form {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 150px auto;
+  grid-template-columns: minmax(0, 1fr) minmax(128px, 156px) max-content;
   gap: 10px;
   align-items: end;
+  max-width: 100%;
   padding: 12px;
   border: 1px solid #e8eef3;
   border-radius: 10px;
   background: #f8fafb;
+  overflow: hidden;
 }
 
 .projects__category-form {
-  grid-template-columns: minmax(160px, 1fr) 88px auto;
+  grid-template-columns: 1fr;
+  align-items: stretch;
 }
 
 .projects__invite-form .ant-form-item,
 .projects__category-form .ant-form-item {
   margin-bottom: 0;
+  min-width: 0;
+}
+
+.projects__invite-form .ant-input,
+.projects__invite-form .ant-select,
+.projects__category-form .ant-input,
+.projects__category-form .ant-color-picker-trigger {
+  width: 100%;
+  min-width: 0;
+}
+
+.projects__category-form .ant-btn {
+  justify-self: start;
 }
 
 .projects__people-list {
@@ -220,19 +243,19 @@
 }
 
 .projects__person-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   min-height: 56px;
   padding: 10px;
+  max-width: 100%;
   border: 1px solid #edf1f5;
   border-radius: 10px;
   background: #ffffff;
 }
 
 .projects__person-row--pending {
-  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
   background: #fffdf5;
 }
 
@@ -250,11 +273,21 @@
 .projects__person-main {
   display: grid;
   gap: 2px;
+  flex: 1 1 220px;
   min-width: 0;
 }
 
 .projects__person-main .ant-typography {
   overflow-wrap: anywhere;
+}
+
+.projects__person-row > .ant-tag {
+  margin-inline-end: 0;
+  flex: 0 0 auto;
+}
+
+.projects__person-row > .ant-space {
+  flex: 0 0 auto;
 }
 
 .projects__pending {
@@ -335,17 +368,10 @@
     align-items: stretch;
   }
 
-  .projects__person-row,
-  .projects__person-row--pending {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .projects__person-row > .ant-tag,
-  .projects__person-row > .ant-space,
-  .projects__person-row > .ant-btn,
-  .projects__person-row > .ant-popconfirm-open {
-    justify-self: start;
-    grid-column: 2;
+  .projects__invite-form .ant-btn,
+  .projects__category-form .ant-btn {
+    width: 100%;
+    justify-self: stretch;
   }
 
   .projects__catalog .ant-card-body,

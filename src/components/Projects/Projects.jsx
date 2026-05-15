@@ -255,7 +255,6 @@ export function Projects({ user }) {
 
   function renderProjectCard(project) {
     const projectMember = project.members.find((member) => userId(member.user) === user?._id);
-    const projectPendingCount = project.invitations?.filter((invitation) => invitation.status === "pending").length || 0;
     const selected = project._id === activeProjectId;
 
     return (
@@ -277,20 +276,6 @@ export function Projects({ user }) {
         </span>
         <span className="projects__project-name">{project.name}</span>
         <span className="projects__project-description">{project.description || "Описание пока не добавлено"}</span>
-        <span className="projects__project-metrics" aria-label="Сводка проекта">
-          <span>
-            <strong>{project.members.length}</strong>
-            участн.
-          </span>
-          <span>
-            <strong>{project.categories.length}</strong>
-            катег.
-          </span>
-          <span>
-            <strong>{projectPendingCount}</strong>
-            ждут
-          </span>
-        </span>
       </button>
     );
   }
