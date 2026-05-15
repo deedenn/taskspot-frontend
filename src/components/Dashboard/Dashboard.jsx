@@ -4,7 +4,8 @@ import {
   EyeInvisibleOutlined,
   EyeOutlined,
   PlusOutlined,
-  SendOutlined
+  SendOutlined,
+  UnorderedListOutlined
 } from "@ant-design/icons";
 import {
   Button,
@@ -54,6 +55,11 @@ const priorityLabels = {
 };
 
 const statItems = [
+  {
+    key: "all",
+    title: "Все",
+    icon: <UnorderedListOutlined />
+  },
   {
     key: "initiated",
     title: "Инициатор",
@@ -197,7 +203,7 @@ export function Dashboard({ currentUser }) {
   const [categoryFilter, setCategoryFilter] = useState([]);
   const [searchText, setSearchText] = useState("");
   const [quickFilter, setQuickFilter] = useState("active");
-  const [activeRoleTab, setActiveRoleTab] = useState("initiated");
+  const [activeRoleTab, setActiveRoleTab] = useState("all");
   const [form] = Form.useForm();
   const screens = Grid.useBreakpoint();
   const isCompactControls = !screens.sm;
@@ -353,13 +359,24 @@ export function Dashboard({ currentUser }) {
     });
   }
 
+  const allTasks = useMemo(() => {
+    const tasksById = new Map();
+
+    [...data.initiated, ...data.assigned, ...data.observing].forEach((task) => {
+      tasksById.set(task._id, task);
+    });
+
+    return Array.from(tasksById.values());
+  }, [data]);
+
   const visibleTasks = useMemo(
     () => ({
+      all: applyTaskFilters(allTasks),
       initiated: applyTaskFilters(data.initiated),
       assigned: applyTaskFilters(data.assigned),
       observing: applyTaskFilters(data.observing)
     }),
-    [data, hideClosed, projectFilter, categoryFilter, searchText, categoryNameMap, quickFilter]
+    [allTasks, data, hideClosed, projectFilter, categoryFilter, searchText, categoryNameMap, quickFilter]
   );
 
   function handleDashboardProjectChange(projectId) {
