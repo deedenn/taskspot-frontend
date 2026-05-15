@@ -18,7 +18,6 @@ import {
   Space,
   Switch,
   Table,
-  Tabs,
   Tag,
   Tooltip,
   Typography,
@@ -535,27 +534,7 @@ export function Dashboard({ currentUser }) {
               Сбросить
             </Button>
           </div>
-          <Tabs
-            activeKey={activeRoleTab}
-            onChange={setActiveRoleTab}
-            items={[
-              {
-                key: "initiated",
-                label: `Я инициатор (${visibleTasks.initiated.length})`,
-                children: <TaskTable tasks={visibleTasks.initiated} categoryMap={categoryMap} />
-              },
-              {
-                key: "assigned",
-                label: `Я ответственный (${visibleTasks.assigned.length})`,
-                children: <TaskTable tasks={visibleTasks.assigned} categoryMap={categoryMap} />
-              },
-              {
-                key: "observing",
-                label: `Я наблюдатель (${visibleTasks.observing.length})`,
-                children: <TaskTable tasks={visibleTasks.observing} categoryMap={categoryMap} />
-              }
-            ]}
-          />
+          <TaskTable tasks={visibleTasks[activeRoleTab]} categoryMap={categoryMap} />
         </Card>
       </div>
 
