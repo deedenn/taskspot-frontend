@@ -3,13 +3,14 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   CommentOutlined,
+  DownloadOutlined,
+  FileOutlined,
   HistoryOutlined,
-  LinkOutlined,
   PaperClipOutlined,
   RetweetOutlined,
   RollbackOutlined
 } from "@ant-design/icons";
-import { Alert, Button, Card, Checkbox, Empty, Form, Input, List, Modal, Select, Space, Spin, Tag, Timeline, Typography, message } from "antd";
+import { Alert, Button, Card, Checkbox, Empty, Form, Input, List, Modal, Select, Space, Spin, Tag, Timeline, Typography, Upload, message } from "antd";
 import dayjs from "dayjs";
 import { Link, useParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
@@ -39,12 +40,20 @@ const priorityOptions = [
   { value: "urgent", label: "Срочно" }
 ];
 
+const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024;
+
 function idOf(value) {
   return value?._id || value;
 }
 
 function isUrgentActive(task) {
   return task?.priority === "urgent" && !["review", "done", "closed"].includes(task.status);
+}
+
+function formatFileSize(size) {
+  if (!size) return "";
+  if (size < 1024 * 1024) return `${Math.ceil(size / 1024)} КБ`;
+  return `${(size / 1024 / 1024).toFixed(1)} МБ`;
 }
 
 const activityLabels = {
@@ -90,6 +99,8 @@ export function TaskDetails({ currentUser }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [attachmentFileList, setAttachmentFileList] = useState([]);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [returnModalOpen, setReturnModalOpen] = useState(false);
   const [commentForm] = Form.useForm();
   const [returnForm] = Form.useForm();
@@ -181,20 +192,64 @@ export function TaskDetails({ currentUser }) {
     }
   }
 
-  async function addAttachment(values) {
-    const attachments = [...(task.attachments || []), values];
-    setSaving(true);
+  async function uploadAttachmentFile(file) {
+    const presign = await apiFetch("/uploads/presign", {
+      method: "POST",
+      body: JSON.stringify({
+        taskId,
+        fileName: file.name,
+        mimeType: file.type || "application/octet-stream",
+        size: file.size
+      })
+    });
+
+    const uploadResponse = await fetch(presign.uploadUrl, {
+      method: "PUT",
+      body: file,
+      headers: {
+        "Content-Type": file.type || "application/octet-stream"
+      }
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error("Не удалось загрузить файл в хранилище");
+    }
+
+    return presign.attachment;
+  }
+
+  async function addAttachment() {
+    const file = attachmentFileList[0]?.originFileObj;
+
+    if (!file) {
+      message.warning("Выберите файл");
+      return;
+    }
+
+    setUploadingAttachment(true);
     try {
+      const attachment = await uploadAttachmentFile(file);
+      const attachments = [...(task.attachments || []), attachment];
       const data = await apiFetch(`/tasks/${taskId}`, {
         method: "PATCH",
         body: JSON.stringify({ attachments })
       });
       setTask(data.task);
-      message.success("Вложение добавлено");
+      setAttachmentFileList([]);
+      message.success("Файл добавлен");
     } catch (error) {
       message.error(error.message);
     } finally {
-      setSaving(false);
+      setUploadingAttachment(false);
+    }
+  }
+
+  async function openAttachment(attachment) {
+    try {
+      const data = await apiFetch(`/tasks/${taskId}/attachments/${attachment._id}/download-url`);
+      window.open(data.url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      message.error(error.message);
     }
   }
 
@@ -418,30 +473,68 @@ export function TaskDetails({ currentUser }) {
         }
       >
         {task.attachments?.length ? (
-          <List
-            dataSource={task.attachments}
-            renderItem={(attachment) => (
-              <List.Item>
-                <a href={attachment.url} target="_blank" rel="noreferrer">
-                  <LinkOutlined /> {attachment.name}
-                </a>
-              </List.Item>
-            )}
-          />
+          <div className="task-details__attachment-list">
+            {task.attachments.map((attachment) => (
+              <div className="task-details__attachment" key={attachment._id || attachment.url || attachment.key}>
+                <span className="task-details__attachment-icon" aria-hidden="true">
+                  <FileOutlined />
+                </span>
+                <div className="task-details__attachment-main">
+                  <Typography.Text strong>{attachment.name}</Typography.Text>
+                  <Typography.Text type="secondary">
+                    {[formatFileSize(attachment.size), attachment.addedBy?.name].filter(Boolean).join(" · ") || "Файл"}
+                  </Typography.Text>
+                </div>
+                <Button icon={<DownloadOutlined />} onClick={() => openAttachment(attachment)}>
+                  Открыть
+                </Button>
+              </div>
+            ))}
+          </div>
         ) : (
           <Empty description="Вложений пока нет" />
         )}
 
         {(isCreator || isAssignee) && (
-            <Form className="task-details__attachment-form" layout="vertical" onFinish={addAttachment}>
-            <Form.Item name="name" label="Название вложения" rules={[{ required: true, message: "Название" }]}>
-              <Input placeholder="Название" />
-            </Form.Item>
-            <Form.Item name="url" label="Ссылка на вложение" rules={[{ required: true, message: "Ссылка" }]}>
-              <Input placeholder="https://..." />
-            </Form.Item>
-            <Button htmlType="submit" loading={saving}>Добавить</Button>
-          </Form>
+          <div className="task-details__attachment-form">
+            <Upload.Dragger
+              accept="*"
+              beforeUpload={(file) => {
+                if (file.size > MAX_ATTACHMENT_SIZE) {
+                  message.error("Файл должен быть меньше 20 МБ");
+                  return Upload.LIST_IGNORE;
+                }
+
+                setAttachmentFileList([
+                  {
+                    uid: file.uid,
+                    name: file.name,
+                    status: "done",
+                    originFileObj: file
+                  }
+                ]);
+                return false;
+              }}
+              fileList={attachmentFileList}
+              maxCount={1}
+              multiple={false}
+              onRemove={() => setAttachmentFileList([])}
+            >
+              <p className="ant-upload-drag-icon">
+                <PaperClipOutlined />
+              </p>
+              <p className="ant-upload-text">Нажмите или перетащите файл</p>
+              <p className="ant-upload-hint">Файл будет сохранён в хранилище и прикреплён к задаче.</p>
+            </Upload.Dragger>
+            <Button
+              type="primary"
+              onClick={addAttachment}
+              loading={uploadingAttachment}
+              disabled={!attachmentFileList.length}
+            >
+              Добавить файл
+            </Button>
+          </div>
         )}
       </Card>
 

@@ -158,7 +158,6 @@ export function TaskWorkspace({ project, currentUser }) {
             .split("\n")
             .map((text) => ({ text: text.trim() }))
             .filter((item) => item.text),
-          attachments: (values.attachments || []).filter((item) => item?.name && item?.url),
           recurrence: {
             enabled: values.frequency && values.frequency !== "none",
             frequency: values.frequency || "none"
@@ -336,25 +335,9 @@ export function TaskWorkspace({ project, currentUser }) {
           <Form.Item name="checklistText" label="Чек-лист">
             <Input.TextArea rows={4} placeholder="Каждый пункт с новой строки" />
           </Form.Item>
-          <Form.List name="attachments">
-            {(fields, { add, remove }) => (
-              <div className="tasks__form-list">
-                <Typography.Text strong>Вложения ссылками</Typography.Text>
-                {fields.map((field) => (
-                  <Space key={field.key} align="baseline" className="tasks__attachment-row">
-                    <Form.Item {...field} name={[field.name, "name"]}>
-                      <Input placeholder="Название" />
-                    </Form.Item>
-                    <Form.Item {...field} name={[field.name, "url"]}>
-                      <Input placeholder="https://..." />
-                    </Form.Item>
-                    <Button onClick={() => remove(field.name)}>Удалить</Button>
-                  </Space>
-                ))}
-                <Button onClick={() => add()}>Добавить вложение</Button>
-              </div>
-            )}
-          </Form.List>
+          <Typography.Text type="secondary">
+            Вложения можно добавить после создания задачи в её карточке.
+          </Typography.Text>
         </Form>
       </Drawer>
     </Card>

@@ -80,7 +80,53 @@
 }
 
 .task-details__attachment-form {
+  display: grid;
+  gap: 12px;
   margin-top: 16px;
+}
+
+.task-details__attachment-form .ant-upload-wrapper {
+  max-width: 620px;
+}
+
+.task-details__attachment-form > .ant-btn {
+  width: fit-content;
+}
+
+.task-details__attachment-list {
+  display: grid;
+  gap: 10px;
+}
+
+.task-details__attachment {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #edf1f5;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.task-details__attachment-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  color: #1f7a8c;
+  background: #e7f4f7;
+}
+
+.task-details__attachment-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.task-details__attachment-main .ant-typography {
+  overflow-wrap: anywhere;
 }
 
 .task-details__comment-form {
@@ -149,5 +195,16 @@
 
   .task-details__attachment-form {
     display: grid;
+  }
+
+  .task-details__attachment,
+  .task-details__attachment-form > .ant-btn {
+    grid-template-columns: auto minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .task-details__attachment > .ant-btn {
+    grid-column: 2;
+    width: 100%;
   }
 }
