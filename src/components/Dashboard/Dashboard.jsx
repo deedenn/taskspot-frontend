@@ -14,11 +14,10 @@ import {
   Empty,
   Form,
   Input,
-  List,
   Select,
   Space,
-  Statistic,
   Switch,
+  Table,
   Tabs,
   Tag,
   Tooltip,
@@ -37,7 +36,7 @@ const statusLabels = {
   open: ["Открыта", "blue"],
   in_progress: ["В работе", "gold"],
   review: ["Проверка", "purple"],
-  done: ["Проверка", "purple"],
+  done: ["Готово", "green"],
   closed: ["Закрыта", "default"]
 };
 
@@ -84,53 +83,108 @@ function isUrgentActive(task) {
   return task?.priority === "urgent" && !["review", "done", "closed"].includes(task.status);
 }
 
-function TaskList({ tasks }) {
-  if (!tasks?.length) return <Empty description="Задач пока нет" />;
-
-  return (
-    <List
-      dataSource={tasks}
-      renderItem={(task) => {
-        const [priorityLabel, priorityColor] = priorityLabels[task.priority] || priorityLabels.medium;
-        const className = [
-          "dashboard__task-item",
-          isDueSoon(task) ? "dashboard__task-item--due" : "",
-          isUrgentActive(task) ? "dashboard__task-item--urgent" : ""
-        ]
-          .filter(Boolean)
-          .join(" ");
-
-        return (
-          <List.Item className={className}>
-            <List.Item.Meta
-              title={
-                <Space wrap>
-                  <Tag className="dashboard__project-tag" color="cyan">
-                    {task.project?.name || "Без проекта"}
-                  </Tag>
-                  <Link className="dashboard__task-link" to={`/app/tasks/${task._id}`}>
-                    {task.description}
-                  </Link>
-                  <Tag color={priorityColor}>{priorityLabel}</Tag>
-                  <Tag color={statusLabels[task.status]?.[1]}>{statusLabels[task.status]?.[0]}</Tag>
-                </Space>
-              }
-              description={
-                <span className={isDueSoon(task) ? "dashboard__due-date dashboard__due-date--soon" : "dashboard__due-date"}>
-                  Срок {dayjs(task.dueDate).format("DD.MM.YYYY")}
-                  {isDueSoon(task) && <Tag color="red">срок близко</Tag>}
-                </span>
-              }
-            />
-          </List.Item>
-        );
-      }}
-    />
-  );
-}
-
 function idOf(value) {
   return value?._id || value;
+}
+
+function TaskTable({ tasks, categoryMap }) {
+  const columns = [
+    {
+      title: "Задача",
+      dataIndex: "description",
+      key: "description",
+      width: 320,
+      render: (description, task) => (
+        <Link className="dashboard__task-link" to={`/app/tasks/${task._id}`}>
+          {description}
+        </Link>
+      )
+    },
+    {
+      title: "Проект",
+      dataIndex: ["project", "name"],
+      key: "project",
+      width: 180,
+      render: (projectName) => projectName || "Без проекта"
+    },
+    {
+      title: "Срок",
+      dataIndex: "dueDate",
+      key: "dueDate",
+      width: 170,
+      render: (dueDate, task) => (
+        <span className={isDueSoon(task) ? "dashboard__due-date dashboard__due-date--soon" : "dashboard__due-date"}>
+          {dueDate ? dayjs(dueDate).format("DD.MM.YYYY") : "Без срока"}
+          {isDueSoon(task) && <Tag color="red">скоро</Tag>}
+        </span>
+      )
+    },
+    {
+      title: "Статус",
+      dataIndex: "status",
+      key: "status",
+      width: 140,
+      render: (status) => (
+        <Tag color={statusLabels[status]?.[1]}>{statusLabels[status]?.[0] || status}</Tag>
+      )
+    },
+    {
+      title: "Категория",
+      dataIndex: "categories",
+      key: "categories",
+      width: 220,
+      render: (categories = []) => {
+        const items = categories
+          .map((category) => categoryMap.get(idOf(category)) || (category?.name ? { name: category.name, color: category.color } : null))
+          .filter(Boolean);
+
+        if (!items.length) {
+          return <Typography.Text type="secondary">Без категории</Typography.Text>;
+        }
+
+        return (
+          <Space size={[0, 6]} wrap>
+            {items.map((category) => (
+              <Tag key={category._id || category.name} color={category.color}>
+                {category.name}
+              </Tag>
+            ))}
+          </Space>
+        );
+      }
+    },
+    {
+      title: "Приоритет",
+      dataIndex: "priority",
+      key: "priority",
+      width: 130,
+      render: (priority) => {
+        const [priorityLabel, priorityColor] = priorityLabels[priority] || priorityLabels.medium;
+        return <Tag color={priorityColor}>{priorityLabel}</Tag>;
+      }
+    }
+  ];
+
+  return (
+    <Table
+      className="dashboard__task-table"
+      columns={columns}
+      dataSource={tasks}
+      rowKey="_id"
+      size="middle"
+      scroll={{ x: 1060 }}
+      rowClassName={(task) =>
+        [
+          isDueSoon(task) ? "dashboard__task-row--due" : "",
+          isUrgentActive(task) ? "dashboard__task-row--urgent" : ""
+        ]
+          .filter(Boolean)
+          .join(" ")
+      }
+      pagination={tasks.length > 10 ? { pageSize: 10, showSizeChanger: false } : false}
+      locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Задач пока нет" /> }}
+    />
+  );
 }
 
 export function Dashboard({ currentUser }) {
@@ -144,6 +198,7 @@ export function Dashboard({ currentUser }) {
   const [categoryFilter, setCategoryFilter] = useState([]);
   const [searchText, setSearchText] = useState("");
   const [quickFilter, setQuickFilter] = useState("active");
+  const [activeRoleTab, setActiveRoleTab] = useState("initiated");
   const [form] = Form.useForm();
   const screens = Grid.useBreakpoint();
   const isCompactControls = !screens.sm;
@@ -225,17 +280,27 @@ export function Dashboard({ currentUser }) {
     return Array.from(categories.values());
   }, [projects, projectFilter]);
 
-  const categoryNameMap = useMemo(() => {
+  const categoryMap = useMemo(() => {
     const map = new Map();
 
     projects.forEach((project) => {
       project.categories.forEach((category) => {
-        map.set(category._id, category.name);
+        map.set(category._id, category);
       });
     });
 
     return map;
   }, [projects]);
+
+  const categoryNameMap = useMemo(() => {
+    const map = new Map();
+
+    categoryMap.forEach((category, categoryId) => {
+      map.set(categoryId, category.name);
+    });
+
+    return map;
+  }, [categoryMap]);
 
   function taskSearchText(task) {
     const categoryNames = (task.categories || [])
@@ -407,13 +472,22 @@ export function Dashboard({ currentUser }) {
 
       <div className="dashboard__stats">
         {statItems.map((item) => (
-          <Card key={item.key} loading={loading} className="dashboard__stat-card">
-            <Statistic title={item.title} value={visibleTasks[item.key].length} prefix={item.icon} />
-            <div className="dashboard__stat-compact" aria-label={`${item.title}: ${visibleTasks[item.key].length}`}>
-              {item.icon}
-              <strong>{visibleTasks[item.key].length}</strong>
+          <button
+            key={item.key}
+            type="button"
+            className={activeRoleTab === item.key ? "dashboard__stat-card dashboard__stat-card--active" : "dashboard__stat-card"}
+            aria-label={`${item.title}: ${visibleTasks[item.key].length}`}
+            aria-pressed={activeRoleTab === item.key}
+            onClick={() => setActiveRoleTab(item.key)}
+          >
+            <div className="dashboard__stat-content" aria-label={`${item.title}: ${visibleTasks[item.key].length}`}>
+              <span className="dashboard__stat-icon">{item.icon}</span>
+              <span className="dashboard__stat-text">
+                <strong>{visibleTasks[item.key].length}</strong>
+                <span>{item.title}</span>
+              </span>
             </div>
-          </Card>
+          </button>
         ))}
       </div>
 
@@ -463,21 +537,23 @@ export function Dashboard({ currentUser }) {
             </Button>
           </div>
           <Tabs
+            activeKey={activeRoleTab}
+            onChange={setActiveRoleTab}
             items={[
               {
                 key: "initiated",
-                label: "Я инициатор",
-                children: <TaskList tasks={visibleTasks.initiated} />
+                label: `Я инициатор (${visibleTasks.initiated.length})`,
+                children: <TaskTable tasks={visibleTasks.initiated} categoryMap={categoryMap} />
               },
               {
                 key: "assigned",
-                label: "Я ответственный",
-                children: <TaskList tasks={visibleTasks.assigned} />
+                label: `Я ответственный (${visibleTasks.assigned.length})`,
+                children: <TaskTable tasks={visibleTasks.assigned} categoryMap={categoryMap} />
               },
               {
                 key: "observing",
-                label: "Я наблюдатель",
-                children: <TaskList tasks={visibleTasks.observing} />
+                label: `Я наблюдатель (${visibleTasks.observing.length})`,
+                children: <TaskTable tasks={visibleTasks.observing} categoryMap={categoryMap} />
               }
             ]}
           />
