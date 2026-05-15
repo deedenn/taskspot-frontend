@@ -8,7 +8,7 @@ import {
   SendOutlined,
   UserAddOutlined
 } from "@ant-design/icons";
-import { Button, Card, ColorPicker, Empty, Form, Input, List, Modal, Popconfirm, Select, Space, Tag, Tooltip, Typography, message } from "antd";
+import { Avatar, Button, Card, ColorPicker, Empty, Form, Input, Modal, Popconfirm, Select, Space, Tag, Tooltip, Typography, message } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../api.js";
@@ -17,6 +17,20 @@ import "./Projects.css";
 
 function userId(user) {
   return user?._id || user;
+}
+
+function displayName(user) {
+  return user?.name || user?.email || "Пользователь";
+}
+
+function initials(user) {
+  const source = displayName(user).trim();
+  return source
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
 }
 
 const emailStatusLabels = {
@@ -32,6 +46,7 @@ export function Projects({ user }) {
   const [activeProjectId, setActiveProjectId] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [projectSearch, setProjectSearch] = useState("");
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [editProjectModalOpen, setEditProjectModalOpen] = useState(false);
   const [projectForm] = Form.useForm();
@@ -43,6 +58,23 @@ export function Projects({ user }) {
     () => projects.find((project) => project._id === activeProjectId),
     [projects, activeProjectId]
   );
+  const pendingInvitations = useMemo(
+    () => activeProject?.invitations?.filter((invitation) => invitation.status === "pending") || [],
+    [activeProject]
+  );
+  const filteredProjects = useMemo(() => {
+    const query = projectSearch.trim().toLowerCase();
+
+    if (!query) {
+      return projects;
+    }
+
+    return projects.filter((project) =>
+      [project.name, project.description]
+        .filter(Boolean)
+        .some((value) => value.toLowerCase().includes(query))
+    );
+  }, [projects, projectSearch]);
 
   const currentMember = activeProject?.members.find((member) => userId(member.user) === user?._id);
   const isAdmin = currentMember?.role === "admin";
@@ -111,7 +143,7 @@ export function Projects({ user }) {
       });
       updateProject(data.project);
       memberForm.resetFields();
-      const exists = data.project.members.some((member) => member.user.email === values.email.toLowerCase());
+      const exists = data.project.members.some((member) => member.user?.email === values.email.toLowerCase());
       const invitation = data.project.invitations?.find(
         (item) => item.email === values.email.toLowerCase() && item.status === "pending"
       );
@@ -221,11 +253,46 @@ export function Projects({ user }) {
     setProjects((items) => items.map((item) => (item._id === project._id ? project : item)));
   }
 
-  function handleProjectKeyDown(event, projectId) {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      setActiveProjectId(projectId);
-    }
+  function renderProjectCard(project) {
+    const projectMember = project.members.find((member) => userId(member.user) === user?._id);
+    const projectPendingCount = project.invitations?.filter((invitation) => invitation.status === "pending").length || 0;
+    const selected = project._id === activeProjectId;
+
+    return (
+      <button
+        key={project._id}
+        type="button"
+        className={selected ? "projects__project-card projects__project-card--active" : "projects__project-card"}
+        aria-pressed={selected}
+        aria-current={selected ? "true" : undefined}
+        onClick={() => setActiveProjectId(project._id)}
+      >
+        <span className="projects__project-card-top">
+          <span className="projects__project-icon" aria-hidden="true">
+            <FolderOpenOutlined />
+          </span>
+          <Tag color={projectMember?.role === "admin" ? "green" : "blue"}>
+            {projectMember?.role === "admin" ? "Администратор" : "Участник"}
+          </Tag>
+        </span>
+        <span className="projects__project-name">{project.name}</span>
+        <span className="projects__project-description">{project.description || "Описание пока не добавлено"}</span>
+        <span className="projects__project-metrics" aria-label="Сводка проекта">
+          <span>
+            <strong>{project.members.length}</strong>
+            участн.
+          </span>
+          <span>
+            <strong>{project.categories.length}</strong>
+            катег.
+          </span>
+          <span>
+            <strong>{projectPendingCount}</strong>
+            ждут
+          </span>
+        </span>
+      </button>
+    );
   }
 
   return (
@@ -258,29 +325,31 @@ export function Projects({ user }) {
         />
       )}
 
-      <div className="projects__grid">
-        <Card className="projects__list" loading={loading}>
-          {projects.length ? (
-	            <List
-	              role="listbox"
-	              aria-label="Проекты"
-	              dataSource={projects}
-              renderItem={(project) => (
-	                <List.Item
-	                  className={project._id === activeProjectId ? "projects__item projects__item--active" : "projects__item"}
-	                  role="option"
-	                  tabIndex={0}
-	                  aria-selected={project._id === activeProjectId}
-	                  onClick={() => setActiveProjectId(project._id)}
-	                  onKeyDown={(event) => handleProjectKeyDown(event, project._id)}
-	                >
-                  <List.Item.Meta
-                    title={project.name}
-                    description={`${project.members.length} участник(ов)`}
-                  />
-                </List.Item>
-              )}
+      <div className="projects__layout">
+        <Card className="projects__catalog" loading={loading}>
+          <div className="projects__catalog-head">
+            <div>
+              <Typography.Title level={2}>Все проекты</Typography.Title>
+              <Typography.Text type="secondary">
+                {projects.length ? `${filteredProjects.length} из ${projects.length} проект(ов)` : "Создайте первый проект"}
+              </Typography.Text>
+            </div>
+          </div>
+          {projects.length > 0 && (
+            <Input.Search
+              allowClear
+              className="projects__search"
+              placeholder="Поиск по проектам"
+              value={projectSearch}
+              onChange={(event) => setProjectSearch(event.target.value)}
             />
+          )}
+          {filteredProjects.length ? (
+            <div className="projects__project-list" role="list" aria-label="Проекты">
+              {filteredProjects.map(renderProjectCard)}
+            </div>
+          ) : projectSearch ? (
+            <Empty description="Проекты не найдены" />
           ) : (
             <Empty description="Создайте первый проект" />
           )}
@@ -290,9 +359,30 @@ export function Projects({ user }) {
           {activeProject ? (
             <>
               <Card className="projects__summary">
-                <div>
-                  <Typography.Title level={2}>{activeProject.name}</Typography.Title>
-                  <Typography.Paragraph>{activeProject.description || "Без описания"}</Typography.Paragraph>
+                <div className="projects__summary-main">
+                  <div className="projects__summary-title">
+                    <span className="projects__summary-icon" aria-hidden="true">
+                      <FolderOpenOutlined />
+                    </span>
+                    <div>
+                      <Typography.Title level={2}>{activeProject.name}</Typography.Title>
+                      <Typography.Paragraph>{activeProject.description || "Описание проекта пока не добавлено"}</Typography.Paragraph>
+                    </div>
+                  </div>
+                  <div className="projects__summary-metrics" aria-label="Показатели проекта">
+                    <div>
+                      <strong>{activeProject.members.length}</strong>
+                      <span>участников</span>
+                    </div>
+                    <div>
+                      <strong>{pendingInvitations.length}</strong>
+                      <span>приглашений</span>
+                    </div>
+                    <div>
+                      <strong>{activeProject.categories.length}</strong>
+                      <span>категорий</span>
+                    </div>
+                  </div>
                 </div>
                 <Space wrap className="projects__summary-actions">
                   <Tag color={isAdmin ? "green" : "blue"}>{isAdmin ? "Администратор" : "Участник"}</Tag>
@@ -301,23 +391,28 @@ export function Projects({ user }) {
                       Редактировать
                     </Button>
                   )}
-	                  <Button
-	                    icon={<FolderOpenOutlined />}
-	                    onClick={() => navigate(`/app/projects/${activeProject._id}/tasks`)}
-	                  >
-	                    Открыть задачи
-	                  </Button>
+                  <Button
+                    type="primary"
+                    icon={<FolderOpenOutlined />}
+                    onClick={() => navigate(`/app/projects/${activeProject._id}/tasks`)}
+                  >
+                    Открыть задачи
+                  </Button>
                 </Space>
               </Card>
 
               <div className="projects__admin-grid">
-                <Card title="Участники">
+                <Card className="projects__panel" title="Участники и приглашения">
                   {isAdmin && (
-                    <Form form={memberForm} layout="vertical" onFinish={addMember} className="projects__inline-form">
-                      <Form.Item name="email" rules={[{ required: true, message: "Email обязателен" }]}>
-                        <Input placeholder="email участника" />
+                    <Form form={memberForm} layout="vertical" onFinish={addMember} className="projects__invite-form">
+                      <Form.Item
+                        name="email"
+                        label="Email участника"
+                        rules={[{ required: true, message: "Email обязателен" }, { type: "email", message: "Введите корректный email" }]}
+                      >
+                        <Input placeholder="name@company.ru" />
                       </Form.Item>
-                      <Form.Item name="role" initialValue="member">
+                      <Form.Item name="role" label="Роль" initialValue="member">
                         <Select
                           options={[
                             { value: "member", label: "Участник" },
@@ -325,146 +420,143 @@ export function Projects({ user }) {
                           ]}
                         />
                       </Form.Item>
-                      <Button type="primary" icon={<UserAddOutlined />} htmlType="submit" />
+                      <Button type="primary" icon={<UserAddOutlined />} htmlType="submit">
+                        Пригласить
+                      </Button>
                     </Form>
                   )}
-                  <List
-                    dataSource={activeProject.members}
-                    renderItem={(member) => (
-                      <List.Item
-                        actions={
-                          isAdmin
-                            ? [
-	                                <Popconfirm
-	                                  key="remove"
-	                                  title="Удалить участника?"
-	                                  description="Участник потеряет доступ к проекту."
-	                                  okText="Удалить"
-	                                  cancelText="Отмена"
-	                                  onConfirm={() => removeMember(userId(member.user))}
-	                                >
-	                                  <Tooltip title="Удалить участника">
-	                                    <Button
-	                                      aria-label={`Удалить участника ${member.user.name}`}
-	                                      icon={<DeleteOutlined />}
-	                                      danger
-	                                    />
-	                                  </Tooltip>
-	                                </Popconfirm>
-	                              ]
-                            : []
-                        }
-                      >
-                        <List.Item.Meta
-                          title={member.user.name}
-                          description={member.user.email}
-                        />
+                  <div className="projects__people-list">
+                    {activeProject.members.map((member) => (
+                      <div className="projects__person-row" key={userId(member.user)}>
+                        <Avatar className="projects__avatar">{initials(member.user)}</Avatar>
+                        <div className="projects__person-main">
+                          <Typography.Text strong>{displayName(member.user)}</Typography.Text>
+                          <Typography.Text type="secondary">{member.user?.email || "Email не указан"}</Typography.Text>
+                        </div>
                         <Tag>{member.role === "admin" ? "Админ" : "Участник"}</Tag>
-                      </List.Item>
-                    )}
-                  />
-                  {activeProject.invitations?.some((invitation) => invitation.status === "pending") && (
+                        {isAdmin && (
+                          <Popconfirm
+                            title="Удалить участника?"
+                            description="Участник потеряет доступ к проекту."
+                            okText="Удалить"
+                            cancelText="Отмена"
+                            onConfirm={() => removeMember(userId(member.user))}
+                          >
+                            <Tooltip title="Удалить участника">
+                              <Button
+                                aria-label={`Удалить участника ${displayName(member.user)}`}
+                                icon={<DeleteOutlined />}
+                                danger
+                              />
+                            </Tooltip>
+                          </Popconfirm>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {pendingInvitations.length > 0 && (
                     <div className="projects__pending">
                       <Typography.Text strong>Ожидают регистрации</Typography.Text>
-                      <List
-                        dataSource={activeProject.invitations.filter(
-                          (invitation) => invitation.status === "pending"
-                        )}
-                        renderItem={(invitation) => (
-                          <List.Item
-                            actions={
-                              isAdmin
-                                ? [
-	                                    <Tooltip key="resend" title="Отправить повторно">
-	                                      <Button
-	                                        aria-label={`Отправить приглашение повторно ${invitation.email}`}
-	                                        icon={<SendOutlined />}
-	                                        onClick={() => resendInvitation(invitation._id)}
-	                                      />
-	                                    </Tooltip>,
-	                                    <Tooltip key="copy" title="Скопировать ссылку">
-	                                      <Button
-	                                        aria-label={`Скопировать ссылку приглашения ${invitation.email}`}
-	                                        icon={<CopyOutlined />}
-	                                        onClick={() => copyInvitationLink(invitation)}
-	                                      />
-	                                    </Tooltip>,
-	                                    <Popconfirm
-	                                      key="remove"
-	                                      title="Удалить приглашение?"
-	                                      description="Ссылка приглашения перестанет работать."
-	                                      okText="Удалить"
-	                                      cancelText="Отмена"
-	                                      onConfirm={() => removeInvitation(invitation._id)}
-	                                    >
-	                                      <Tooltip title="Удалить приглашение">
-	                                        <Button
-	                                          aria-label={`Удалить приглашение ${invitation.email}`}
-	                                          icon={<DeleteOutlined />}
-	                                          danger
-	                                        />
-	                                      </Tooltip>
-	                                    </Popconfirm>
-	                                  ]
-                                : []
-                            }
-                          >
-                            <List.Item.Meta
-                              title={invitation.email}
-                              description={
-                                <Space direction="vertical" size={2}>
-                                  <span>Пользователь будет добавлен после регистрации с этим email</span>
-                                  {invitation.emailError && (
-                                    <Typography.Text type="danger">{invitation.emailError}</Typography.Text>
-                                  )}
-                                </Space>
-                              }
-                            />
+                      <div className="projects__people-list projects__people-list--pending">
+                        {pendingInvitations.map((invitation) => (
+                          <div className="projects__person-row projects__person-row--pending" key={invitation._id}>
+                            <Avatar className="projects__avatar projects__avatar--pending">
+                              <UserAddOutlined />
+                            </Avatar>
+                            <div className="projects__person-main">
+                              <Typography.Text strong>{invitation.email}</Typography.Text>
+                              <Typography.Text type="secondary">
+                                Будет добавлен после регистрации с этим email
+                              </Typography.Text>
+                              {invitation.emailError && (
+                                <Typography.Text type="danger">{invitation.emailError}</Typography.Text>
+                              )}
+                            </div>
                             <Tag color={emailStatusLabels[invitation.emailStatus]?.[1] || "default"}>
                               {emailStatusLabels[invitation.emailStatus]?.[0] || "Email"}
                             </Tag>
                             <Tag>{invitation.role === "admin" ? "Админ" : "Участник"}</Tag>
-                          </List.Item>
-                        )}
-                      />
+                            {isAdmin && (
+                              <Space size={6}>
+                                <Tooltip title="Отправить повторно">
+                                  <Button
+                                    aria-label={`Отправить приглашение повторно ${invitation.email}`}
+                                    icon={<SendOutlined />}
+                                    onClick={() => resendInvitation(invitation._id)}
+                                  />
+                                </Tooltip>
+                                <Tooltip title="Скопировать ссылку">
+                                  <Button
+                                    aria-label={`Скопировать ссылку приглашения ${invitation.email}`}
+                                    icon={<CopyOutlined />}
+                                    onClick={() => copyInvitationLink(invitation)}
+                                  />
+                                </Tooltip>
+                                <Popconfirm
+                                  title="Удалить приглашение?"
+                                  description="Ссылка приглашения перестанет работать."
+                                  okText="Удалить"
+                                  cancelText="Отмена"
+                                  onConfirm={() => removeInvitation(invitation._id)}
+                                >
+                                  <Tooltip title="Удалить приглашение">
+                                    <Button
+                                      aria-label={`Удалить приглашение ${invitation.email}`}
+                                      icon={<DeleteOutlined />}
+                                      danger
+                                    />
+                                  </Tooltip>
+                                </Popconfirm>
+                              </Space>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </Card>
 
-                <Card title="Категории">
+                <Card className="projects__panel" title="Категории задач">
                   {isAdmin && (
-                    <Form form={categoryForm} layout="vertical" onFinish={addCategory} className="projects__inline-form">
-                      <Form.Item name="name" rules={[{ required: true, message: "Название обязательно" }]}>
-                        <Input placeholder="Название" />
+                    <Form form={categoryForm} layout="vertical" onFinish={addCategory} className="projects__category-form">
+                      <Form.Item name="name" label="Название категории" rules={[{ required: true, message: "Название обязательно" }]}>
+                        <Input placeholder="Например: Срочно" />
                       </Form.Item>
-                      <Form.Item name="color" initialValue="#1f7a8c">
+                      <Form.Item name="color" label="Цвет" initialValue="#1f7a8c">
                         <ColorPicker />
                       </Form.Item>
-                      <Button type="primary" icon={<PlusOutlined />} htmlType="submit" />
+                      <Button type="primary" icon={<PlusOutlined />} htmlType="submit">
+                        Добавить
+                      </Button>
                     </Form>
                   )}
-                  <Space wrap>
-                    {activeProject.categories.map((category) => (
-                      <Tag
-                        key={category._id}
-                        color={category.color}
-	                        closable={isAdmin}
-	                        onClose={(event) => {
-	                          event.preventDefault();
-	                          Modal.confirm({
-	                            title: "Удалить категорию?",
-	                            content: `Категория «${category.name}» будет удалена из проекта.`,
-	                            okText: "Удалить",
-	                            cancelText: "Отмена",
-	                            okButtonProps: { danger: true },
-	                            onOk: () => removeCategory(category._id)
-	                          });
-	                        }}
-                      >
-                        {category.name}
-                      </Tag>
-                    ))}
-                  </Space>
+                  {activeProject.categories.length ? (
+                    <div className="projects__category-list">
+                      {activeProject.categories.map((category) => (
+                        <Tag
+                          key={category._id}
+                          color={category.color}
+                          closable={isAdmin}
+                          onClose={(event) => {
+                            event.preventDefault();
+                            Modal.confirm({
+                              title: "Удалить категорию?",
+                              content: `Категория «${category.name}» будет удалена из проекта.`,
+                              okText: "Удалить",
+                              cancelText: "Отмена",
+                              okButtonProps: { danger: true },
+                              onOk: () => removeCategory(category._id)
+                            });
+                          }}
+                        >
+                          {category.name}
+                        </Tag>
+                      ))}
+                    </div>
+                  ) : (
+                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Категории пока не созданы" />
+                  )}
                 </Card>
               </div>
             </>
