@@ -21,6 +21,60 @@
   margin-bottom: 22px;
 }
 
+.profile__avatar-button {
+  position: relative;
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.profile__avatar-button:focus-visible {
+  outline: 3px solid rgba(31, 122, 140, 0.32);
+  outline-offset: 4px;
+}
+
+.profile__avatar-button .ant-avatar {
+  transition: filter 180ms ease, box-shadow 180ms ease;
+}
+
+.profile__avatar-button:hover .ant-avatar {
+  filter: brightness(0.82);
+  box-shadow: 0 12px 28px rgba(31, 122, 140, 0.18);
+}
+
+.profile__avatar-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #ffffff;
+  font-size: 24px;
+  background: rgba(19, 47, 58, 0.44);
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.profile__avatar-button:hover .profile__avatar-overlay,
+.profile__avatar-button:focus-visible .profile__avatar-overlay {
+  opacity: 1;
+}
+
+.profile__avatar-input {
+  display: none;
+}
+
+.profile__avatar-remove {
+  display: block;
+  width: fit-content;
+  height: auto;
+  margin-top: 8px;
+  padding: 0;
+}
+
 .profile__avatar h3.ant-typography {
   margin: 0 0 4px;
 }
@@ -44,7 +98,7 @@
     align-items: flex-start;
   }
 
-  .profile .ant-btn {
+  .profile .ant-btn:not(.profile__avatar-remove) {
     width: 100%;
   }
 }

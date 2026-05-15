@@ -1,13 +1,44 @@
-import { LockOutlined, SaveOutlined, UserOutlined } from "@ant-design/icons";
+import { CameraOutlined, DeleteOutlined, LockOutlined, SaveOutlined, UserOutlined } from "@ant-design/icons";
 import { Avatar, Button, Card, Form, Input, Space, Typography, message } from "antd";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "../../api.js";
 import "./Profile.css";
+
+const AVATAR_SIZE = 256;
+const MAX_AVATAR_FILE_SIZE = 5 * 1024 * 1024;
+
+function resizeAvatarFile(file) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const reader = new FileReader();
+
+    reader.onerror = () => reject(new Error("Не удалось прочитать файл"));
+    reader.onload = () => {
+      image.onload = () => {
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+        const size = Math.min(image.width, image.height);
+        const sourceX = (image.width - size) / 2;
+        const sourceY = (image.height - size) / 2;
+
+        canvas.width = AVATAR_SIZE;
+        canvas.height = AVATAR_SIZE;
+        context.drawImage(image, sourceX, sourceY, size, size, 0, 0, AVATAR_SIZE, AVATAR_SIZE);
+        resolve(canvas.toDataURL("image/jpeg", 0.86));
+      };
+      image.onerror = () => reject(new Error("Файл не похож на изображение"));
+      image.src = reader.result;
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
 
 export function Profile({ auth }) {
   const [profileForm] = Form.useForm();
   const [passwordForm] = Form.useForm();
   const [avatarFailed, setAvatarFailed] = useState(false);
+  const fileInputRef = useRef(null);
   const avatarUrl = Form.useWatch("avatarUrl", profileForm);
 
   useEffect(() => {
@@ -31,6 +62,40 @@ export function Profile({ auth }) {
     } catch (error) {
       message.error(error.message);
     }
+  }
+
+  async function handleAvatarChange(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      message.error("Выберите изображение");
+      return;
+    }
+
+    if (file.size > MAX_AVATAR_FILE_SIZE) {
+      message.error("Файл аватара должен быть меньше 5 МБ");
+      return;
+    }
+
+    try {
+      const dataUrl = await resizeAvatarFile(file);
+      profileForm.setFieldValue("avatarUrl", dataUrl);
+      setAvatarFailed(false);
+      message.success("Аватар выбран. Нажмите «Сохранить», чтобы применить");
+    } catch (error) {
+      message.error(error.message);
+    }
+  }
+
+  function removeAvatar() {
+    profileForm.setFieldValue("avatarUrl", "");
+    setAvatarFailed(false);
+    message.info("Аватар будет удалён после сохранения");
   }
 
   async function changePassword(values) {
@@ -61,19 +126,47 @@ export function Profile({ auth }) {
       <div className="profile__grid">
         <Card>
           <div className="profile__avatar">
-	            <Avatar
-	              size={96}
-	              src={avatarFailed ? undefined : avatarUrl || auth.user?.avatarUrl}
-	              icon={<UserOutlined />}
-	              onError={() => {
-	                setAvatarFailed(true);
-	                message.warning("Не удалось загрузить аватар");
-	                return false;
-	              }}
-	            />
+            <button
+              type="button"
+              className="profile__avatar-button"
+              aria-label="Загрузить аватар"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Avatar
+                size={96}
+                src={avatarFailed ? undefined : avatarUrl || auth.user?.avatarUrl}
+                icon={<UserOutlined />}
+                onError={() => {
+                  setAvatarFailed(true);
+                  message.warning("Не удалось загрузить аватар");
+                  return false;
+                }}
+              />
+              <span className="profile__avatar-overlay">
+                <CameraOutlined />
+              </span>
+            </button>
+            <input
+              ref={fileInputRef}
+              className="profile__avatar-input"
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarChange}
+            />
             <div>
               <Typography.Title level={3}>{auth.user?.name}</Typography.Title>
               <Typography.Text type="secondary">{auth.user?.email}</Typography.Text>
+              {avatarUrl && (
+                <Button
+                  className="profile__avatar-remove"
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={removeAvatar}
+                  type="link"
+                >
+                  Удалить аватар
+                </Button>
+              )}
             </div>
           </div>
 
@@ -87,8 +180,8 @@ export function Profile({ auth }) {
             <Form.Item name="phone" label="Телефон">
               <Input placeholder="+7..." />
             </Form.Item>
-            <Form.Item name="avatarUrl" label="Аватар">
-              <Input placeholder="https://..." />
+            <Form.Item name="avatarUrl" hidden>
+              <Input />
             </Form.Item>
             <Button type="primary" htmlType="submit" icon={<SaveOutlined />}>
               Сохранить
