@@ -54,6 +54,21 @@ const priorityLabels = {
   urgent: ["Срочно", "red"]
 };
 
+const statusOrder = {
+  open: 1,
+  in_progress: 2,
+  review: 3,
+  done: 4,
+  closed: 5
+};
+
+const priorityOrder = {
+  urgent: 1,
+  high: 2,
+  medium: 3,
+  low: 4
+};
+
 const statItems = [
   {
     key: "all",
@@ -77,11 +92,25 @@ const statItems = [
   }
 ];
 
+function isActionable(task) {
+  return !["review", "done", "closed"].includes(task?.status);
+}
+
+function isOverdue(task) {
+  if (!task?.dueDate || !isActionable(task)) return false;
+
+  return dayjs(task.dueDate).startOf("day").isBefore(dayjs().startOf("day"), "day");
+}
+
 function isDueSoon(task) {
-  if (!task?.dueDate || task.status === "closed") return false;
+  if (!task?.dueDate || !isActionable(task)) return false;
 
   const daysLeft = dayjs(task.dueDate).startOf("day").diff(dayjs().startOf("day"), "day");
-  return daysLeft <= 1;
+  return daysLeft >= 0 && daysLeft <= 1;
+}
+
+function isDeadlineAlert(task) {
+  return isOverdue(task) || isDueSoon(task);
 }
 
 function isUrgentActive(task) {
@@ -92,6 +121,10 @@ function idOf(value) {
   return value?._id || value;
 }
 
+function formatDateValue(date) {
+  return date ? dayjs(date).valueOf() : Number.MAX_SAFE_INTEGER;
+}
+
 function TaskTable({ tasks, categoryMap }) {
   const columns = [
     {
@@ -99,6 +132,7 @@ function TaskTable({ tasks, categoryMap }) {
       dataIndex: "description",
       key: "description",
       width: 320,
+      sorter: (first, second) => first.description.localeCompare(second.description, "ru"),
       render: (description, task) => (
         <Link className="dashboard__task-link" to={`/app/tasks/${task._id}`}>
           {description}
@@ -110,6 +144,7 @@ function TaskTable({ tasks, categoryMap }) {
       dataIndex: ["project", "name"],
       key: "project",
       width: 180,
+      sorter: (first, second) => (first.project?.name || "").localeCompare(second.project?.name || "", "ru"),
       render: (projectName) => projectName || "Без проекта"
     },
     {
@@ -117,10 +152,13 @@ function TaskTable({ tasks, categoryMap }) {
       dataIndex: "dueDate",
       key: "dueDate",
       width: 170,
+      defaultSortOrder: "ascend",
+      sorter: (first, second) => formatDateValue(first.dueDate) - formatDateValue(second.dueDate),
       render: (dueDate, task) => (
-        <span className={isDueSoon(task) ? "dashboard__due-date dashboard__due-date--soon" : "dashboard__due-date"}>
+        <span className={isDeadlineAlert(task) ? "dashboard__due-date dashboard__due-date--soon" : "dashboard__due-date"}>
           {dueDate ? dayjs(dueDate).format("DD.MM.YYYY") : "Без срока"}
-          {isDueSoon(task) && <Tag color="red">скоро</Tag>}
+          {isOverdue(task) && <Tag color="red">просрочено</Tag>}
+          {!isOverdue(task) && isDueSoon(task) && <Tag color="red">скоро</Tag>}
         </span>
       )
     },
@@ -129,6 +167,7 @@ function TaskTable({ tasks, categoryMap }) {
       dataIndex: "status",
       key: "status",
       width: 140,
+      sorter: (first, second) => (statusOrder[first.status] || 99) - (statusOrder[second.status] || 99),
       render: (status) => (
         <Tag color={statusLabels[status]?.[1]}>{statusLabels[status]?.[0] || status}</Tag>
       )
@@ -163,6 +202,7 @@ function TaskTable({ tasks, categoryMap }) {
       dataIndex: "priority",
       key: "priority",
       width: 130,
+      sorter: (first, second) => (priorityOrder[first.priority] || 99) - (priorityOrder[second.priority] || 99),
       render: (priority) => {
         const [priorityLabel, priorityColor] = priorityLabels[priority] || priorityLabels.medium;
         return <Tag color={priorityColor}>{priorityLabel}</Tag>;
@@ -180,7 +220,7 @@ function TaskTable({ tasks, categoryMap }) {
       scroll={{ x: 1060 }}
       rowClassName={(task) =>
         [
-          isDueSoon(task) ? "dashboard__task-row--due" : "",
+          isDeadlineAlert(task) ? "dashboard__task-row--due" : "",
           isUrgentActive(task) ? "dashboard__task-row--urgent" : ""
         ]
           .filter(Boolean)
@@ -348,7 +388,7 @@ export function Dashboard({ currentUser }) {
           : quickFilter === "today"
             ? task.dueDate && dayjs(task.dueDate).isSame(today, "day")
             : quickFilter === "overdue"
-              ? task.dueDate && dayjs(task.dueDate).isBefore(today, "day") && !["review", "done", "closed"].includes(task.status)
+              ? isOverdue(task)
               : quickFilter === "review"
                 ? ["review", "done"].includes(task.status)
                 : quickFilter === "unassigned"
@@ -378,6 +418,12 @@ export function Dashboard({ currentUser }) {
     }),
     [allTasks, data, hideClosed, projectFilter, categoryFilter, searchText, categoryNameMap, quickFilter]
   );
+
+  const activeView = statItems.find((item) => item.key === activeRoleTab) || statItems[0];
+  const activeTasks = visibleTasks[activeRoleTab] || [];
+  const activeOverdueCount = activeTasks.filter(isOverdue).length;
+  const activeDueSoonCount = activeTasks.filter((task) => !isOverdue(task) && isDueSoon(task)).length;
+  const activeUrgentCount = activeTasks.filter(isUrgentActive).length;
 
   function handleDashboardProjectChange(projectId) {
     setProjectFilter(projectId);
@@ -452,7 +498,7 @@ export function Dashboard({ currentUser }) {
       <div className="dashboard__head">
         <div>
           <Typography.Title level={1}>Главная</Typography.Title>
-          <Typography.Paragraph>Задачи по всем проектам и ролям.</Typography.Paragraph>
+          <Typography.Paragraph>Единый рабочий список по проектам, срокам и ролям.</Typography.Paragraph>
         </div>
         <Space wrap>
           {isCompactControls ? (
@@ -485,14 +531,16 @@ export function Dashboard({ currentUser }) {
         />
       )}
 
-      <div className="dashboard__stats">
+      <div className="dashboard__stats" role="tablist" aria-label="Фильтр задач по роли">
         {statItems.map((item) => (
           <button
             key={item.key}
             type="button"
+            role="tab"
             className={activeRoleTab === item.key ? "dashboard__stat-card dashboard__stat-card--active" : "dashboard__stat-card"}
             aria-label={`${item.title}: ${visibleTasks[item.key].length}`}
             aria-pressed={activeRoleTab === item.key}
+            aria-selected={activeRoleTab === item.key}
             onClick={() => setActiveRoleTab(item.key)}
           >
             <div className="dashboard__stat-content" aria-label={`${item.title}: ${visibleTasks[item.key].length}`}>
@@ -508,6 +556,32 @@ export function Dashboard({ currentUser }) {
 
       <div className="dashboard__grid">
         <Card className="dashboard__tasks" loading={loading}>
+          <div className="dashboard__table-head">
+            <div>
+              <Typography.Text className="dashboard__eyebrow">Рабочий список</Typography.Text>
+              <Typography.Title level={2}>
+                {activeView.key === "all" ? "Все задачи" : `Задачи: ${activeView.title.toLowerCase()}`}
+              </Typography.Title>
+            </div>
+            <div className="dashboard__pulse" aria-label="Индикаторы задач">
+              <span>
+                <strong>{activeTasks.length}</strong>
+                показано
+              </span>
+              <span className={activeOverdueCount ? "dashboard__pulse-item dashboard__pulse-item--danger" : "dashboard__pulse-item"}>
+                <strong>{activeOverdueCount}</strong>
+                просрочено
+              </span>
+              <span className={activeDueSoonCount ? "dashboard__pulse-item dashboard__pulse-item--warn" : "dashboard__pulse-item"}>
+                <strong>{activeDueSoonCount}</strong>
+                скоро
+              </span>
+              <span className={activeUrgentCount ? "dashboard__pulse-item dashboard__pulse-item--urgent" : "dashboard__pulse-item"}>
+                <strong>{activeUrgentCount}</strong>
+                срочно
+              </span>
+            </div>
+          </div>
           <div className="dashboard__filters-panel">
             <Select
               allowClear
@@ -551,7 +625,7 @@ export function Dashboard({ currentUser }) {
               Сбросить
             </Button>
           </div>
-          <TaskTable tasks={visibleTasks[activeRoleTab]} categoryMap={categoryMap} />
+          <TaskTable tasks={activeTasks} categoryMap={categoryMap} />
         </Card>
       </div>
 
