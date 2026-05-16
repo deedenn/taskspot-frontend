@@ -11,7 +11,6 @@ const statusOptions = [
   { value: "open", label: "Открыта" },
   { value: "in_progress", label: "В работе" },
   { value: "review", label: "Проверка" },
-  { value: "done", label: "Проверка" },
   { value: "closed", label: "Закрыта" }
 ];
 
@@ -52,6 +51,10 @@ function isDueSoon(task) {
 
 function isUrgentActive(task) {
   return task?.priority === "urgent" && !["review", "done", "closed"].includes(task.status);
+}
+
+function normalizedStatus(status) {
+  return status === "done" ? "review" : status;
 }
 
 export function TaskWorkspace({ project, currentUser }) {
@@ -440,7 +443,7 @@ export function TaskWorkspace({ project, currentUser }) {
 
 function TaskCard({ task, categoryMap, onStatusChange, onComment }) {
   const [commentForm] = Form.useForm();
-  const status = statusOptions.find((item) => item.value === task.status);
+  const status = statusOptions.find((item) => item.value === normalizedStatus(task.status));
   const assigneeLabel = task.assignee?.name || task.assigneeEmail || "не назначен";
   const [priorityLabel, priorityColor] = priorityLabels[task.priority] || priorityLabels.medium;
   const className = [
@@ -455,7 +458,7 @@ function TaskCard({ task, categoryMap, onStatusChange, onComment }) {
     <article className={className}>
       <div className="tasks__topline">
         <Space wrap>
-          <Tag color={statusColor[task.status]}>{status?.label}</Tag>
+          <Tag color={statusColor[task.status]}>{status?.label || task.status}</Tag>
           <Tag color={priorityColor}>{priorityLabel}</Tag>
         </Space>
         <span className={isDueSoon(task) ? "tasks__due-date tasks__due-date--soon" : "tasks__due-date"}>
@@ -488,7 +491,7 @@ function TaskCard({ task, categoryMap, onStatusChange, onComment }) {
       </Space>
       <div className="tasks__controls">
         <Select
-          value={task.status}
+          value={normalizedStatus(task.status)}
           options={statusOptions}
           onChange={(value) => onStatusChange(task, value)}
         />

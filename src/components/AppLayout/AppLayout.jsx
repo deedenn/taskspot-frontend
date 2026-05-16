@@ -86,18 +86,28 @@ export function AppLayout({ auth }) {
     navigate("/", { replace: true });
   }
 
-  async function loadNotifications() {
+  async function loadNotifications({ silent = false } = {}) {
     try {
       const data = await apiFetch("/notifications");
       setNotifications(data.notifications);
     } catch (error) {
-      message.error(error.message);
+      if (!silent) {
+        message.error(error.message);
+      }
     }
   }
 
   useEffect(() => {
     loadNotifications();
   }, [location.pathname]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      loadNotifications({ silent: true });
+    }, 30000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   const unreadCount = useMemo(
     () => notifications.filter((notification) => !notification.read).length,

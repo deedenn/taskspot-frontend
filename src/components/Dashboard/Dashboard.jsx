@@ -39,7 +39,7 @@ const statusLabels = {
   open: ["Открыта", "blue"],
   in_progress: ["В работе", "gold"],
   review: ["Проверка", "purple"],
-  done: ["Готово", "green"],
+  done: ["Проверка", "purple"],
   closed: ["Закрыта", "default"]
 };
 
