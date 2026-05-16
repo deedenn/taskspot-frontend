@@ -9,6 +9,7 @@ import {
   TeamOutlined
 } from "@ant-design/icons";
 import { Link } from "react-router-dom";
+import { BrandLogo } from "../BrandLogo/BrandLogo.jsx";
 import "./LandingPage.css";
 
 const features = [
@@ -79,7 +80,7 @@ export function LandingPage({ user }) {
     <main className="landing">
       <header className="landing__nav">
         <Link className="landing__brand" to="/">
-          Taskspot
+          <BrandLogo variant="light" />
         </Link>
         <nav className="landing__nav-links" aria-label="Разделы лендинга">
           <a href="#features">Возможности</a>

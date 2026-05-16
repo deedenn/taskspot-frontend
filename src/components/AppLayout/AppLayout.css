@@ -9,12 +9,19 @@
 .app-layout__brand {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   height: 68px;
-  padding: 0 24px;
-  color: #ffffff;
-  font-size: 22px;
-  font-weight: 800;
+  padding: 0 18px;
   text-decoration: none;
+}
+
+.ant-layout-sider-collapsed .app-layout__brand {
+  justify-content: center;
+  padding: 0;
+}
+
+.app-layout__brand .brand-logo:not(.brand-logo--compact) {
+  width: 176px;
 }
 
 .app-layout__header {
@@ -35,10 +42,14 @@
 }
 
 .app-layout__mobile-brand {
-  color: #102a33;
-  font-size: 20px;
-  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
   text-decoration: none;
+}
+
+.app-layout__mobile-brand .brand-logo {
+  width: 132px;
+  height: 32px;
 }
 
 .app-layout__user {

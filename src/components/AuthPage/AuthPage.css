@@ -14,10 +14,14 @@
   position: absolute;
   top: 28px;
   left: 32px;
-  color: #14343b;
-  font-size: 24px;
-  font-weight: 800;
+  display: inline-flex;
   text-decoration: none;
+}
+
+.auth-page__brand .brand-logo {
+  width: 168px;
+  height: 40px;
+  box-shadow: 0 12px 36px rgba(25, 42, 52, 0.12);
 }
 
 .auth-page__card {
@@ -50,7 +54,11 @@
   .auth-page__brand {
     top: 22px;
     left: 18px;
-    font-size: 22px;
+  }
+
+  .auth-page__brand .brand-logo {
+    width: 146px;
+    height: 34px;
   }
 
   .auth-page__card {

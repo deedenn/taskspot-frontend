@@ -28,11 +28,14 @@
 }
 
 .landing__brand {
-  color: #ffffff;
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: 0;
+  display: inline-flex;
+  align-items: center;
   text-decoration: none;
+}
+
+.landing__brand .brand-logo {
+  width: 172px;
+  height: 40px;
 }
 
 .landing__nav-links,

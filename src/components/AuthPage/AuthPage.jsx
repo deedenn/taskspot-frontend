@@ -3,6 +3,7 @@ import { Alert, Button, Card, Form, Input, Typography } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { apiFetch } from "../../api.js";
+import { BrandLogo } from "../BrandLogo/BrandLogo.jsx";
 import "./AuthPage.css";
 
 export function AuthPage({ mode, auth }) {
@@ -64,7 +65,7 @@ export function AuthPage({ mode, auth }) {
   return (
     <main className="auth-page">
       <Link className="auth-page__brand" to="/">
-        Taskspot
+        <BrandLogo />
       </Link>
       <Card className="auth-page__card">
         <Typography.Title level={1}>

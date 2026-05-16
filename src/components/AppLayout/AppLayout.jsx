@@ -19,6 +19,7 @@ import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { apiFetch } from "../../api.js";
+import { BrandLogo } from "../BrandLogo/BrandLogo.jsx";
 import "./AppLayout.css";
 
 const { Header, Sider, Content } = Layout;
@@ -192,7 +193,7 @@ export function AppLayout({ auth }) {
       {!isMobile && (
         <Sider width={252} collapsible collapsed={collapsed} trigger={null} className="app-layout__sider">
           <Link to="/app/dashboard" className="app-layout__brand">
-            {collapsed ? "TS" : "Taskspot"}
+            <BrandLogo compact={collapsed} variant="light" />
           </Link>
           <Menu theme="dark" mode="inline" selectedKeys={[location.pathname]} items={navItems} />
         </Sider>
@@ -208,7 +209,7 @@ export function AppLayout({ auth }) {
                   onClick={() => setMobileMenuOpen(true)}
                 />
                 <Link to="/app/dashboard" className="app-layout__mobile-brand">
-                  Taskspot
+                  <BrandLogo />
                 </Link>
               </>
             ) : (
@@ -240,7 +241,7 @@ export function AppLayout({ auth }) {
       </Layout>
       <Drawer
         className="app-layout__drawer"
-        title="Taskspot"
+        title={<BrandLogo />}
         open={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
         placement="left"
