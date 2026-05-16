@@ -318,6 +318,36 @@
   margin-bottom: 0;
 }
 
+.dashboard__create-attachments {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.dashboard__create-attachments .ant-upload-drag {
+  min-height: 132px;
+}
+
+.dashboard__create-attachment {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 7px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.dashboard__create-attachment span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 980px) {
   .dashboard__table-head {
     align-items: flex-start;

@@ -3,6 +3,7 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   CommentOutlined,
+  DeleteOutlined,
   DownloadOutlined,
   FileOutlined,
   HistoryOutlined,
@@ -99,8 +100,8 @@ export function TaskDetails({ currentUser }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [attachmentFileList, setAttachmentFileList] = useState([]);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [deletingAttachmentId, setDeletingAttachmentId] = useState("");
   const [returnModalOpen, setReturnModalOpen] = useState(false);
   const [commentForm] = Form.useForm();
   const [returnForm] = Form.useForm();
@@ -218,24 +219,15 @@ export function TaskDetails({ currentUser }) {
     return presign.attachment;
   }
 
-  async function addAttachment() {
-    const file = attachmentFileList[0]?.originFileObj;
-
-    if (!file) {
-      message.warning("Выберите файл");
-      return;
-    }
-
+  async function addAttachmentFile(file) {
     setUploadingAttachment(true);
     try {
       const attachment = await uploadAttachmentFile(file);
-      const attachments = [...(task.attachments || []), attachment];
-      const data = await apiFetch(`/tasks/${taskId}`, {
-        method: "PATCH",
-        body: JSON.stringify({ attachments })
+      const data = await apiFetch(`/tasks/${taskId}/attachments`, {
+        method: "POST",
+        body: JSON.stringify(attachment)
       });
       setTask(data.task);
-      setAttachmentFileList([]);
       message.success("Файл добавлен");
     } catch (error) {
       message.error(error.message);
@@ -250,6 +242,35 @@ export function TaskDetails({ currentUser }) {
       window.open(data.url, "_blank", "noopener,noreferrer");
     } catch (error) {
       message.error(error.message);
+    }
+  }
+
+  async function deleteAttachment(attachment) {
+    const confirmed = await new Promise((resolve) => {
+      Modal.confirm({
+        title: "Удалить вложение?",
+        content: `Файл «${attachment.name}» будет удалён из задачи.`,
+        okText: "Удалить",
+        okButtonProps: { danger: true },
+        cancelText: "Отмена",
+        onOk: () => resolve(true),
+        onCancel: () => resolve(false)
+      });
+    });
+
+    if (!confirmed) return;
+
+    setDeletingAttachmentId(attachment._id);
+    try {
+      const data = await apiFetch(`/tasks/${taskId}/attachments/${attachment._id}`, {
+        method: "DELETE"
+      });
+      setTask(data.task);
+      message.success("Вложение удалено");
+    } catch (error) {
+      message.error(error.message);
+    } finally {
+      setDeletingAttachmentId("");
     }
   }
 
@@ -296,6 +317,10 @@ export function TaskDetails({ currentUser }) {
   const [priorityLabel, priorityColor] = priorityLabels[task.priority] || priorityLabels.medium;
   const isAssignee = idOf(task.assignee) === currentUser?._id;
   const isCreator = idOf(task.creator) === currentUser?._id;
+  const isProjectAdmin = task.project?.members?.some(
+    (member) => idOf(member.user) === currentUser?._id && member.role === "admin"
+  );
+  const canManageAttachments = isCreator || isAssignee || isProjectAdmin;
   const canSendToReview = isAssignee && !["review", "done", "closed"].includes(task.status);
   const canReview = isCreator && ["review", "done"].includes(task.status);
   const canChangePriority = isCreator && task.status !== "closed";
@@ -485,9 +510,19 @@ export function TaskDetails({ currentUser }) {
                     {[formatFileSize(attachment.size), attachment.addedBy?.name].filter(Boolean).join(" · ") || "Файл"}
                   </Typography.Text>
                 </div>
-                <Button icon={<DownloadOutlined />} onClick={() => openAttachment(attachment)}>
-                  Открыть
-                </Button>
+                <Space className="task-details__attachment-actions">
+                  <Button icon={<DownloadOutlined />} onClick={() => openAttachment(attachment)}>
+                    Открыть
+                  </Button>
+                  {canManageAttachments && (
+                    <Button
+                      danger
+                      icon={<DeleteOutlined />}
+                      loading={deletingAttachmentId === attachment._id}
+                      onClick={() => deleteAttachment(attachment)}
+                    />
+                  )}
+                </Space>
               </div>
             ))}
           </div>
@@ -495,45 +530,34 @@ export function TaskDetails({ currentUser }) {
           <Empty description="Вложений пока нет" />
         )}
 
-        {(isCreator || isAssignee) && (
+        {canManageAttachments && (
           <div className="task-details__attachment-form">
             <Upload.Dragger
               accept="*"
+              disabled={uploadingAttachment}
               beforeUpload={(file) => {
                 if (file.size > MAX_ATTACHMENT_SIZE) {
                   message.error("Файл должен быть меньше 20 МБ");
                   return Upload.LIST_IGNORE;
                 }
 
-                setAttachmentFileList([
-                  {
-                    uid: file.uid,
-                    name: file.name,
-                    status: "done",
-                    originFileObj: file
-                  }
-                ]);
-                return false;
+                void addAttachmentFile(file);
+                return Upload.LIST_IGNORE;
               }}
-              fileList={attachmentFileList}
+              fileList={[]}
               maxCount={1}
               multiple={false}
-              onRemove={() => setAttachmentFileList([])}
             >
               <p className="ant-upload-drag-icon">
                 <PaperClipOutlined />
               </p>
-              <p className="ant-upload-text">Нажмите или перетащите файл</p>
-              <p className="ant-upload-hint">Файл будет сохранён в хранилище и прикреплён к задаче.</p>
+              <p className="ant-upload-text">
+                {uploadingAttachment ? "Файл загружается..." : "Нажмите или перетащите файл"}
+              </p>
+              <p className="ant-upload-hint">
+                Файл будет сохранён в хранилище и сразу прикреплён к задаче.
+              </p>
             </Upload.Dragger>
-            <Button
-              type="primary"
-              onClick={addAttachment}
-              loading={uploadingAttachment}
-              disabled={!attachmentFileList.length}
-            >
-              Добавить файл
-            </Button>
           </div>
         )}
       </Card>

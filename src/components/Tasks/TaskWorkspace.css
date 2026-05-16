@@ -128,6 +128,35 @@
   margin-bottom: 0;
 }
 
+.tasks__create-attachments {
+  display: grid;
+  gap: 8px;
+}
+
+.tasks__create-attachments .ant-upload-drag {
+  min-height: 132px;
+}
+
+.tasks__create-attachment {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 7px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.tasks__create-attachment span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .tasks__pending-tag {
   margin-left: 8px;
 }

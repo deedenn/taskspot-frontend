@@ -1,8 +1,10 @@
 import {
   CheckCircleOutlined,
   ClearOutlined,
+  DeleteOutlined,
   EyeInvisibleOutlined,
   EyeOutlined,
+  PaperClipOutlined,
   PlusOutlined,
   SendOutlined,
   UnorderedListOutlined
@@ -22,6 +24,7 @@ import {
   Tag,
   Tooltip,
   Typography,
+  Upload,
   Grid,
   message
 } from "antd";
@@ -46,6 +49,8 @@ const priorityOptions = [
   { value: "high", label: "Высокий" },
   { value: "urgent", label: "Срочно" }
 ];
+
+const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024;
 
 const priorityLabels = {
   low: ["Низкий", "default"],
@@ -244,6 +249,8 @@ export function Dashboard({ currentUser }) {
   const [searchText, setSearchText] = useState("");
   const [quickFilter, setQuickFilter] = useState("active");
   const [activeRoleTab, setActiveRoleTab] = useState("all");
+  const [pendingAttachmentFiles, setPendingAttachmentFiles] = useState([]);
+  const [creatingTask, setCreatingTask] = useState(false);
   const [form] = Form.useForm();
   const screens = Grid.useBreakpoint();
   const isCompactControls = !screens.sm;
@@ -468,8 +475,9 @@ export function Dashboard({ currentUser }) {
   }
 
   async function createTask(values) {
+    setCreatingTask(true);
     try {
-      await apiFetch("/tasks", {
+      const data = await apiFetch("/tasks", {
         method: "POST",
         body: JSON.stringify({
           ...values,
@@ -484,13 +492,63 @@ export function Dashboard({ currentUser }) {
           }
         })
       });
-      message.success("Задача создана");
+
+      const failedUploads = [];
+      for (const item of pendingAttachmentFiles) {
+        const file = item.originFileObj;
+        if (!file) continue;
+
+        try {
+          await uploadAttachmentForTask(data.task._id, file);
+        } catch (error) {
+          failedUploads.push(file.name);
+        }
+      }
+
+      if (failedUploads.length) {
+        message.warning(`Задача создана, но не удалось добавить файлов: ${failedUploads.join(", ")}`);
+      } else {
+        message.success(pendingAttachmentFiles.length ? "Задача создана, файлы добавлены" : "Задача создана");
+      }
+
       form.resetFields();
+      setPendingAttachmentFiles([]);
       setDrawerOpen(false);
       await loadDashboard();
     } catch (error) {
       message.error(error.message);
+    } finally {
+      setCreatingTask(false);
     }
+  }
+
+  async function uploadAttachmentForTask(taskId, file) {
+    const presign = await apiFetch("/uploads/presign", {
+      method: "POST",
+      body: JSON.stringify({
+        taskId,
+        fileName: file.name,
+        mimeType: file.type || "application/octet-stream",
+        size: file.size
+      })
+    });
+
+    const uploadResponse = await fetch(presign.uploadUrl, {
+      method: "PUT",
+      body: file,
+      headers: {
+        "Content-Type": file.type || "application/octet-stream"
+      }
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error("Не удалось загрузить файл в хранилище");
+    }
+
+    await apiFetch(`/tasks/${taskId}/attachments`, {
+      method: "POST",
+      body: JSON.stringify(presign.attachment)
+    });
   }
 
   return (
@@ -635,7 +693,7 @@ export function Dashboard({ currentUser }) {
         width={screens.sm ? 520 : "100%"}
         onClose={() => setDrawerOpen(false)}
         extra={
-          <Button type="primary" onClick={() => form.submit()}>
+          <Button type="primary" loading={creatingTask} onClick={() => form.submit()}>
             Создать
           </Button>
         }
@@ -691,9 +749,56 @@ export function Dashboard({ currentUser }) {
             <Form.Item name="checklistText" label="Чек-лист">
               <Input.TextArea rows={4} placeholder="Каждый пункт с новой строки" />
             </Form.Item>
-            <Typography.Text type="secondary">
-              Вложения можно добавить после создания задачи в её карточке.
-            </Typography.Text>
+            <div className="dashboard__create-attachments">
+              <Typography.Text strong>Вложения</Typography.Text>
+              <Upload.Dragger
+                accept="*"
+                disabled={creatingTask}
+                beforeUpload={(file) => {
+                  if (file.size > MAX_ATTACHMENT_SIZE) {
+                    message.error("Файл должен быть меньше 20 МБ");
+                    return Upload.LIST_IGNORE;
+                  }
+
+                  setPendingAttachmentFiles((files) => [
+                    ...files.filter((item) => item.uid !== file.uid),
+                    {
+                      uid: file.uid,
+                      name: file.name,
+                      status: "done",
+                      originFileObj: file
+                    }
+                  ]);
+                  return false;
+                }}
+                fileList={pendingAttachmentFiles}
+                multiple
+                onRemove={(file) => {
+                  setPendingAttachmentFiles((files) => files.filter((item) => item.uid !== file.uid));
+                }}
+                itemRender={(originNode, file, fileList, actions) => (
+                  <div className="dashboard__create-attachment">
+                    <span>
+                      <PaperClipOutlined /> {file.name}
+                    </span>
+                    <Button
+                      danger
+                      size="small"
+                      icon={<DeleteOutlined />}
+                      onClick={actions.remove}
+                    />
+                  </div>
+                )}
+              >
+                <p className="ant-upload-drag-icon">
+                  <PaperClipOutlined />
+                </p>
+                <p className="ant-upload-text">Перетащите файлы или нажмите для выбора</p>
+                <p className="ant-upload-hint">
+                  Файлы будут загружены после создания задачи.
+                </p>
+              </Upload.Dragger>
+            </div>
           </Form>
         ) : (
           <Empty description="Сначала создайте проект" />

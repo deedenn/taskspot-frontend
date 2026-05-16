@@ -86,16 +86,23 @@
 }
 
 .task-details__attachment-form .ant-upload-wrapper {
-  max-width: 620px;
+  width: 100%;
+  max-width: 760px;
 }
 
-.task-details__attachment-form > .ant-btn {
-  width: fit-content;
+.task-details__attachment-form .ant-upload-drag {
+  min-height: 168px;
+}
+
+.task-details__attachment-form .ant-upload-drag-icon {
+  margin-bottom: 10px;
 }
 
 .task-details__attachment-list {
   display: grid;
   gap: 10px;
+  max-height: 260px;
+  overflow: auto;
 }
 
 .task-details__attachment {
@@ -127,6 +134,10 @@
 
 .task-details__attachment-main .ant-typography {
   overflow-wrap: anywhere;
+}
+
+.task-details__attachment-actions {
+  justify-content: flex-end;
 }
 
 .task-details__comment-form {
@@ -197,8 +208,7 @@
     display: grid;
   }
 
-  .task-details__attachment,
-  .task-details__attachment-form > .ant-btn {
+  .task-details__attachment {
     grid-template-columns: auto minmax(0, 1fr);
     width: 100%;
   }
@@ -206,5 +216,20 @@
   .task-details__attachment > .ant-btn {
     grid-column: 2;
     width: 100%;
+  }
+
+  .task-details__attachment-actions {
+    grid-column: 2;
+    display: grid;
+    grid-template-columns: 1fr 40px;
+    width: 100%;
+  }
+
+  .task-details__attachment-actions .ant-btn {
+    width: 100%;
+  }
+
+  .task-details__attachment-form .ant-upload-drag {
+    min-height: 132px;
   }
 }
