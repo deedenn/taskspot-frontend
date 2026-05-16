@@ -14,7 +14,7 @@
   align-items: center;
   gap: 8px;
   width: fit-content;
-  color: #1f7a8c;
+  color: var(--brand-blue-600);
   font-weight: 600;
   text-decoration: none;
 }

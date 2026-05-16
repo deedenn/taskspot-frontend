@@ -12,13 +12,13 @@
 }
 
 .dashboard__head .ant-typography {
-  color: #2d3439;
+  color: var(--text-secondary);
 }
 
 .dashboard__filter {
   height: 40px;
   padding: 0 12px;
-  border: 1px solid #dce5eb;
+  border: 1px solid var(--border-subtle);
   border-radius: 8px;
   background: #ffffff;
 }
@@ -38,10 +38,10 @@
   gap: 4px;
   margin-bottom: 16px;
   padding: 4px;
-  border: 1px solid #dce5eb;
+  border: 1px solid var(--border-subtle);
   border-radius: 10px;
   background: #ffffff;
-  box-shadow: 0 8px 26px rgba(28, 47, 58, 0.05);
+  box-shadow: 0 8px 26px rgba(7, 20, 38, 0.05);
 }
 
 .dashboard__stat-card {
@@ -58,20 +58,20 @@
 
 .dashboard__stat-card:hover,
 .dashboard__stat-card:focus-visible {
-  border-color: #1f7a8c;
-  background: #f3fbfc;
+  border-color: var(--brand-blue-600);
+  background: var(--brand-blue-100);
 }
 
 .dashboard__stat-card:focus-visible {
-  outline: 3px solid rgba(31, 122, 140, 0.24);
+  outline: 3px solid rgba(37, 99, 235, 0.24);
   outline-offset: 2px;
 }
 
 .dashboard__stat-card--active {
-  border-color: #1f7a8c;
-  background: #1f7a8c;
+  border-color: var(--brand-blue-600);
+  background: var(--brand-blue-600);
   color: #ffffff;
-  box-shadow: 0 8px 18px rgba(31, 122, 140, 0.2);
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.22);
 }
 
 .dashboard__stat-content {
@@ -87,8 +87,8 @@
   width: 28px;
   height: 28px;
   border-radius: 7px;
-  color: #1f7a8c;
-  background: #e7f4f7;
+  color: var(--brand-blue-600);
+  background: var(--brand-blue-100);
   font-size: 16px;
 }
 
@@ -101,13 +101,13 @@
   display: inline-flex;
   align-items: baseline;
   gap: 6px;
-  color: #60717c;
+  color: var(--text-muted);
   font-size: 13px;
   line-height: 1.2;
 }
 
 .dashboard__stat-text strong {
-  color: #17202a;
+  color: var(--text-primary);
   font-size: 20px;
   line-height: 1;
 }
@@ -122,9 +122,9 @@
 }
 
 .dashboard__tasks.ant-card {
-  border: 1px solid #e6edf2;
+  border: 1px solid var(--border-subtle);
   border-radius: 12px;
-  box-shadow: 0 16px 36px rgba(28, 47, 58, 0.06);
+  box-shadow: 0 16px 36px rgba(7, 20, 38, 0.06);
 }
 
 .dashboard__tasks .ant-card-body {
@@ -137,13 +137,13 @@
   justify-content: space-between;
   gap: 18px;
   padding: 18px 20px 14px;
-  border-bottom: 1px solid #edf1f5;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .dashboard__eyebrow {
   display: block;
   margin-bottom: 2px;
-  color: #1f7a8c;
+  color: var(--brand-blue-600);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -152,7 +152,7 @@
 
 .dashboard__table-head h2.ant-typography {
   margin: 0;
-  color: #17202a;
+  color: var(--text-primary);
   font-size: 22px;
   line-height: 1.15;
 }
@@ -170,16 +170,16 @@
   gap: 5px;
   min-height: 30px;
   padding: 5px 9px;
-  border: 1px solid #edf1f5;
+  border: 1px solid var(--border-subtle);
   border-radius: 8px;
-  background: #f8fafb;
-  color: #60717c;
+  background: var(--surface-muted);
+  color: var(--text-muted);
   font-size: 12px;
   white-space: nowrap;
 }
 
 .dashboard__pulse strong {
-  color: #17202a;
+  color: var(--text-primary);
   font-size: 16px;
   line-height: 1;
 }
@@ -215,8 +215,8 @@
   align-items: start;
   margin: 0;
   padding: 14px 20px;
-  border-bottom: 1px solid #edf1f5;
-  background: #fbfcfd;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-muted);
 }
 
 .dashboard__filter-select {
@@ -224,13 +224,13 @@
 }
 
 .dashboard__task-link {
-  color: #1f7a8c;
+  color: var(--brand-blue-600);
   font-weight: 600;
   text-decoration: none;
 }
 
 .dashboard__task-link:hover {
-  color: #155b69;
+  color: var(--brand-blue-700);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -243,18 +243,18 @@
 
 .dashboard__task-table .ant-table-thead > tr > th {
   background: #ffffff;
-  color: #60717c;
+  color: var(--text-muted);
   font-size: 13px;
   font-weight: 600;
 }
 
 .dashboard__task-table .ant-table-tbody > tr > td {
   vertical-align: middle;
-  border-bottom-color: #edf1f5;
+  border-bottom-color: var(--border-subtle);
 }
 
 .dashboard__task-table .ant-table-tbody > tr:hover > td {
-  background: #f7fbfc;
+  background: var(--brand-blue-100);
 }
 
 .dashboard__task-row--due > td {

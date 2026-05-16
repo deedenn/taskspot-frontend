@@ -32,7 +32,7 @@
 }
 
 .profile__avatar-button:focus-visible {
-  outline: 3px solid rgba(31, 122, 140, 0.32);
+  outline: 3px solid rgba(37, 99, 235, 0.28);
   outline-offset: 4px;
 }
 
@@ -42,7 +42,7 @@
 
 .profile__avatar-button:hover .ant-avatar {
   filter: brightness(0.82);
-  box-shadow: 0 12px 28px rgba(31, 122, 140, 0.18);
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.18);
 }
 
 .profile__avatar-overlay {

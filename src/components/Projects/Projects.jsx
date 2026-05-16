@@ -508,7 +508,7 @@ export function Projects({ user }) {
                       <Form.Item name="name" label="Название категории" rules={[{ required: true, message: "Название обязательно" }]}>
                         <Input placeholder="Например: Срочно" />
                       </Form.Item>
-                      <Form.Item name="color" label="Цвет" initialValue="#1f7a8c">
+                      <Form.Item name="color" label="Цвет" initialValue="#2563eb">
                         <ColorPicker />
                       </Form.Item>
                       <Button type="primary" icon={<PlusOutlined />} htmlType="submit">

@@ -12,7 +12,15 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       locale={ruRU}
       theme={{
         token: {
-          colorPrimary: "#1f7a8c",
+          colorPrimary: "#2563eb",
+          colorInfo: "#2563eb",
+          colorLink: "#2563eb",
+          colorSuccess: "#16a34a",
+          colorWarning: "#d97706",
+          colorError: "#dc2626",
+          colorTextBase: "#0f172a",
+          colorBgLayout: "#f6f8fb",
+          colorBorder: "#e2e8f0",
           borderRadius: 8,
           fontFamily: "Inter, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
         }

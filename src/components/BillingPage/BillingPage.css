@@ -26,7 +26,7 @@
 }
 
 .billing-page__plan--active {
-  border-color: #1f7a8c;
+  border-color: var(--brand-blue-600);
 }
 
 .billing-page__plan h3.ant-typography,

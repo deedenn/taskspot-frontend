@@ -2,10 +2,32 @@
   box-sizing: border-box;
 }
 
+:root {
+  --brand-navy-950: #071426;
+  --brand-navy-900: #0b1b33;
+  --brand-navy-800: #122947;
+  --brand-blue-700: #1d4ed8;
+  --brand-blue-600: #2563eb;
+  --brand-blue-500: #3b82f6;
+  --brand-blue-100: #eaf3ff;
+  --brand-violet-600: #6d5df6;
+  --brand-violet-100: #f0edff;
+  --surface-page: #f6f8fb;
+  --surface-panel: #ffffff;
+  --surface-muted: #f8fafc;
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --border-subtle: #e2e8f0;
+  --danger: #dc2626;
+  --warning: #d97706;
+  --success: #16a34a;
+}
+
 body {
   margin: 0;
-  background: #f5f7fb;
-  color: #17202a;
+  background: var(--surface-page);
+  color: var(--text-primary);
   overflow-x: hidden;
 }
 
