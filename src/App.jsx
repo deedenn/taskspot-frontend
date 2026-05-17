@@ -87,6 +87,7 @@ export function App() {
             <Route path="templates" element={<Suspense fallback={<RouteLoader />}><TemplatesPage currentUser={user} /></Suspense>} />
             <Route path="billing" element={<Suspense fallback={<RouteLoader />}><BillingPage /></Suspense>} />
             <Route path="projects" element={<Suspense fallback={<RouteLoader />}><Projects user={user} /></Suspense>} />
+            <Route path="projects/:projectId" element={<Suspense fallback={<RouteLoader />}><Projects user={user} /></Suspense>} />
             <Route path="projects/:projectId/tasks" element={<Suspense fallback={<RouteLoader />}><ProjectTasks currentUser={user} /></Suspense>} />
             <Route path="tasks/:taskId" element={<Suspense fallback={<RouteLoader />}><TaskDetails currentUser={user} /></Suspense>} />
             <Route path="profile" element={<Suspense fallback={<RouteLoader />}><Profile auth={auth} /></Suspense>} />
