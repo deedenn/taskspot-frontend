@@ -437,7 +437,7 @@ export function TaskDetails({ currentUser }) {
                 type="primary"
                 icon={<CheckCircleOutlined />}
                 loading={saving}
-                onClick={() => updateStatus("closed", {}, true)}
+                onClick={() => updateStatus("closed")}
               >
                 Подтвердить выполнение
               </Button>

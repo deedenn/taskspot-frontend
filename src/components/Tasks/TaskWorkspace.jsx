@@ -1,4 +1,4 @@
-import { CommentOutlined, DeleteOutlined, EyeInvisibleOutlined, EyeOutlined, PaperClipOutlined, PlusOutlined } from "@ant-design/icons";
+import { CheckCircleOutlined, CommentOutlined, DeleteOutlined, EyeInvisibleOutlined, EyeOutlined, PaperClipOutlined, PlusOutlined, RollbackOutlined } from "@ant-design/icons";
 import { Button, Card, DatePicker, Drawer, Empty, Form, Grid, Input, List, Modal, Select, Space, Switch, Tag, Tooltip, Typography, Upload, message } from "antd";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
@@ -259,6 +259,50 @@ export function TaskWorkspace({ project, currentUser }) {
     }
   }
 
+  async function returnTaskToWork(task) {
+    const comment = await new Promise((resolve) => {
+      let commentValue = "";
+
+      Modal.confirm({
+        title: "Отправить задачу на доработку?",
+        content: (
+          <Input.TextArea
+            rows={4}
+            autoFocus
+            placeholder="Опишите, что нужно доработать"
+            onChange={(event) => {
+              commentValue = event.target.value;
+            }}
+          />
+        ),
+        okText: "Отправить",
+        cancelText: "Отмена",
+        onOk: () => {
+          if (!commentValue.trim()) {
+            message.error("Комментарий обязателен");
+            return Promise.reject(new Error("Comment required"));
+          }
+
+          resolve(commentValue.trim());
+        },
+        onCancel: () => resolve("")
+      });
+    });
+
+    if (!comment) return;
+
+    try {
+      const data = await apiFetch(`/tasks/${task._id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "in_progress", comment })
+      });
+      setTasks((items) => items.map((item) => (item._id === task._id ? data.task : item)));
+      message.success("Задача отправлена на доработку");
+    } catch (error) {
+      message.error(error.message);
+    }
+  }
+
   async function addComment(task, values, resetForm) {
     try {
       const data = await apiFetch(`/tasks/${task._id}/comments`, {
@@ -320,8 +364,10 @@ export function TaskWorkspace({ project, currentUser }) {
             <TaskCard
               key={task._id}
               task={task}
+              currentUser={currentUser}
               categoryMap={categoryMap}
               onStatusChange={changeStatus}
+              onReturnToWork={returnTaskToWork}
               onComment={addComment}
             />
           ))}
@@ -441,11 +487,15 @@ export function TaskWorkspace({ project, currentUser }) {
   );
 }
 
-function TaskCard({ task, categoryMap, onStatusChange, onComment }) {
+function TaskCard({ task, currentUser, categoryMap, onStatusChange, onReturnToWork, onComment }) {
   const [commentForm] = Form.useForm();
   const status = statusOptions.find((item) => item.value === normalizedStatus(task.status));
   const assigneeLabel = task.assignee?.name || task.assigneeEmail || "не назначен";
   const [priorityLabel, priorityColor] = priorityLabels[task.priority] || priorityLabels.medium;
+  const isCreator = idOf(task.creator) === currentUser?._id;
+  const isAssignee = idOf(task.assignee) === currentUser?._id;
+  const canSendToReview = isAssignee && !["review", "done", "closed"].includes(task.status);
+  const canReview = isCreator && ["review", "done"].includes(task.status);
   const className = [
     "tasks__card",
     isDueSoon(task) ? "tasks__card--due" : "",
@@ -490,11 +540,35 @@ function TaskCard({ task, categoryMap, onStatusChange, onComment }) {
         })}
       </Space>
       <div className="tasks__controls">
-        <Select
-          value={normalizedStatus(task.status)}
-          options={statusOptions}
-          onChange={(value) => onStatusChange(task, value)}
-        />
+        {canSendToReview && (
+          <Button
+            type="primary"
+            icon={<CheckCircleOutlined />}
+            onClick={() => onStatusChange(task, "review")}
+          >
+            Выполнено
+          </Button>
+        )}
+        {canReview && (
+          <>
+            <Button
+              type="primary"
+              icon={<CheckCircleOutlined />}
+              onClick={() => onStatusChange(task, "closed")}
+            >
+              Подтвердить
+            </Button>
+            <Button
+              icon={<RollbackOutlined />}
+              onClick={() => onReturnToWork(task)}
+            >
+              На доработку
+            </Button>
+          </>
+        )}
+        {!canSendToReview && !canReview && (
+          <Tag color={statusColor[task.status]}>{status?.label || task.status}</Tag>
+        )}
       </div>
       <div className="tasks__comments">
         <Typography.Text strong>
