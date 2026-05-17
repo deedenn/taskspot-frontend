@@ -74,6 +74,22 @@
   box-shadow: 0 8px 18px rgba(37, 99, 235, 0.22);
 }
 
+.dashboard__stat-card--review:not(.dashboard__stat-card--active) {
+  border-color: #d8c8ff;
+  background: #fbf8ff;
+}
+
+.dashboard__stat-card--review:not(.dashboard__stat-card--active) .dashboard__stat-icon {
+  color: #722ed1;
+  background: #f3e8ff;
+}
+
+.dashboard__stat-card--review.dashboard__stat-card--active {
+  border-color: #722ed1;
+  background: #722ed1;
+  box-shadow: 0 8px 18px rgba(114, 46, 209, 0.22);
+}
+
 .dashboard__stat-content {
   display: inline-flex;
   align-items: center;

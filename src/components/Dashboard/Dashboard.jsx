@@ -415,6 +415,10 @@ export function Dashboard({ currentUser }) {
 
     return Array.from(tasksById.values());
   }, [data]);
+  const reviewTasksForUserCount = useMemo(
+    () => data.initiated.filter((task) => ["review", "done"].includes(task.status)).length,
+    [data.initiated]
+  );
 
   const visibleTasks = useMemo(
     () => ({
@@ -428,6 +432,7 @@ export function Dashboard({ currentUser }) {
 
   const activeView = statItems.find((item) => item.key === activeRoleTab) || statItems[0];
   const activeTasks = visibleTasks[activeRoleTab] || [];
+  const isReviewFocusActive = activeRoleTab === "initiated" && quickFilter === "review";
   const activeOverdueCount = activeTasks.filter(isOverdue).length;
   const activeDueSoonCount = activeTasks.filter((task) => !isOverdue(task) && isDueSoon(task)).length;
   const activeUrgentCount = activeTasks.filter(isUrgentActive).length;
@@ -443,6 +448,11 @@ export function Dashboard({ currentUser }) {
     setSearchText("");
     setHideClosed(true);
     setQuickFilter("active");
+  }
+
+  function showReviewTasks() {
+    setActiveRoleTab("initiated");
+    setQuickFilter("review");
   }
 
   function defaultAssignee(project) {
@@ -610,6 +620,23 @@ export function Dashboard({ currentUser }) {
             </div>
           </button>
         ))}
+        <button
+          type="button"
+          className={isReviewFocusActive ? "dashboard__stat-card dashboard__stat-card--review dashboard__stat-card--active" : "dashboard__stat-card dashboard__stat-card--review"}
+          aria-label={`На проверке: ${reviewTasksForUserCount}`}
+          aria-pressed={isReviewFocusActive}
+          onClick={showReviewTasks}
+        >
+          <div className="dashboard__stat-content" aria-label={`На проверке: ${reviewTasksForUserCount}`}>
+            <span className="dashboard__stat-icon">
+              <CheckCircleOutlined />
+            </span>
+            <span className="dashboard__stat-text">
+              <strong>{reviewTasksForUserCount}</strong>
+              <span>На проверке</span>
+            </span>
+          </div>
+        </button>
       </div>
 
       <div className="dashboard__grid">
@@ -618,7 +645,11 @@ export function Dashboard({ currentUser }) {
             <div>
               <Typography.Text className="dashboard__eyebrow">Рабочий список</Typography.Text>
               <Typography.Title level={2}>
-                {activeView.key === "all" ? "Все задачи" : `Задачи: ${activeView.title.toLowerCase()}`}
+                {isReviewFocusActive
+                  ? "Задачи на проверке"
+                  : activeView.key === "all"
+                    ? "Все задачи"
+                    : `Задачи: ${activeView.title.toLowerCase()}`}
               </Typography.Title>
             </div>
             <div className="dashboard__pulse" aria-label="Индикаторы задач">
