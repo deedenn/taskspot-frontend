@@ -7,6 +7,7 @@ import { AuthPage } from "./components/AuthPage/AuthPage.jsx";
 import { LandingPage } from "./components/LandingPage/LandingPage.jsx";
 
 const Dashboard = lazy(() => import("./components/Dashboard/Dashboard.jsx").then((module) => ({ default: module.Dashboard })));
+const AdminDashboard = lazy(() => import("./components/AdminDashboard/AdminDashboard.jsx").then((module) => ({ default: module.AdminDashboard })));
 const CalendarPage = lazy(() => import("./components/CalendarPage/CalendarPage.jsx").then((module) => ({ default: module.CalendarPage })));
 const BillingPage = lazy(() => import("./components/BillingPage/BillingPage.jsx").then((module) => ({ default: module.BillingPage })));
 const ControlPage = lazy(() => import("./components/ControlPage/ControlPage.jsx").then((module) => ({ default: module.ControlPage })));
@@ -86,6 +87,7 @@ export function App() {
             <Route path="overdue" element={<Suspense fallback={<RouteLoader />}><OverdueTasks /></Suspense>} />
             <Route path="templates" element={<Suspense fallback={<RouteLoader />}><TemplatesPage currentUser={user} /></Suspense>} />
             <Route path="billing" element={<Suspense fallback={<RouteLoader />}><BillingPage /></Suspense>} />
+            <Route path="admin" element={<Suspense fallback={<RouteLoader />}><AdminDashboard currentUser={user} /></Suspense>} />
             <Route path="projects" element={<Suspense fallback={<RouteLoader />}><Projects user={user} /></Suspense>} />
             <Route path="projects/:projectId" element={<Suspense fallback={<RouteLoader />}><Projects user={user} /></Suspense>} />
             <Route path="projects/:projectId/tasks" element={<Suspense fallback={<RouteLoader />}><ProjectTasks currentUser={user} /></Suspense>} />

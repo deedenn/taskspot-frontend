@@ -2,6 +2,7 @@ import {
   BellOutlined,
   BarChartOutlined,
   CalendarOutlined,
+  CrownOutlined,
   CreditCardOutlined,
   ExclamationCircleOutlined,
   FolderOpenOutlined,
@@ -74,6 +75,15 @@ export function AppLayout({ auth }) {
       icon: <CreditCardOutlined />,
       label: <Link to="/app/billing">Тарифы</Link>
     },
+    ...(auth.user?.isSuperAdmin
+      ? [
+          {
+            key: "/app/admin",
+            icon: <CrownOutlined />,
+            label: <Link to="/app/admin">Админ</Link>
+          }
+        ]
+      : []),
     {
       key: "/app/profile",
       icon: <UserOutlined />,
