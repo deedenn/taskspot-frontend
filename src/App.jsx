@@ -27,6 +27,22 @@ function RouteLoader() {
   );
 }
 
+function RequireRegularUser({ user, children }) {
+  if (user?.isSuperAdmin) {
+    return <Navigate to="/app/admin" replace />;
+  }
+
+  return children;
+}
+
+function RequireSuperAdmin({ user, children }) {
+  if (!user?.isSuperAdmin) {
+    return <Navigate to="/app/dashboard" replace />;
+  }
+
+  return children;
+}
+
 export function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(Boolean(getToken()));
@@ -50,6 +66,7 @@ export function App() {
         });
         setToken(data.token);
         setUser(data.user);
+        return data.user;
       },
       signOut() {
         setToken(null);
@@ -79,20 +96,20 @@ export function App() {
             path="/app"
             element={user ? <AppLayout auth={auth} /> : <Navigate to="/login" replace />}
           >
-            <Route index element={<Suspense fallback={<RouteLoader />}><Onboarding currentUser={user} /></Suspense>} />
-            <Route path="onboarding" element={<Suspense fallback={<RouteLoader />}><Onboarding currentUser={user} /></Suspense>} />
-            <Route path="dashboard" element={<Suspense fallback={<RouteLoader />}><Dashboard currentUser={user} /></Suspense>} />
-            <Route path="control" element={<Suspense fallback={<RouteLoader />}><ControlPage /></Suspense>} />
-            <Route path="calendar" element={<Suspense fallback={<RouteLoader />}><CalendarPage /></Suspense>} />
-            <Route path="overdue" element={<Suspense fallback={<RouteLoader />}><OverdueTasks /></Suspense>} />
-            <Route path="templates" element={<Suspense fallback={<RouteLoader />}><TemplatesPage currentUser={user} /></Suspense>} />
-            <Route path="billing" element={<Suspense fallback={<RouteLoader />}><BillingPage /></Suspense>} />
-            <Route path="admin" element={<Suspense fallback={<RouteLoader />}><AdminDashboard currentUser={user} /></Suspense>} />
-            <Route path="projects" element={<Suspense fallback={<RouteLoader />}><Projects user={user} /></Suspense>} />
-            <Route path="projects/:projectId" element={<Suspense fallback={<RouteLoader />}><Projects user={user} /></Suspense>} />
-            <Route path="projects/:projectId/tasks" element={<Suspense fallback={<RouteLoader />}><ProjectTasks currentUser={user} /></Suspense>} />
-            <Route path="tasks/:taskId" element={<Suspense fallback={<RouteLoader />}><TaskDetails currentUser={user} /></Suspense>} />
-            <Route path="profile" element={<Suspense fallback={<RouteLoader />}><Profile auth={auth} /></Suspense>} />
+            <Route index element={<Navigate to={user?.isSuperAdmin ? "/app/admin" : "/app/onboarding"} replace />} />
+            <Route path="onboarding" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><Onboarding currentUser={user} /></Suspense></RequireRegularUser>} />
+            <Route path="dashboard" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><Dashboard currentUser={user} /></Suspense></RequireRegularUser>} />
+            <Route path="control" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><ControlPage /></Suspense></RequireRegularUser>} />
+            <Route path="calendar" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><CalendarPage /></Suspense></RequireRegularUser>} />
+            <Route path="overdue" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><OverdueTasks /></Suspense></RequireRegularUser>} />
+            <Route path="templates" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><TemplatesPage currentUser={user} /></Suspense></RequireRegularUser>} />
+            <Route path="billing" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><BillingPage /></Suspense></RequireRegularUser>} />
+            <Route path="admin" element={<RequireSuperAdmin user={user}><Suspense fallback={<RouteLoader />}><AdminDashboard currentUser={user} /></Suspense></RequireSuperAdmin>} />
+            <Route path="projects" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><Projects user={user} /></Suspense></RequireRegularUser>} />
+            <Route path="projects/:projectId" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><Projects user={user} /></Suspense></RequireRegularUser>} />
+            <Route path="projects/:projectId/tasks" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><ProjectTasks currentUser={user} /></Suspense></RequireRegularUser>} />
+            <Route path="tasks/:taskId" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><TaskDetails currentUser={user} /></Suspense></RequireRegularUser>} />
+            <Route path="profile" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><Profile auth={auth} /></Suspense></RequireRegularUser>} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -101,6 +101,13 @@
   line-height: 1;
 }
 
+.admin-dashboard__user-tools {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 180px auto;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
 @media (max-width: 1180px) {
   .admin-dashboard__metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -110,7 +117,8 @@
 @media (max-width: 860px) {
   .admin-dashboard__head,
   .admin-dashboard__growth,
-  .admin-dashboard__tables {
+  .admin-dashboard__tables,
+  .admin-dashboard__user-tools {
     grid-template-columns: 1fr;
   }
 

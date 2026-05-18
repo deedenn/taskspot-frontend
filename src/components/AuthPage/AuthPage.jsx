@@ -53,8 +53,8 @@ export function AuthPage({ mode, auth }) {
     setError("");
 
     try {
-      await auth.signIn(isRegister ? "/auth/register" : "/auth/login", values);
-      navigate("/app/dashboard", { replace: true });
+      const signedInUser = await auth.signIn(isRegister ? "/auth/register" : "/auth/login", values);
+      navigate(signedInUser?.isSuperAdmin ? "/app/admin" : "/app/dashboard", { replace: true });
     } catch (requestError) {
       setError(requestError.message);
     } finally {

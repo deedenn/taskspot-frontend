@@ -33,63 +33,63 @@ export function AppLayout({ auth }) {
   const navigate = useNavigate();
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;
+  const isSuperAdmin = Boolean(auth.user?.isSuperAdmin);
 
-  const navItems = [
-    {
-      key: "/app/dashboard",
-      icon: <PieChartOutlined />,
-      label: <Link to="/app/dashboard">Главная</Link>
-    },
-    {
-      key: "/app/onboarding",
-      icon: <RocketOutlined />,
-      label: <Link to="/app/onboarding">Старт</Link>
-    },
-    {
-      key: "/app/control",
-      icon: <BarChartOutlined />,
-      label: <Link to="/app/control">Контроль</Link>
-    },
-    {
-      key: "/app/calendar",
-      icon: <CalendarOutlined />,
-      label: <Link to="/app/calendar">Календарь</Link>
-    },
-    {
-      key: "/app/overdue",
-      icon: <ExclamationCircleOutlined />,
-      label: <Link to="/app/overdue">Просроченные</Link>
-    },
-    {
-      key: "/app/projects",
-      icon: <FolderOpenOutlined />,
-      label: <Link to="/app/projects">Проекты</Link>
-    },
-    {
-      key: "/app/templates",
-      icon: <SnippetsOutlined />,
-      label: <Link to="/app/templates">Шаблоны</Link>
-    },
-    {
-      key: "/app/billing",
-      icon: <CreditCardOutlined />,
-      label: <Link to="/app/billing">Тарифы</Link>
-    },
-    ...(auth.user?.isSuperAdmin
-      ? [
-          {
-            key: "/app/admin",
-            icon: <CrownOutlined />,
-            label: <Link to="/app/admin">Админ</Link>
-          }
-        ]
-      : []),
-    {
-      key: "/app/profile",
-      icon: <UserOutlined />,
-      label: <Link to="/app/profile">Профиль</Link>
-    }
-  ];
+  const navItems = isSuperAdmin
+    ? [
+        {
+          key: "/app/admin",
+          icon: <CrownOutlined />,
+          label: <Link to="/app/admin">Админ-панель</Link>
+        }
+      ]
+    : [
+        {
+          key: "/app/dashboard",
+          icon: <PieChartOutlined />,
+          label: <Link to="/app/dashboard">Главная</Link>
+        },
+        {
+          key: "/app/onboarding",
+          icon: <RocketOutlined />,
+          label: <Link to="/app/onboarding">Старт</Link>
+        },
+        {
+          key: "/app/control",
+          icon: <BarChartOutlined />,
+          label: <Link to="/app/control">Контроль</Link>
+        },
+        {
+          key: "/app/calendar",
+          icon: <CalendarOutlined />,
+          label: <Link to="/app/calendar">Календарь</Link>
+        },
+        {
+          key: "/app/overdue",
+          icon: <ExclamationCircleOutlined />,
+          label: <Link to="/app/overdue">Просроченные</Link>
+        },
+        {
+          key: "/app/projects",
+          icon: <FolderOpenOutlined />,
+          label: <Link to="/app/projects">Проекты</Link>
+        },
+        {
+          key: "/app/templates",
+          icon: <SnippetsOutlined />,
+          label: <Link to="/app/templates">Шаблоны</Link>
+        },
+        {
+          key: "/app/billing",
+          icon: <CreditCardOutlined />,
+          label: <Link to="/app/billing">Тарифы</Link>
+        },
+        {
+          key: "/app/profile",
+          icon: <UserOutlined />,
+          label: <Link to="/app/profile">Профиль</Link>
+        }
+      ];
 
   function signOut() {
     auth.signOut();
@@ -97,6 +97,11 @@ export function AppLayout({ auth }) {
   }
 
   async function loadNotifications({ silent = false } = {}) {
+    if (isSuperAdmin) {
+      setNotifications([]);
+      return;
+    }
+
     try {
       const data = await apiFetch("/notifications");
       setNotifications(data.notifications);
@@ -112,12 +117,14 @@ export function AppLayout({ auth }) {
   }, [location.pathname]);
 
   useEffect(() => {
+    if (isSuperAdmin) return undefined;
+
     const intervalId = window.setInterval(() => {
       loadNotifications({ silent: true });
     }, 30000);
 
     return () => window.clearInterval(intervalId);
-  }, []);
+  }, [isSuperAdmin]);
 
   const unreadCount = useMemo(
     () => notifications.filter((notification) => !notification.read).length,
@@ -212,7 +219,7 @@ export function AppLayout({ auth }) {
     <Layout className="app-layout">
       {!isMobile && (
         <Sider width={252} collapsible collapsed={collapsed} trigger={null} className="app-layout__sider">
-          <Link to="/app/dashboard" className="app-layout__brand">
+          <Link to={isSuperAdmin ? "/app/admin" : "/app/dashboard"} className="app-layout__brand">
             <BrandLogo compact={collapsed} variant="light" />
           </Link>
           <Menu theme="dark" mode="inline" selectedKeys={[location.pathname]} items={navItems} />
@@ -228,7 +235,7 @@ export function AppLayout({ auth }) {
                   icon={<MenuOutlined />}
                   onClick={() => setMobileMenuOpen(true)}
                 />
-                <Link to="/app/dashboard" className="app-layout__mobile-brand">
+                <Link to={isSuperAdmin ? "/app/admin" : "/app/dashboard"} className="app-layout__mobile-brand">
                   <BrandLogo />
                 </Link>
               </>
@@ -241,11 +248,13 @@ export function AppLayout({ auth }) {
             )}
           </div>
           <div className="app-layout__user">
-            <Dropdown dropdownRender={() => notificationsPanel} trigger={["click"]} placement="bottomRight">
-              <Badge count={unreadCount} size="small">
-                <Button aria-label="Уведомления" icon={<BellOutlined />} />
-              </Badge>
-            </Dropdown>
+            {!isSuperAdmin && (
+              <Dropdown dropdownRender={() => notificationsPanel} trigger={["click"]} placement="bottomRight">
+                <Badge count={unreadCount} size="small">
+                  <Button aria-label="Уведомления" icon={<BellOutlined />} />
+                </Badge>
+              </Dropdown>
+            )}
             <div>
               <Typography.Text strong>{auth.user?.name}</Typography.Text>
               <Typography.Text type="secondary">{auth.user?.email}</Typography.Text>

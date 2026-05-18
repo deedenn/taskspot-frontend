@@ -6,12 +6,14 @@ import {
   FolderOpenOutlined,
   PayCircleOutlined,
   ProjectOutlined,
+  StopOutlined,
   RiseOutlined,
   TeamOutlined,
+  UnlockOutlined,
   UserAddOutlined,
   UserOutlined
 } from "@ant-design/icons";
-import { Card, Empty, Progress, Segmented, Space, Statistic, Table, Tag, Typography, message } from "antd";
+import { Button, Card, Empty, Input, Popconfirm, Progress, Segmented, Select, Space, Statistic, Table, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../../api.js";
@@ -22,6 +24,12 @@ const planLabels = {
   free: ["Бесплатный", "default"],
   team: ["Команда", "blue"],
   business: ["Бизнес", "purple"]
+};
+
+const statusLabels = {
+  active: ["Активен", "green"],
+  inactive: ["Неактивен", "default"],
+  blocked: ["Заблокирован", "red"]
 };
 
 function formatMoney(value) {
@@ -47,6 +55,12 @@ export function AdminDashboard({ currentUser }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersPagination, setUsersPagination] = useState({ page: 1, limit: 10, total: 0 });
+  const [userSearch, setUserSearch] = useState("");
+  const [userStatus, setUserStatus] = useState("all");
+  const [updatingUserId, setUpdatingUserId] = useState("");
 
   async function loadOverview(nextPeriod = periodDays) {
     setLoading(true);
@@ -63,8 +77,41 @@ export function AdminDashboard({ currentUser }) {
     }
   }
 
+  async function loadUsers({
+    page = usersPagination.page,
+    limit = usersPagination.limit,
+    search = userSearch,
+    status = userStatus
+  } = {}) {
+    setUsersLoading(true);
+
+    try {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(limit)
+      });
+
+      if (search.trim()) {
+        params.set("search", search.trim());
+      }
+
+      if (status !== "all") {
+        params.set("status", status);
+      }
+
+      const result = await apiFetch(`/admin/users?${params.toString()}`);
+      setUsers(result.users);
+      setUsersPagination(result.pagination);
+    } catch (error) {
+      message.error(error.message);
+    } finally {
+      setUsersLoading(false);
+    }
+  }
+
   useEffect(() => {
     loadOverview();
+    loadUsers({ page: 1 });
   }, []);
 
   function changePeriod(value) {
@@ -84,8 +131,6 @@ export function AdminDashboard({ currentUser }) {
       }),
     [data]
   );
-
-  const userRows = data?.recentUsers || [];
 
   const planColumns = [
     {
@@ -125,12 +170,36 @@ export function AdminDashboard({ currentUser }) {
       key: "status",
       render: (status, user) => (
         <Space wrap size={4}>
-          <Tag color={status === "inactive" ? "default" : "green"}>
-            {status === "inactive" ? "Неактивен" : "Активен"}
+          <Tag color={(statusLabels[status] || statusLabels.active)[1]}>
+            {(statusLabels[status] || statusLabels.active)[0]}
           </Tag>
           {user.isSuperAdmin && <Tag color="gold">Admin</Tag>}
         </Space>
       )
+    },
+    {
+      title: "Тариф",
+      dataIndex: "plans",
+      key: "plans",
+      render: (plans = []) => {
+        if (!plans.length) {
+          return <Typography.Text type="secondary">Нет организаций</Typography.Text>;
+        }
+
+        return (
+          <Space wrap size={4}>
+            {plans.slice(0, 3).map((item) => {
+              const [label, color] = planLabels[item.plan] || [item.plan, "default"];
+              return (
+                <Tag key={`${item.organization}-${item.plan}`} color={color}>
+                  {label}
+                </Tag>
+              );
+            })}
+            {plans.length > 3 && <Tag>+{plans.length - 3}</Tag>}
+          </Space>
+        );
+      }
     },
     {
       title: "Последний вход",
@@ -143,8 +212,66 @@ export function AdminDashboard({ currentUser }) {
       dataIndex: "createdAt",
       key: "createdAt",
       render: (date) => dayjs(date).format("DD.MM.YYYY")
+    },
+    {
+      title: "",
+      key: "action",
+      fixed: "right",
+      render: (_, user) => {
+        if (user.isSuperAdmin || user._id === currentUser?._id) {
+          return null;
+        }
+
+        const isBlocked = user.status === "blocked";
+        const nextStatus = isBlocked ? "active" : "blocked";
+
+        return (
+          <Popconfirm
+            title={isBlocked ? "Разблокировать пользователя?" : "Заблокировать пользователя?"}
+            description={
+              isBlocked
+                ? "Пользователь снова сможет войти и работать в сервисе."
+                : "Пользователь сразу потеряет доступ, включая уже активные сессии."
+            }
+            okText={isBlocked ? "Разблокировать" : "Заблокировать"}
+            cancelText="Отмена"
+            onConfirm={() => updateUserStatus(user, nextStatus)}
+          >
+            <Button
+              danger={!isBlocked}
+              icon={isBlocked ? <UnlockOutlined /> : <StopOutlined />}
+              loading={updatingUserId === user._id}
+            >
+              {isBlocked ? "Разблокировать" : "Блокировать"}
+            </Button>
+          </Popconfirm>
+        );
+      }
     }
   ];
+
+  async function updateUserStatus(user, status) {
+    setUpdatingUserId(user._id);
+
+    try {
+      const result = await apiFetch(`/admin/users/${user._id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status })
+      });
+
+      setUsers((items) => items.map((item) => (item._id === user._id ? result.user : item)));
+      message.success(status === "blocked" ? "Пользователь заблокирован" : "Пользователь разблокирован");
+      loadOverview(periodDays);
+    } catch (error) {
+      message.error(error.message);
+    } finally {
+      setUpdatingUserId("");
+    }
+  }
+
+  function applyUserFilters() {
+    loadUsers({ page: 1, search: userSearch, status: userStatus });
+  }
 
   if (!currentUser?.isSuperAdmin) {
     return (
@@ -317,13 +444,51 @@ export function AdminDashboard({ currentUser }) {
             locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Нет организаций" /> }}
           />
         </Card>
-        <Card title="Последние пользователи" loading={loading}>
+        <Card title="Пользователи сервиса">
+          <div className="admin-dashboard__user-tools">
+            <Input.Search
+              allowClear
+              value={userSearch}
+              placeholder="Поиск по имени или email"
+              onChange={(event) => setUserSearch(event.target.value)}
+              onSearch={(_, _event, info) => {
+                if (info?.source !== "clear") {
+                  applyUserFilters();
+                } else {
+                  loadUsers({ page: 1, search: "", status: userStatus });
+                }
+              }}
+            />
+            <Select
+              value={userStatus}
+              options={[
+                { label: "Все статусы", value: "all" },
+                { label: "Активные", value: "active" },
+                { label: "Неактивные", value: "inactive" },
+                { label: "Заблокированные", value: "blocked" }
+              ]}
+              onChange={(value) => {
+                setUserStatus(value);
+                loadUsers({ page: 1, status: value });
+              }}
+            />
+            <Button onClick={applyUserFilters}>Показать</Button>
+          </div>
           <Table
             columns={userColumns}
-            dataSource={userRows}
+            dataSource={users}
             rowKey="_id"
-            pagination={false}
-            scroll={{ x: 760 }}
+            loading={usersLoading}
+            pagination={{
+              current: usersPagination.page,
+              pageSize: usersPagination.limit,
+              total: usersPagination.total,
+              showSizeChanger: false
+            }}
+            onChange={(pagination) => {
+              loadUsers({ page: pagination.current, limit: pagination.pageSize });
+            }}
+            scroll={{ x: 980 }}
             locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Нет пользователей" /> }}
           />
         </Card>
