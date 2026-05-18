@@ -3,9 +3,12 @@ import {
   CalendarOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
+  CrownOutlined,
   EyeOutlined,
   LockOutlined,
+  PayCircleOutlined,
   ProjectOutlined,
+  RocketOutlined,
   TeamOutlined
 } from "@ant-design/icons";
 import { Link } from "react-router-dom";
@@ -59,6 +62,42 @@ const workflow = [
   }
 ];
 
+const pricingPlans = [
+  {
+    key: "free",
+    icon: <RocketOutlined />,
+    title: "Бесплатный",
+    price: "0 ₽",
+    note: "для первого внедрения",
+    description: "Подходит, чтобы заменить таблицу поручений и проверить процесс на небольшой команде.",
+    features: ["до 3 пользователей", "до 2 проектов", "базовые уведомления", "до 50 активных задач"],
+    cta: "Начать бесплатно"
+  },
+  {
+    key: "team",
+    icon: <TeamOutlined />,
+    title: "Команда",
+    price: "990 ₽",
+    period: "/мес",
+    note: "для регулярного контроля",
+    description: "Для руководителей, которым нужны проекты, шаблоны, вложения и больше участников.",
+    features: ["до 20 пользователей", "до 50 проектов", "шаблоны задач", "вложения и повторы"],
+    cta: "Выбрать команду",
+    highlighted: true
+  },
+  {
+    key: "business",
+    icon: <CrownOutlined />,
+    title: "Бизнес",
+    price: "2490 ₽",
+    period: "/мес",
+    note: "для нескольких отделов",
+    description: "Для компаний, которым важны расширенные лимиты, история, отчёты и управленческий контроль.",
+    features: ["до 100 пользователей", "до 200 проектов", "расширенная история", "отчёты и приоритетная поддержка"],
+    cta: "Перейти на бизнес"
+  }
+];
+
 const seoScenarios = [
   "Контроль поручений сотрудникам",
   "Учёт задач малого бизнеса",
@@ -75,6 +114,14 @@ function CtaLink({ to, children, variant = "primary" }) {
   );
 }
 
+function planCtaTarget(plan, user) {
+  if (!user) {
+    return "/register";
+  }
+
+  return plan.key === "free" ? "/app/dashboard" : "/app/billing";
+}
+
 export function LandingPage({ user }) {
   return (
     <main className="landing">
@@ -85,6 +132,7 @@ export function LandingPage({ user }) {
         <nav className="landing__nav-links" aria-label="Разделы лендинга">
           <a href="#features">Возможности</a>
           <a href="#workflow">Как работает</a>
+          <a href="#pricing">Тарифы</a>
           <a href="#use-cases">Для кого</a>
         </nav>
         <div className="landing__actions">
@@ -186,6 +234,56 @@ export function LandingPage({ user }) {
               <p>{item.text}</p>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section className="landing__pricing" id="pricing">
+        <div className="landing__section-head landing__pricing-head">
+          <div>
+            <p className="landing__eyebrow">Тарифы</p>
+            <h2>Начните бесплатно, подключайте командные возможности по мере роста</h2>
+          </div>
+          <p>
+            На первом этапе оплату можно проводить вручную через счёт или платёжную ссылку.
+            Сложная интеграция эквайринга не нужна для старта продаж.
+          </p>
+        </div>
+        <div className="landing__pricing-grid">
+          {pricingPlans.map((plan) => (
+            <article
+              className={plan.highlighted ? "landing__price-card landing__price-card--highlighted" : "landing__price-card"}
+              key={plan.key}
+            >
+              {plan.highlighted && <span className="landing__price-badge">Популярный старт</span>}
+              <div className="landing__price-top">
+                <span className="landing__price-icon">{plan.icon}</span>
+                <div>
+                  <h3>{plan.title}</h3>
+                  <p>{plan.note}</p>
+                </div>
+              </div>
+              <div className="landing__price-value">
+                <strong>{plan.price}</strong>
+                {plan.period && <span>{plan.period}</span>}
+              </div>
+              <p className="landing__price-description">{plan.description}</p>
+              <ul className="landing__price-features">
+                {plan.features.map((feature) => (
+                  <li key={feature}>
+                    <CheckCircleOutlined />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+              <CtaLink to={planCtaTarget(plan, user)} variant={plan.highlighted ? "primary" : "secondary"}>
+                {plan.cta}
+              </CtaLink>
+            </article>
+          ))}
+        </div>
+        <div className="landing__pricing-footnote">
+          <PayCircleOutlined />
+          <span>Полученные платежи и тарифы можно контролировать в админ-панели сервиса.</span>
         </div>
       </section>
 
