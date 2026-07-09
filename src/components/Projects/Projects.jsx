@@ -17,6 +17,7 @@ import { Alert, Avatar, Button, Card, Checkbox, ColorPicker, Empty, Form, Input,
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiFetch } from "../../api.js";
+import { fullName } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
 import "./Projects.css";
 
@@ -25,7 +26,7 @@ function userId(user) {
 }
 
 function displayName(user) {
-  return user?.name || user?.email || "Пользователь";
+  return fullName(user);
 }
 
 function initials(user) {
@@ -267,6 +268,8 @@ export function Projects({ user }) {
         message.success("Участник обновлён");
       } else if (invitation?.emailStatus === "sent") {
         message.success("Приглашение отправлено на email");
+      } else if (invitation?.emailStatus === "pending") {
+        message.info("Приглашение создано, письмо отправляется");
       } else if (invitation?.emailStatus === "skipped") {
         message.warning("Приглашение создано, но SMTP пока не настроен");
       } else {

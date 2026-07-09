@@ -16,6 +16,7 @@ import dayjs from "dayjs";
 import { Link, useParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../../api.js";
+import { fullName } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
 import "./TaskDetails.css";
 
@@ -329,7 +330,7 @@ export function TaskDetails({ currentUser }) {
   const canSendToReview = !projectArchived && isAssignee && !["review", "done", "closed"].includes(task.status);
   const canReview = !projectArchived && isCreator && ["review", "done"].includes(task.status);
   const canChangePriority = !projectArchived && isCreator && task.status !== "closed";
-  const assigneeLabel = task.assignee?.name || task.assigneeEmail || "не назначен";
+  const assigneeLabel = task.assignee ? fullName(task.assignee) : task.assigneeEmail || "не назначен";
 
   return (
     <section className="task-details">
@@ -354,7 +355,7 @@ export function TaskDetails({ currentUser }) {
         <div className="task-details__meta">
           <Card>
             <Typography.Text type="secondary">Инициатор</Typography.Text>
-            <strong>{task.creator?.name}</strong>
+            <strong>{fullName(task.creator)}</strong>
             <span>{task.creator?.email}</span>
           </Card>
           <Card>
@@ -365,7 +366,7 @@ export function TaskDetails({ currentUser }) {
           <Card>
             <Typography.Text type="secondary">Наблюдатели</Typography.Text>
             <strong>{task.observers?.length || 0}</strong>
-            <span>{task.observers?.map((observer) => observer.name).join(", ") || "нет"}</span>
+            <span>{task.observers?.map((observer) => fullName(observer)).join(", ") || "нет"}</span>
           </Card>
         </div>
 
@@ -522,7 +523,7 @@ export function TaskDetails({ currentUser }) {
                 <div className="task-details__attachment-main">
                   <Typography.Text strong>{attachment.name}</Typography.Text>
                   <Typography.Text type="secondary">
-                    {[formatFileSize(attachment.size), attachment.addedBy?.name].filter(Boolean).join(" · ") || "Файл"}
+                    {[formatFileSize(attachment.size), attachment.addedBy ? fullName(attachment.addedBy) : ""].filter(Boolean).join(" · ") || "Файл"}
                   </Typography.Text>
                 </div>
                 <Space className="task-details__attachment-actions">
@@ -592,7 +593,7 @@ export function TaskDetails({ currentUser }) {
               .map((activity) => ({
                 children: (
                   <div className="task-details__activity">
-                    <strong>{activity.actor?.name || "Пользователь"}</strong>{" "}
+                    <strong>{fullName(activity.actor)}</strong>{" "}
                     <span>{activityLabels[activity.action] || activity.action}</span>
                     {formatActivity(activity) && <p>{formatActivity(activity)}</p>}
                     <Typography.Text type="secondary">
@@ -621,7 +622,7 @@ export function TaskDetails({ currentUser }) {
             renderItem={(comment) => (
               <List.Item>
                 <List.Item.Meta
-                  title={comment.author?.name}
+                  title={fullName(comment.author)}
                   description={
                     <>
                       <div>{comment.text}</div>

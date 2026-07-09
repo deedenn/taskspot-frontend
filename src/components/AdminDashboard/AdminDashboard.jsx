@@ -17,6 +17,7 @@ import { Button, Card, Empty, Input, Popconfirm, Progress, Segmented, Select, Sp
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../../api.js";
+import { fullName } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
 import "./AdminDashboard.css";
 
@@ -159,7 +160,7 @@ export function AdminDashboard({ currentUser }) {
       key: "name",
       render: (name, user) => (
         <Space direction="vertical" size={0}>
-          <Typography.Text strong>{name}</Typography.Text>
+          <Typography.Text strong>{fullName(user, name)}</Typography.Text>
           <Typography.Text type="secondary">{user.email}</Typography.Text>
         </Space>
       )

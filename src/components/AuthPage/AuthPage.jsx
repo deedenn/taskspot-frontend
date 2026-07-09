@@ -14,6 +14,16 @@ export function AuthPage({ mode, auth }) {
   const [inviteInfo, setInviteInfo] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const isRegister = mode === "register";
+  const passwordRules = isRegister
+    ? [
+        { required: true, message: "Укажите пароль" },
+        { min: 8, message: "Минимум 8 символов" },
+        {
+          pattern: /^(?=.*[A-Za-zА-Яа-яЁё])(?=.*\d).+$/,
+          message: "Добавьте буквы и цифры"
+        }
+      ]
+    : [{ required: true, message: "Укажите пароль" }];
   const invitationToken = useMemo(
     () => new URLSearchParams(location.search).get("invite"),
     [location.search]
@@ -96,13 +106,22 @@ export function AuthPage({ mode, auth }) {
             </Form.Item>
           )}
           {isRegister && (
-            <Form.Item
-              name="name"
-              label="Имя"
-              rules={[{ required: true, message: "Укажите имя" }]}
-            >
-              <Input prefix={<UserOutlined />} placeholder="Анна Смирнова" />
-            </Form.Item>
+            <>
+              <Form.Item
+                name="name"
+                label="Имя"
+                rules={[{ required: true, message: "Укажите имя" }]}
+              >
+                <Input prefix={<UserOutlined />} placeholder="Анна" />
+              </Form.Item>
+              <Form.Item
+                name="lastName"
+                label="Фамилия"
+                rules={[{ required: true, message: "Укажите фамилию" }]}
+              >
+                <Input prefix={<UserOutlined />} placeholder="Смирнова" />
+              </Form.Item>
+            </>
           )}
           <Form.Item
             name="email"
@@ -117,7 +136,7 @@ export function AuthPage({ mode, auth }) {
           <Form.Item
             name="password"
             label="Пароль"
-            rules={[{ required: true, min: 6, message: "Минимум 6 символов" }]}
+            rules={passwordRules}
           >
             <Input.Password prefix={<LockOutlined />} placeholder="Пароль" />
           </Form.Item>

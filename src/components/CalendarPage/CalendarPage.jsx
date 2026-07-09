@@ -3,6 +3,7 @@ import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiFetch } from "../../api.js";
+import { fullName } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
 import "./CalendarPage.css";
 
@@ -159,7 +160,7 @@ export function CalendarPage() {
                           <Tag color={statusColor}>{statusLabel}</Tag>
                         </Space>
                       }
-                      description={task.project?.name || "Без проекта"}
+                      description={`${task.project?.name || "Без проекта"} · ${task.assignee ? fullName(task.assignee) : task.assigneeEmail || "не назначен"}`}
                     />
                   </List.Item>
                 );

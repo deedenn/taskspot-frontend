@@ -3,6 +3,7 @@ import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiFetch } from "../../api.js";
+import { fullName } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
 import "./OverdueTasks.css";
 
@@ -118,7 +119,7 @@ export function OverdueTasks() {
                       }
                       description={
                         <span className="overdue-tasks__date">
-                          Срок: {dayjs(task.dueDate).format("DD.MM.YYYY")}
+                          Срок: {dayjs(task.dueDate).format("DD.MM.YYYY")} · Ответственный: {task.assignee ? fullName(task.assignee) : task.assigneeEmail || "не назначен"}
                         </span>
                       }
                     />

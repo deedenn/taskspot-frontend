@@ -4,6 +4,7 @@ import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiFetch } from "../../api.js";
+import { fullName, userOptionLabel } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
 import "./TaskWorkspace.css";
 
@@ -79,7 +80,7 @@ export function TaskWorkspace({ project, currentUser }) {
     () =>
       project.members.map((member) => ({
         value: idOf(member.user),
-        label: `${member.user.name} · ${member.user.email}`
+        label: userOptionLabel(member.user)
       })),
     [project.members]
   );
@@ -119,12 +120,12 @@ export function TaskWorkspace({ project, currentUser }) {
           .join(" ");
         const searchableText = [
           task.description,
-          task.creator?.name,
+          fullName(task.creator, ""),
           task.creator?.email,
-          task.assignee?.name,
+          fullName(task.assignee, ""),
           task.assignee?.email,
           task.assigneeEmail,
-          task.observers?.map((observer) => `${observer.name} ${observer.email}`).join(" "),
+          task.observers?.map((observer) => `${fullName(observer, "")} ${observer.email}`).join(" "),
           statusOptions.find((status) => status.value === task.status)?.label,
           priorityLabels[task.priority]?.[0],
           categoryNames
@@ -505,7 +506,7 @@ export function TaskWorkspace({ project, currentUser }) {
 function TaskCard({ task, currentUser, categoryMap, onStatusChange, onReturnToWork, onComment, readOnly = false }) {
   const [commentForm] = Form.useForm();
   const status = statusOptions.find((item) => item.value === normalizedStatus(task.status));
-  const assigneeLabel = task.assignee?.name || task.assigneeEmail || "не назначен";
+  const assigneeLabel = task.assignee ? fullName(task.assignee) : task.assigneeEmail || "не назначен";
   const [priorityLabel, priorityColor] = priorityLabels[task.priority] || priorityLabels.medium;
   const isCreator = idOf(task.creator) === currentUser?._id;
   const isAssignee = idOf(task.assignee) === currentUser?._id;
@@ -537,12 +538,12 @@ function TaskCard({ task, currentUser, categoryMap, onStatusChange, onReturnToWo
         </Link>
       </Typography.Title>
       <div className="tasks__meta">
-        <span>Инициатор: {task.creator?.name}</span>
+        <span>Инициатор: {fullName(task.creator)}</span>
         <span>
           Ответственный: {assigneeLabel}
           {task.assigneeEmail && <Tag className="tasks__pending-tag">ожидает регистрации</Tag>}
         </span>
-        <span>Наблюдатели: {task.observers?.map((observer) => observer.name).join(", ") || "нет"}</span>
+        <span>Наблюдатели: {task.observers?.map((observer) => fullName(observer)).join(", ") || "нет"}</span>
       </div>
       <Space wrap className="tasks__categories">
         {task.categories?.map((categoryId) => {
@@ -595,7 +596,7 @@ function TaskCard({ task, currentUser, categoryMap, onStatusChange, onReturnToWo
             dataSource={task.comments}
             renderItem={(comment) => (
               <List.Item>
-                <List.Item.Meta title={comment.author?.name} description={comment.text} />
+                <List.Item.Meta title={fullName(comment.author)} description={comment.text} />
               </List.Item>
             )}
           />

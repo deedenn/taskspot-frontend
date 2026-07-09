@@ -32,6 +32,7 @@ import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiFetch } from "../../api.js";
+import { fullName, userOptionLabel } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
 import "./Dashboard.css";
 
@@ -311,7 +312,7 @@ export function Dashboard({ currentUser }) {
     () =>
       selectedProject?.members.map((member) => ({
         value: idOf(member.user),
-        label: `${member.user.name} · ${member.user.email}`
+        label: userOptionLabel(member.user)
       })) || [],
     [selectedProject]
   );
@@ -383,12 +384,12 @@ export function Dashboard({ currentUser }) {
     return [
       task.description,
       task.project?.name,
-      task.creator?.name,
+      fullName(task.creator, ""),
       task.creator?.email,
-      task.assignee?.name,
+      fullName(task.assignee, ""),
       task.assignee?.email,
       task.assigneeEmail,
-      task.observers?.map((observer) => `${observer.name} ${observer.email}`).join(" "),
+      task.observers?.map((observer) => `${fullName(observer, "")} ${observer.email}`).join(" "),
       statusLabels[task.status]?.[0],
       priorityLabels[task.priority]?.[0],
       categoryNames

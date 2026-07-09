@@ -2,6 +2,7 @@ import { CameraOutlined, DeleteOutlined, LockOutlined, SaveOutlined, UserOutline
 import { Avatar, Button, Card, Form, Input, Space, Typography, message } from "antd";
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "../../api.js";
+import { fullName } from "../../utils/users.js";
 import "./Profile.css";
 
 const AVATAR_SIZE = 256;
@@ -44,6 +45,7 @@ export function Profile({ auth }) {
   useEffect(() => {
     profileForm.setFieldsValue({
       name: auth.user?.name,
+      lastName: auth.user?.lastName || "",
       email: auth.user?.email,
       phone: auth.user?.phone || "",
 	    avatarUrl: auth.user?.avatarUrl || ""
@@ -154,7 +156,7 @@ export function Profile({ auth }) {
               onChange={handleAvatarChange}
             />
             <div>
-              <Typography.Title level={3}>{auth.user?.name}</Typography.Title>
+              <Typography.Title level={3}>{fullName(auth.user)}</Typography.Title>
               <Typography.Text type="secondary">{auth.user?.email}</Typography.Text>
               {avatarUrl && (
                 <Button
@@ -172,6 +174,9 @@ export function Profile({ auth }) {
 
           <Form form={profileForm} layout="vertical" onFinish={saveProfile}>
             <Form.Item name="name" label="Имя" rules={[{ required: true, message: "Укажите имя" }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="lastName" label="Фамилия" rules={[{ required: true, message: "Укажите фамилию" }]}>
               <Input />
             </Form.Item>
             <Form.Item name="email" label="Email">
@@ -210,7 +215,11 @@ export function Profile({ auth }) {
               label="Новый пароль"
               rules={[
                 { required: true, message: "Введите новый пароль" },
-                { min: 6, message: "Минимум 6 символов" }
+                { min: 8, message: "Минимум 8 символов" },
+                {
+                  pattern: /^(?=.*[A-Za-zА-Яа-яЁё])(?=.*\d).+$/,
+                  message: "Добавьте буквы и цифры"
+                }
               ]}
             >
               <Input.Password />

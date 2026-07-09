@@ -20,6 +20,7 @@ import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { apiFetch } from "../../api.js";
+import { fullName } from "../../utils/users.js";
 import { BrandLogo } from "../BrandLogo/BrandLogo.jsx";
 import "./AppLayout.css";
 
@@ -256,7 +257,7 @@ export function AppLayout({ auth }) {
               </Dropdown>
             )}
             <div>
-              <Typography.Text strong>{auth.user?.name}</Typography.Text>
+              <Typography.Text strong>{fullName(auth.user)}</Typography.Text>
               <Typography.Text type="secondary">{auth.user?.email}</Typography.Text>
             </div>
             <Button icon={<LogoutOutlined />} onClick={signOut}>

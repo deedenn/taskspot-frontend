@@ -4,6 +4,7 @@ import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiFetch } from "../../api.js";
+import { fullName } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
 import "./ControlPage.css";
 
@@ -32,7 +33,7 @@ function TaskList({ tasks, empty }) {
                   <Tag color={color}>{label}</Tag>
                 </Space>
               }
-              description={`${task.project?.name || "Проект"} · срок ${dayjs(task.dueDate).format("DD.MM.YYYY")} · ${task.assignee?.name || task.assigneeEmail || "без ответственного"}`}
+              description={`${task.project?.name || "Проект"} · срок ${dayjs(task.dueDate).format("DD.MM.YYYY")} · ${task.assignee ? fullName(task.assignee) : task.assigneeEmail || "без ответственного"}`}
             />
           </List.Item>
         );
@@ -134,6 +135,24 @@ export function ControlPage() {
           />
         </Card>
       </div>
+
+      <Card title="Нагрузка по ответственным в разрезе проектов" loading={loading}>
+        <Table
+          rowKey="key"
+          size="small"
+          scroll={{ x: 760 }}
+          pagination={false}
+          dataSource={data?.workloadByAssigneeProject || []}
+          columns={[
+            { title: "Ответственный", dataIndex: "assignee" },
+            { title: "Проект", dataIndex: "project" },
+            { title: "Активные", dataIndex: "active" },
+            { title: "Просрочены", dataIndex: "overdue" },
+            { title: "На проверке", dataIndex: "review" },
+            { title: "Закрыты", dataIndex: "closed" }
+          ]}
+        />
+      </Card>
     </section>
   );
 }
