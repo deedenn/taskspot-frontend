@@ -284,7 +284,15 @@ export function Projects({ user }) {
       );
 
       if (exists) {
-        message.success("Участник обновлён");
+        if (data.email?.status === "sent") {
+          message.success("Участник добавлен, письмо отправлено");
+        } else if (data.email?.status === "skipped") {
+          message.warning("Участник добавлен, но SMTP пока не настроен");
+        } else if (data.email?.status === "failed") {
+          message.warning(formatInvitationEmailError(data.email.error) || "Участник добавлен, но письмо не отправилось");
+        } else {
+          message.success("Участник обновлён");
+        }
       } else if (invitation?.emailStatus === "sent") {
         message.success("Приглашение отправлено на email");
       } else if (invitation?.emailStatus === "pending") {
