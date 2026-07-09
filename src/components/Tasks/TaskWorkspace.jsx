@@ -1,5 +1,5 @@
 import { CheckCircleOutlined, CommentOutlined, DeleteOutlined, EyeInvisibleOutlined, EyeOutlined, PaperClipOutlined, PlusOutlined, RollbackOutlined } from "@ant-design/icons";
-import { Button, Card, DatePicker, Drawer, Empty, Form, Grid, Input, List, Modal, Select, Space, Switch, Tag, Tooltip, Typography, Upload, message } from "antd";
+import { Alert, Button, Card, DatePicker, Drawer, Empty, Form, Grid, Input, List, Modal, Select, Space, Switch, Tag, Tooltip, Typography, Upload, message } from "antd";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -57,6 +57,10 @@ function normalizedStatus(status) {
   return status === "done" ? "review" : status;
 }
 
+function isProjectArchived(project) {
+  return Boolean(project?.isArchived || project?.archivedAt);
+}
+
 export function TaskWorkspace({ project, currentUser }) {
   const [tasks, setTasks] = useState([]);
   const [error, setError] = useState("");
@@ -69,6 +73,7 @@ export function TaskWorkspace({ project, currentUser }) {
   const [form] = Form.useForm();
   const screens = Grid.useBreakpoint();
   const isCompactControls = !screens.sm;
+  const projectArchived = isProjectArchived(project);
 
   const memberOptions = useMemo(
     () =>
@@ -337,7 +342,7 @@ export function TaskWorkspace({ project, currentUser }) {
               <Switch checked={hideClosed} onChange={setHideClosed} />
             </Space>
           )}
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setDrawerOpen(true)}>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setDrawerOpen(true)} disabled={projectArchived}>
             Задача
           </Button>
         </Space>
@@ -358,6 +363,15 @@ export function TaskWorkspace({ project, currentUser }) {
           onAction={loadTasks}
         />
       )}
+      {projectArchived && (
+        <Alert
+          className="tasks__archive-alert"
+          type="info"
+          showIcon
+          message="Проект в архиве"
+          description="Задачи доступны только для просмотра. Новые задачи, комментарии и изменения статусов отключены."
+        />
+      )}
       {visibleTasks.length ? (
         <div className="tasks">
           {visibleTasks.map((task) => (
@@ -369,6 +383,7 @@ export function TaskWorkspace({ project, currentUser }) {
               onStatusChange={changeStatus}
               onReturnToWork={returnTaskToWork}
               onComment={addComment}
+              readOnly={projectArchived}
             />
           ))}
         </div>
@@ -487,15 +502,15 @@ export function TaskWorkspace({ project, currentUser }) {
   );
 }
 
-function TaskCard({ task, currentUser, categoryMap, onStatusChange, onReturnToWork, onComment }) {
+function TaskCard({ task, currentUser, categoryMap, onStatusChange, onReturnToWork, onComment, readOnly = false }) {
   const [commentForm] = Form.useForm();
   const status = statusOptions.find((item) => item.value === normalizedStatus(task.status));
   const assigneeLabel = task.assignee?.name || task.assigneeEmail || "не назначен";
   const [priorityLabel, priorityColor] = priorityLabels[task.priority] || priorityLabels.medium;
   const isCreator = idOf(task.creator) === currentUser?._id;
   const isAssignee = idOf(task.assignee) === currentUser?._id;
-  const canSendToReview = isAssignee && !["review", "done", "closed"].includes(task.status);
-  const canReview = isCreator && ["review", "done"].includes(task.status);
+  const canSendToReview = !readOnly && isAssignee && !["review", "done", "closed"].includes(task.status);
+  const canReview = !readOnly && isCreator && ["review", "done"].includes(task.status);
   const className = [
     "tasks__card",
     isDueSoon(task) ? "tasks__card--due" : "",
@@ -587,15 +602,19 @@ function TaskCard({ task, currentUser, categoryMap, onStatusChange, onReturnToWo
         ) : (
           <Typography.Text type="secondary">Комментариев пока нет</Typography.Text>
         )}
-        <Form
-          form={commentForm}
-          onFinish={(values) => onComment(task, values, () => commentForm.resetFields())}
-        >
-          <Form.Item name="text" rules={[{ required: true, message: "Введите комментарий" }]}>
-            <Input.TextArea rows={2} placeholder="Написать комментарий" />
-          </Form.Item>
-          <Button htmlType="submit">Отправить</Button>
-        </Form>
+        {readOnly ? (
+          <Typography.Text type="secondary">Проект в архиве, новые комментарии отключены.</Typography.Text>
+        ) : (
+          <Form
+            form={commentForm}
+            onFinish={(values) => onComment(task, values, () => commentForm.resetFields())}
+          >
+            <Form.Item name="text" rules={[{ required: true, message: "Введите комментарий" }]}>
+              <Input.TextArea rows={2} placeholder="Написать комментарий" />
+            </Form.Item>
+            <Button htmlType="submit">Отправить</Button>
+          </Form>
+        )}
       </div>
     </article>
   );

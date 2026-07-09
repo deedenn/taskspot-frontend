@@ -7,6 +7,10 @@
   margin-bottom: 14px;
 }
 
+.tasks__archive-alert {
+  margin-bottom: 14px;
+}
+
 .tasks__card {
   padding: 18px;
   border: 1px solid #e7edf2;

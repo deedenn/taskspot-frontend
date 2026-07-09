@@ -45,6 +45,11 @@
   width: 100%;
 }
 
+.projects__catalog-controls {
+  display: grid;
+  gap: 10px;
+}
+
 .projects__project-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -79,11 +84,34 @@
   outline-offset: 2px;
 }
 
+.projects__project-card--archived {
+  background: #f8fafc;
+  border-style: dashed;
+  color: #64748b;
+}
+
+.projects__project-card--archived:hover,
+.projects__project-card--archived:focus-visible {
+  border-color: #94a3b8;
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.09);
+}
+
 .projects__project-card-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.projects__project-card-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.projects__project-card-tags .ant-tag {
+  margin-inline-end: 0;
 }
 
 .projects__project-icon,
@@ -194,6 +222,47 @@
 
 .projects__summary-actions .ant-btn-primary {
   min-width: 150px;
+}
+
+.projects__danger-zone {
+  border-color: #fecaca;
+  background: linear-gradient(180deg, #fffafa 0%, #ffffff 100%);
+}
+
+.projects__danger-zone .ant-card-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.projects__danger-zone-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.projects__danger-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.projects__danger-zone h3.ant-typography,
+.projects__danger-zone .ant-typography {
+  margin-bottom: 4px;
+}
+
+.projects__delete-confirmation {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
 }
 
 .projects__panel {
@@ -383,6 +452,10 @@
     align-items: stretch;
   }
 
+  .projects__catalog-controls .ant-segmented {
+    overflow-x: auto;
+  }
+
   .projects__invite-form,
   .projects__category-form {
     grid-template-columns: 1fr;
@@ -413,6 +486,15 @@
   }
 
   .projects__row-actions .ant-btn {
+    width: 100%;
+  }
+
+  .projects__danger-zone .ant-card-body {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .projects__danger-zone .ant-btn {
     width: 100%;
   }
 }

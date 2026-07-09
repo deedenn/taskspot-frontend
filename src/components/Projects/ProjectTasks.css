@@ -31,6 +31,17 @@
   font-size: 32px;
 }
 
+.project-tasks__tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.project-tasks__tags .ant-tag {
+  margin-inline-end: 0;
+}
+
 @media (max-width: 640px) {
   .project-tasks {
     gap: 12px;

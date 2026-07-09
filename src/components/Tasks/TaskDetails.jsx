@@ -51,6 +51,10 @@ function isUrgentActive(task) {
   return task?.priority === "urgent" && !["review", "done", "closed"].includes(task.status);
 }
 
+function isProjectArchived(project) {
+  return Boolean(project?.isArchived || project?.archivedAt);
+}
+
 function formatFileSize(size) {
   if (!size) return "";
   if (size < 1024 * 1024) return `${Math.ceil(size / 1024)} КБ`;
@@ -320,10 +324,11 @@ export function TaskDetails({ currentUser }) {
   const isProjectAdmin = task.project?.members?.some(
     (member) => idOf(member.user) === currentUser?._id && member.role === "admin"
   );
-  const canManageAttachments = isCreator || isAssignee || isProjectAdmin;
-  const canSendToReview = isAssignee && !["review", "done", "closed"].includes(task.status);
-  const canReview = isCreator && ["review", "done"].includes(task.status);
-  const canChangePriority = isCreator && task.status !== "closed";
+  const projectArchived = isProjectArchived(task.project);
+  const canManageAttachments = !projectArchived && (isCreator || isAssignee || isProjectAdmin);
+  const canSendToReview = !projectArchived && isAssignee && !["review", "done", "closed"].includes(task.status);
+  const canReview = !projectArchived && isCreator && ["review", "done"].includes(task.status);
+  const canChangePriority = !projectArchived && isCreator && task.status !== "closed";
   const assigneeLabel = task.assignee?.name || task.assigneeEmail || "не назначен";
 
   return (
@@ -402,6 +407,16 @@ export function TaskDetails({ currentUser }) {
           />
         )}
 
+        {projectArchived && (
+          <Alert
+            className="task-details__alert"
+            type="info"
+            showIcon
+            message="Проект в архиве"
+            description="Задача доступна только для просмотра. Изменение статуса, чек-листа, комментариев и вложений отключено."
+          />
+        )}
+
         {canSendToReview && (
           <Alert
             className="task-details__alert"
@@ -472,7 +487,7 @@ export function TaskDetails({ currentUser }) {
               <Checkbox
                 key={item._id || index}
                 checked={item.done}
-                disabled={saving || (!isAssignee && !isCreator)}
+                disabled={projectArchived || saving || (!isAssignee && !isCreator)}
                 onChange={(event) => {
                   const checklist = task.checklist.map((entry, entryIndex) =>
                     entryIndex === index ? { ...entry, done: event.target.checked } : entry
@@ -623,12 +638,16 @@ export function TaskDetails({ currentUser }) {
           <Empty description="Комментариев пока нет" />
         )}
 
-        <Form className="task-details__comment-form" form={commentForm} onFinish={addComment}>
-          <Form.Item name="text" rules={[{ required: true, message: "Введите комментарий" }]}>
-            <Input.TextArea rows={3} placeholder="Написать комментарий" />
-          </Form.Item>
-          <Button htmlType="submit">Отправить</Button>
-        </Form>
+        {projectArchived ? (
+          <Typography.Text type="secondary">Проект в архиве, новые комментарии отключены.</Typography.Text>
+        ) : (
+          <Form className="task-details__comment-form" form={commentForm} onFinish={addComment}>
+            <Form.Item name="text" rules={[{ required: true, message: "Введите комментарий" }]}>
+              <Input.TextArea rows={3} placeholder="Написать комментарий" />
+            </Form.Item>
+            <Button htmlType="submit">Отправить</Button>
+          </Form>
+        )}
       </Card>
 
       <Modal

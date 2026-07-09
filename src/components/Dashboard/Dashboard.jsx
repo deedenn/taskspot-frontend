@@ -126,6 +126,10 @@ function idOf(value) {
   return value?._id || value;
 }
 
+function isProjectArchived(project) {
+  return Boolean(project?.isArchived || project?.archivedAt);
+}
+
 function formatDateValue(date) {
   return date ? dayjs(date).valueOf() : Number.MAX_SAFE_INTEGER;
 }
@@ -150,7 +154,12 @@ function TaskTable({ tasks, categoryMap }) {
       key: "project",
       width: 180,
       sorter: (first, second) => (first.project?.name || "").localeCompare(second.project?.name || "", "ru"),
-      render: (projectName) => projectName || "Без проекта"
+      render: (projectName, task) => (
+        <Space size={6} wrap>
+          <span>{projectName || "Без проекта"}</span>
+          {isProjectArchived(task.project) && <Tag color="default">Архив</Tag>}
+        </Space>
+      )
     },
     {
       title: "Срок",
@@ -259,6 +268,10 @@ export function Dashboard({ currentUser }) {
     () => projects.find((project) => project._id === selectedProjectId),
     [projects, selectedProjectId]
   );
+  const activeProjects = useMemo(
+    () => projects.filter((project) => !isProjectArchived(project)),
+    [projects]
+  );
 
   async function loadDashboard() {
     setLoading(true);
@@ -283,8 +296,15 @@ export function Dashboard({ currentUser }) {
   }, []);
 
   const projectOptions = useMemo(
-    () => projects.map((project) => ({ value: project._id, label: project.name })),
+    () => projects.map((project) => ({
+      value: project._id,
+      label: isProjectArchived(project) ? `${project.name} · архив` : project.name
+    })),
     [projects]
+  );
+  const createProjectOptions = useMemo(
+    () => activeProjects.map((project) => ({ value: project._id, label: project.name })),
+    [activeProjects]
   );
 
   const memberOptions = useMemo(
@@ -461,7 +481,7 @@ export function Dashboard({ currentUser }) {
   }
 
   function openCreateTask() {
-    const firstProject = projects[0];
+    const firstProject = activeProjects[0];
     if (firstProject && !form.getFieldValue("projectId")) {
       form.setFieldsValue({
         projectId: firstProject._id,
@@ -585,9 +605,11 @@ export function Dashboard({ currentUser }) {
               <Switch checked={hideClosed} onChange={setHideClosed} />
             </Space>
           )}
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreateTask} disabled={!projects.length}>
+          <Tooltip title={!activeProjects.length && projects.length ? "Нет активных проектов для новых задач" : ""}>
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreateTask} disabled={!activeProjects.length}>
             Новая задача
-          </Button>
+            </Button>
+          </Tooltip>
         </Space>
       </div>
 
@@ -729,14 +751,14 @@ export function Dashboard({ currentUser }) {
           </Button>
         }
       >
-        {projects.length ? (
+        {activeProjects.length ? (
           <Form form={form} layout="vertical" onFinish={createTask}>
             <Form.Item
               name="projectId"
               label="Проект"
               rules={[{ required: true, message: "Выберите проект" }]}
             >
-              <Select options={projectOptions} onChange={handleProjectChange} />
+              <Select options={createProjectOptions} onChange={handleProjectChange} />
             </Form.Item>
             <Form.Item
               name="description"
@@ -832,7 +854,7 @@ export function Dashboard({ currentUser }) {
             </div>
           </Form>
         ) : (
-          <Empty description="Сначала создайте проект" />
+          <Empty description={projects.length ? "Нет активных проектов для новых задач" : "Сначала создайте проект"} />
         )}
       </Drawer>
     </section>

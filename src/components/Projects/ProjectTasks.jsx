@@ -1,4 +1,4 @@
-import { ArrowLeftOutlined } from "@ant-design/icons";
+import { InboxOutlined, ArrowLeftOutlined } from "@ant-design/icons";
 import { Card, Spin, Tag, Typography, message } from "antd";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -9,6 +9,10 @@ import "./ProjectTasks.css";
 
 function userId(user) {
   return user?._id || user;
+}
+
+function isProjectArchived(project) {
+  return Boolean(project?.isArchived || project?.archivedAt);
 }
 
 export function ProjectTasks({ currentUser }) {
@@ -57,6 +61,7 @@ export function ProjectTasks({ currentUser }) {
   }
 
   const currentMember = project.members.find((member) => userId(member.user) === currentUser?._id);
+  const projectArchived = isProjectArchived(project);
 
   return (
     <section className="project-tasks">
@@ -69,9 +74,16 @@ export function ProjectTasks({ currentUser }) {
           <Typography.Title level={1}>{project.name}</Typography.Title>
           <Typography.Paragraph>{project.description || "Без описания"}</Typography.Paragraph>
         </div>
-        <Tag color={currentMember?.role === "admin" ? "green" : "blue"}>
-          {currentMember?.role === "admin" ? "Администратор" : "Участник"}
-        </Tag>
+        <div className="project-tasks__tags">
+          {projectArchived && (
+            <Tag color="default" icon={<InboxOutlined />}>
+              Архив
+            </Tag>
+          )}
+          <Tag color={currentMember?.role === "admin" ? "green" : "blue"}>
+            {currentMember?.role === "admin" ? "Администратор" : "Участник"}
+          </Tag>
+        </div>
       </Card>
 
       <TaskWorkspace project={project} currentUser={currentUser} />

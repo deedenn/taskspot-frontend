@@ -1,8 +1,10 @@
 import {
+  InboxOutlined,
   ArrowLeftOutlined,
   CopyOutlined,
   DeleteOutlined,
   EditOutlined,
+  ExclamationCircleOutlined,
   FolderOpenOutlined,
   PlusOutlined,
   ReloadOutlined,
@@ -10,7 +12,7 @@ import {
   TeamOutlined,
   UserAddOutlined
 } from "@ant-design/icons";
-import { Avatar, Button, Card, ColorPicker, Empty, Form, Input, Modal, Popconfirm, Select, Space, Tag, Tooltip, Typography, message } from "antd";
+import { Alert, Avatar, Button, Card, Checkbox, ColorPicker, Empty, Form, Input, Modal, Popconfirm, Segmented, Select, Space, Tag, Tooltip, Typography, message } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiFetch } from "../../api.js";
@@ -37,6 +39,10 @@ function initials(user) {
 
 function categoryKey(category) {
   return category?._id || category?.id || category?.name;
+}
+
+function isProjectArchived(project) {
+  return Boolean(project?.isArchived || project?.archivedAt);
 }
 
 function pluralizeRu(count, forms) {
@@ -72,8 +78,13 @@ export function Projects({ user }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [projectSearch, setProjectSearch] = useState("");
+  const [projectStatusFilter, setProjectStatusFilter] = useState("active");
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [editProjectModalOpen, setEditProjectModalOpen] = useState(false);
+  const [deleteProjectModalOpen, setDeleteProjectModalOpen] = useState(false);
+  const [deleteConfirmationName, setDeleteConfirmationName] = useState("");
+  const [deleteConfirmed, setDeleteConfirmed] = useState(false);
+  const [projectActionLoading, setProjectActionLoading] = useState("");
   const [projectForm] = Form.useForm();
   const [editProjectForm] = Form.useForm();
   const [memberForm] = Form.useForm();
@@ -90,19 +101,33 @@ export function Projects({ user }) {
   const filteredProjects = useMemo(() => {
     const query = projectSearch.trim().toLowerCase();
 
-    if (!query) {
-      return projects;
-    }
-
-    return projects.filter((project) =>
-      [project.name, project.description]
+    return projects.filter((project) => {
+      const matchesStatus =
+        projectStatusFilter === "all" ||
+        (projectStatusFilter === "active" && !isProjectArchived(project)) ||
+        (projectStatusFilter === "archived" && isProjectArchived(project));
+      const matchesSearch =
+        !query ||
+        [project.name, project.description]
         .filter(Boolean)
-        .some((value) => value.toLowerCase().includes(query))
-    );
-  }, [projects, projectSearch]);
+        .some((value) => value.toLowerCase().includes(query));
+
+      return matchesStatus && matchesSearch;
+    });
+  }, [projects, projectSearch, projectStatusFilter]);
+
+  const projectCounters = useMemo(
+    () => ({
+      active: projects.filter((project) => !isProjectArchived(project)).length,
+      archived: projects.filter(isProjectArchived).length
+    }),
+    [projects]
+  );
 
   const currentMember = activeProject?.members.find((member) => userId(member.user) === user?._id);
   const isAdmin = currentMember?.role === "admin";
+  const activeProjectArchived = isProjectArchived(activeProject);
+  const canManageActiveProject = isAdmin && !activeProjectArchived;
 
   async function loadProjects() {
     setLoading(true);
@@ -157,6 +182,60 @@ export function Projects({ user }) {
       message.success("Проект обновлён");
     } catch (error) {
       message.error(error.message);
+    }
+  }
+
+  async function archiveProject() {
+    setProjectActionLoading("archive");
+    try {
+      const data = await apiFetch(`/projects/${activeProject._id}/archive`, {
+        method: "PATCH"
+      });
+      updateProject(data.project);
+      message.success("Проект отправлен в архив");
+    } catch (error) {
+      message.error(error.message);
+    } finally {
+      setProjectActionLoading("");
+    }
+  }
+
+  async function restoreProject() {
+    setProjectActionLoading("restore");
+    try {
+      const data = await apiFetch(`/projects/${activeProject._id}/restore`, {
+        method: "PATCH"
+      });
+      updateProject(data.project);
+      message.success("Проект восстановлен");
+    } catch (error) {
+      message.error(error.message);
+    } finally {
+      setProjectActionLoading("");
+    }
+  }
+
+  function openDeleteProject() {
+    setDeleteConfirmationName("");
+    setDeleteConfirmed(false);
+    setDeleteProjectModalOpen(true);
+  }
+
+  async function deleteProject() {
+    setProjectActionLoading("delete");
+    try {
+      await apiFetch(`/projects/${activeProject._id}`, {
+        method: "DELETE",
+        body: JSON.stringify({ confirm: "DELETE_PROJECT_WITH_TASKS" })
+      });
+      setProjects((items) => items.filter((item) => item._id !== activeProject._id));
+      setDeleteProjectModalOpen(false);
+      navigate("/app/projects");
+      message.success("Проект и его задачи удалены");
+    } catch (error) {
+      message.error(error.message);
+    } finally {
+      setProjectActionLoading("");
     }
   }
 
@@ -282,21 +361,25 @@ export function Projects({ user }) {
     const projectMember = project.members.find((member) => userId(member.user) === user?._id);
     const memberCount = project.members.length;
     const categoryCount = project.categories.length;
+    const archived = isProjectArchived(project);
 
     return (
       <button
         key={project._id}
         type="button"
-        className="projects__project-card"
+        className={archived ? "projects__project-card projects__project-card--archived" : "projects__project-card"}
         onClick={() => navigate(`/app/projects/${project._id}`)}
       >
         <span className="projects__project-card-top">
           <span className="projects__project-icon" aria-hidden="true">
             <FolderOpenOutlined />
           </span>
-          <Tag color={projectMember?.role === "admin" ? "green" : "blue"}>
-            {projectMember?.role === "admin" ? "Администратор" : "Участник"}
-          </Tag>
+          <span className="projects__project-card-tags">
+            {archived && <Tag color="default">Архив</Tag>}
+            <Tag color={projectMember?.role === "admin" ? "green" : "blue"}>
+              {projectMember?.role === "admin" ? "Администратор" : "Участник"}
+            </Tag>
+          </span>
         </span>
         <span className="projects__project-name">{project.name}</span>
         <span className="projects__project-description">{project.description || "Описание пока не добавлено"}</span>
@@ -305,7 +388,14 @@ export function Projects({ user }) {
             <TeamOutlined />
             {memberCount} {pluralizeRu(memberCount, ["участник", "участника", "участников"])}
           </span>
-          <span>{categoryCount} {pluralizeRu(categoryCount, ["категория", "категории", "категорий"])}</span>
+          {archived ? (
+            <span>
+              <InboxOutlined />
+              только просмотр
+            </span>
+          ) : (
+            <span>{categoryCount} {pluralizeRu(categoryCount, ["категория", "категории", "категорий"])}</span>
+          )}
         </span>
       </button>
     );
@@ -323,13 +413,24 @@ export function Projects({ user }) {
               </Typography.Text>
             </div>
             {projects.length > 0 && (
-              <Input.Search
-                allowClear
-                className="projects__search"
-                placeholder="Поиск по проектам"
-                value={projectSearch}
-                onChange={(event) => setProjectSearch(event.target.value)}
-              />
+              <div className="projects__catalog-controls">
+                <Segmented
+                  value={projectStatusFilter}
+                  onChange={setProjectStatusFilter}
+                  options={[
+                    { value: "active", label: `Активные (${projectCounters.active})` },
+                    { value: "archived", label: `Архив (${projectCounters.archived})` },
+                    { value: "all", label: `Все (${projects.length})` }
+                  ]}
+                />
+                <Input.Search
+                  allowClear
+                  className="projects__search"
+                  placeholder="Поиск по проектам"
+                  value={projectSearch}
+                  onChange={(event) => setProjectSearch(event.target.value)}
+                />
+              </div>
             )}
           </div>
           {filteredProjects.length ? (
@@ -338,6 +439,10 @@ export function Projects({ user }) {
             </div>
           ) : projectSearch ? (
             <Empty description="Проекты не найдены" />
+          ) : projectStatusFilter === "active" && projects.length ? (
+            <Empty description="Активных проектов нет" />
+          ) : projectStatusFilter === "archived" ? (
+            <Empty description="Архивных проектов нет" />
           ) : (
             <Empty description="Создайте первый проект" />
           )}
@@ -378,6 +483,14 @@ export function Projects({ user }) {
                       <Typography.Paragraph>{activeProject.description || "Описание проекта пока не добавлено"}</Typography.Paragraph>
                     </div>
                   </div>
+                  {activeProjectArchived && (
+                    <Alert
+                      type="info"
+                      showIcon
+                      message="Проект в архиве"
+                      description="Задачи доступны для просмотра. Создание задач и изменения в проекте отключены до восстановления."
+                    />
+                  )}
                   <div className="projects__summary-metrics" aria-label="Показатели проекта">
                     <div>
                       <strong>{activeProject.members.length}</strong>
@@ -395,9 +508,28 @@ export function Projects({ user }) {
                 </div>
                 <Space wrap className="projects__summary-actions">
                   <Tag color={isAdmin ? "green" : "blue"}>{isAdmin ? "Администратор" : "Участник"}</Tag>
-                  {isAdmin && (
+                  {activeProjectArchived && <Tag color="default">Архив</Tag>}
+                  {canManageActiveProject && (
                     <Button icon={<EditOutlined />} onClick={openEditProject}>
                       Редактировать
+                    </Button>
+                  )}
+                  {canManageActiveProject && (
+                    <Popconfirm
+                      title="Отправить проект в архив?"
+                      description="Новые задачи и изменения будут отключены, но задачи останутся доступны для просмотра."
+                      okText="Архивировать"
+                      cancelText="Отмена"
+                      onConfirm={archiveProject}
+                    >
+                      <Button icon={<InboxOutlined />} loading={projectActionLoading === "archive"}>
+                        Архивировать
+                      </Button>
+                    </Popconfirm>
+                  )}
+                  {isAdmin && activeProjectArchived && (
+                    <Button icon={<InboxOutlined />} loading={projectActionLoading === "restore"} onClick={restoreProject}>
+                      Вернуть из архива
                     </Button>
                   )}
                   <Button
@@ -405,13 +537,13 @@ export function Projects({ user }) {
                     icon={<FolderOpenOutlined />}
                     onClick={() => navigate(`/app/projects/${activeProject._id}/tasks`)}
                   >
-                    Открыть задачи
+                    {activeProjectArchived ? "Смотреть задачи" : "Открыть задачи"}
                   </Button>
                 </Space>
         </Card>
 
         <Card className="projects__panel" title="Участники и приглашения">
-          {isAdmin && (
+          {canManageActiveProject && (
             <div className="projects__panel-section">
               <div className="projects__section-head">
                 <Typography.Text strong>Пригласить участника</Typography.Text>
@@ -454,7 +586,7 @@ export function Projects({ user }) {
                   <div className="projects__person-tags">
                     <Tag>{member.role === "admin" ? "Админ" : "Участник"}</Tag>
                   </div>
-                  {isAdmin && (
+                  {canManageActiveProject && (
                     <Popconfirm
                       title="Удалить участника?"
                       description="Участник потеряет доступ к проекту."
@@ -503,7 +635,7 @@ export function Projects({ user }) {
                       </Tag>
                       <Tag>{invitation.role === "admin" ? "Админ" : "Участник"}</Tag>
                     </div>
-                    {isAdmin && (
+                    {canManageActiveProject && (
                       <Space size={6} className="projects__row-actions">
                         <Tooltip title="Отправить повторно">
                           <Button
@@ -544,7 +676,7 @@ export function Projects({ user }) {
         </Card>
 
         <Card className="projects__panel" title="Категории задач">
-          {isAdmin && (
+          {canManageActiveProject && (
             <div className="projects__panel-section">
               <div className="projects__section-head">
                 <Typography.Text strong>Создать категорию</Typography.Text>
@@ -573,7 +705,7 @@ export function Projects({ user }) {
                   <Tag
                     key={categoryKey(category)}
                     color={category.color}
-                    closable={isAdmin}
+                    closable={canManageActiveProject}
                     onClose={(event) => {
                       event.preventDefault();
                       const removableCategoryKey = categoryKey(category);
@@ -601,6 +733,25 @@ export function Projects({ user }) {
             )}
           </div>
         </Card>
+
+        {isAdmin && (
+          <Card className="projects__danger-zone">
+            <div className="projects__danger-zone-content">
+              <span className="projects__danger-icon" aria-hidden="true">
+                <ExclamationCircleOutlined />
+              </span>
+              <div>
+                <Typography.Title level={3}>Опасная зона</Typography.Title>
+                <Typography.Paragraph>
+                  Удаление проекта навсегда удалит все задачи, комментарии, историю и вложения проекта.
+                </Typography.Paragraph>
+              </div>
+            </div>
+            <Button danger icon={<DeleteOutlined />} onClick={openDeleteProject}>
+              Удалить проект
+            </Button>
+          </Card>
+        )}
       </div>
     );
   }
@@ -687,6 +838,37 @@ export function Projects({ user }) {
             <Input.TextArea rows={3} />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title="Удалить проект"
+        open={deleteProjectModalOpen}
+        onCancel={() => setDeleteProjectModalOpen(false)}
+        okText="Удалить проект"
+        cancelText="Отмена"
+        okButtonProps={{
+          danger: true,
+          disabled: !deleteConfirmed || deleteConfirmationName !== activeProject?.name,
+          loading: projectActionLoading === "delete"
+        }}
+        onOk={deleteProject}
+      >
+        <Alert
+          type="error"
+          showIcon
+          message="Это действие нельзя отменить"
+          description="Будут навсегда удалены проект, все задачи, комментарии, вложения и история. Восстановить данные будет невозможно."
+        />
+        <div className="projects__delete-confirmation">
+          <Checkbox checked={deleteConfirmed} onChange={(event) => setDeleteConfirmed(event.target.checked)}>
+            Я понимаю, что все задачи проекта будут удалены навсегда
+          </Checkbox>
+          <Input
+            value={deleteConfirmationName}
+            onChange={(event) => setDeleteConfirmationName(event.target.value)}
+            placeholder={`Введите название проекта: ${activeProject?.name || ""}`}
+          />
+        </div>
       </Modal>
     </section>
   );
