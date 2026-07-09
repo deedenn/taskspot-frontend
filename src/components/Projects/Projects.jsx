@@ -83,6 +83,25 @@ const emailStatusLabels = {
   failed: ["Ошибка отправки", "red"]
 };
 
+function formatInvitationEmailError(error) {
+  if (!error) {
+    return "";
+  }
+
+  const message = String(error);
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("connection timeout") || normalized.includes("etimedout")) {
+    return "SMTP-сервер не отвечает. Проверьте порт отправки и перезапустите backend.";
+  }
+
+  if (normalized.includes("authentication") || normalized.includes("invalid login") || normalized.includes("auth")) {
+    return "SMTP не принял логин или пароль почтового ящика.";
+  }
+
+  return message;
+}
+
 export function Projects({ user }) {
   const navigate = useNavigate();
   const { projectId } = useParams();
@@ -272,6 +291,8 @@ export function Projects({ user }) {
         message.info("Приглашение создано, письмо отправляется");
       } else if (invitation?.emailStatus === "skipped") {
         message.warning("Приглашение создано, но SMTP пока не настроен");
+      } else if (invitation?.emailStatus === "failed") {
+        message.error(formatInvitationEmailError(invitation.emailError) || "Приглашение создано, но письмо не отправилось");
       } else {
         message.warning("Приглашение создано, но письмо не отправилось");
       }
@@ -293,7 +314,7 @@ export function Projects({ user }) {
       } else if (invitation?.emailStatus === "skipped") {
         message.warning("SMTP пока не настроен, письмо не отправлено");
       } else {
-        message.error(invitation?.emailError || "Не удалось отправить приглашение");
+        message.error(formatInvitationEmailError(invitation?.emailError) || "Не удалось отправить приглашение");
       }
     } catch (error) {
       message.error(error.message);
@@ -658,7 +679,7 @@ export function Projects({ user }) {
                         Будет добавлен после регистрации с этим email
                       </Typography.Text>
                       {invitation.emailError && (
-                        <Typography.Text type="danger">{invitation.emailError}</Typography.Text>
+                        <Typography.Text type="danger">{formatInvitationEmailError(invitation.emailError)}</Typography.Text>
                       )}
                     </div>
                     <div className="projects__person-tags">
