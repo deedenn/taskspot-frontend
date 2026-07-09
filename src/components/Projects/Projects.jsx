@@ -1,6 +1,7 @@
 import {
   InboxOutlined,
   ArrowLeftOutlined,
+  CloseOutlined,
   CopyOutlined,
   DeleteOutlined,
   EditOutlined,
@@ -38,7 +39,17 @@ function initials(user) {
 }
 
 function categoryKey(category) {
-  return category?._id || category?.id || category?.name;
+  const rawKey = category?._id || category?.id;
+
+  if (typeof rawKey === "string" || typeof rawKey === "number") {
+    return String(rawKey);
+  }
+
+  if (rawKey && typeof rawKey.toString === "function" && rawKey.toString() !== "[object Object]") {
+    return rawKey.toString();
+  }
+
+  return category?.name || "";
 }
 
 function isProjectArchived(project) {
@@ -351,6 +362,24 @@ export function Projects({ user }) {
     } catch (error) {
       message.error(error.message);
     }
+  }
+
+  function confirmRemoveCategory(category) {
+    const removableCategoryKey = categoryKey(category);
+
+    if (!removableCategoryKey) {
+      message.error("Не удалось определить категорию для удаления");
+      return;
+    }
+
+    Modal.confirm({
+      title: "Удалить категорию?",
+      content: `Категория «${category.name}» будет удалена из проекта и убрана из задач.`,
+      okText: "Удалить",
+      cancelText: "Отмена",
+      okButtonProps: { danger: true },
+      onOk: () => removeCategory(removableCategoryKey)
+    });
   }
 
   function updateProject(project) {
@@ -705,26 +734,21 @@ export function Projects({ user }) {
                   <Tag
                     key={categoryKey(category)}
                     color={category.color}
-                    closable={canManageActiveProject}
-                    onClose={(event) => {
-                      event.preventDefault();
-                      const removableCategoryKey = categoryKey(category);
-                      if (!removableCategoryKey) {
-                        message.error("Не удалось определить категорию для удаления");
-                        return;
-                      }
-
-                      Modal.confirm({
-                        title: "Удалить категорию?",
-                        content: `Категория «${category.name}» будет удалена из проекта.`,
-                        okText: "Удалить",
-                        cancelText: "Отмена",
-                        okButtonProps: { danger: true },
-                        onOk: () => removeCategory(removableCategoryKey)
-                      });
-                    }}
                   >
-                    {category.name}
+                    <span>{category.name}</span>
+                    {canManageActiveProject && (
+                      <button
+                        type="button"
+                        className="projects__category-remove"
+                        aria-label={`Удалить категорию ${category.name}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          confirmRemoveCategory(category);
+                        }}
+                      >
+                        <CloseOutlined />
+                      </button>
+                    )}
                   </Tag>
                 ))}
               </div>

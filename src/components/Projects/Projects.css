@@ -430,6 +430,28 @@
   font-weight: 600;
 }
 
+.projects__category-remove {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+  opacity: 0.86;
+  transition: background 160ms ease, opacity 160ms ease;
+}
+
+.projects__category-remove:hover,
+.projects__category-remove:focus-visible {
+  background: rgba(255, 255, 255, 0.32);
+  opacity: 1;
+  outline: none;
+}
+
 @media (max-width: 860px) {
   .projects__head,
   .projects__summary .ant-card-body {
