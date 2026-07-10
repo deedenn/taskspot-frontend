@@ -26,6 +26,41 @@ import "./AppLayout.css";
 
 const { Header, Sider, Content } = Layout;
 
+function localizeNotificationMessage(messageText = "") {
+  const rules = [
+    {
+      pattern: /^You were assigned a task in "(.+)"$/,
+      format: ([projectName]) => `Вам назначена задача в проекте «${projectName}»`
+    },
+    {
+      pattern: /^Task "(.+)" is ready for review$/,
+      format: ([taskDescription]) => `Задача «${taskDescription}» ожидает проверки`
+    },
+    {
+      pattern: /^Task "(.+)" was closed$/,
+      format: ([taskDescription]) => `Задача «${taskDescription}» закрыта`
+    },
+    {
+      pattern: /^Task "(.+)" was sent back to work$/,
+      format: ([taskDescription]) => `Задача «${taskDescription}» возвращена на доработку`
+    },
+    {
+      pattern: /^New comment in task "(.+)"$/,
+      format: ([taskDescription]) => `Новый комментарий в задаче «${taskDescription}»`
+    }
+  ];
+
+  for (const rule of rules) {
+    const match = String(messageText).match(rule.pattern);
+
+    if (match) {
+      return rule.format(match.slice(1));
+    }
+  }
+
+  return messageText;
+}
+
 export function AppLayout({ auth }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -179,7 +214,7 @@ export function AppLayout({ auth }) {
 	                className={notification.read ? "app-layout__notification" : "app-layout__notification app-layout__notification--unread"}
 	              >
 	                <List.Item.Meta
-                  title={notification.message}
+                  title={localizeNotificationMessage(notification.message)}
                   description={
                     <span>
                       {notification.project?.name} · {dayjs(notification.createdAt).format("DD.MM.YYYY HH:mm")}
