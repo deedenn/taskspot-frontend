@@ -389,7 +389,7 @@ export function Projects({ user }) {
       const data = await apiFetch(`/projects/${activeProject._id}/categories/${encodeURIComponent(categoryId)}`, {
         method: "DELETE"
       });
-      updateProject({ ...activeProject, categories: data.categories });
+      updateProject(data.project || { ...activeProject, categories: data.categories });
       message.success("Категория удалена");
     } catch (error) {
       message.error(error.message);
@@ -397,9 +397,9 @@ export function Projects({ user }) {
   }
 
   function confirmRemoveCategory(category) {
-    const removableCategoryKey = categoryKey(category);
+    const removableCategoryId = category?._id || category?.id;
 
-    if (!removableCategoryKey) {
+    if (!removableCategoryId) {
       message.error("Не удалось определить категорию для удаления");
       return;
     }
@@ -410,7 +410,7 @@ export function Projects({ user }) {
       okText: "Удалить",
       cancelText: "Отмена",
       okButtonProps: { danger: true },
-      onOk: () => removeCategory(removableCategoryKey)
+      onOk: () => removeCategory(String(removableCategoryId))
     });
   }
 
