@@ -4,8 +4,10 @@ import {
   DeleteOutlined,
   EyeInvisibleOutlined,
   EyeOutlined,
+  FolderAddOutlined,
   PaperClipOutlined,
   PlusOutlined,
+  RocketOutlined,
   SendOutlined,
   UnorderedListOutlined
 } from "@ant-design/icons";
@@ -30,7 +32,7 @@ import {
 } from "antd";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../../api.js";
 import { fullName, userOptionLabel } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
@@ -248,6 +250,7 @@ function TaskTable({ tasks, categoryMap }) {
 }
 
 export function Dashboard({ currentUser }) {
+  const navigate = useNavigate();
   const [data, setData] = useState({ initiated: [], assigned: [], observing: [], notifications: [] });
   const [projects, setProjects] = useState([]);
   const [error, setError] = useState("");
@@ -457,6 +460,7 @@ export function Dashboard({ currentUser }) {
   const activeOverdueCount = activeTasks.filter(isOverdue).length;
   const activeDueSoonCount = activeTasks.filter((task) => !isOverdue(task) && isDueSoon(task)).length;
   const activeUrgentCount = activeTasks.filter(isUrgentActive).length;
+  const hasNoProjects = !loading && !error && projects.length === 0;
 
   function handleDashboardProjectChange(projectId) {
     setProjectFilter(projectId);
@@ -606,11 +610,17 @@ export function Dashboard({ currentUser }) {
               <Switch checked={hideClosed} onChange={setHideClosed} />
             </Space>
           )}
-          <Tooltip title={!activeProjects.length && projects.length ? "Нет активных проектов для новых задач" : ""}>
-            <Button type="primary" icon={<PlusOutlined />} onClick={openCreateTask} disabled={!activeProjects.length}>
-            Новая задача
+          {hasNoProjects ? (
+            <Button type="primary" icon={<FolderAddOutlined />} onClick={() => navigate("/app/projects")}>
+              Создать проект
             </Button>
-          </Tooltip>
+          ) : (
+            <Tooltip title={!activeProjects.length && projects.length ? "Нет активных проектов для новых задач" : ""}>
+              <Button type="primary" icon={<PlusOutlined />} onClick={openCreateTask} disabled={!activeProjects.length}>
+                Новая задача
+              </Button>
+            </Tooltip>
+          )}
         </Space>
       </div>
 
@@ -622,124 +632,171 @@ export function Dashboard({ currentUser }) {
         />
       )}
 
-      <div className="dashboard__stats" role="tablist" aria-label="Фильтр задач по роли">
-        {statItems.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            role="tab"
-            className={activeRoleTab === item.key ? "dashboard__stat-card dashboard__stat-card--active" : "dashboard__stat-card"}
-            aria-label={`${item.title}: ${visibleTasks[item.key].length}`}
-            aria-pressed={activeRoleTab === item.key}
-            aria-selected={activeRoleTab === item.key}
-            onClick={() => setActiveRoleTab(item.key)}
-          >
-            <div className="dashboard__stat-content" aria-label={`${item.title}: ${visibleTasks[item.key].length}`}>
-              <span className="dashboard__stat-icon">{item.icon}</span>
-              <span className="dashboard__stat-text">
-                <strong>{visibleTasks[item.key].length}</strong>
-                <span>{item.title}</span>
-              </span>
-            </div>
-          </button>
-        ))}
-        <button
-          type="button"
-          className={isReviewFocusActive ? "dashboard__stat-card dashboard__stat-card--review dashboard__stat-card--active" : "dashboard__stat-card dashboard__stat-card--review"}
-          aria-label={`На проверке: ${reviewTasksForUserCount}`}
-          aria-pressed={isReviewFocusActive}
-          onClick={showReviewTasks}
-        >
-          <div className="dashboard__stat-content" aria-label={`На проверке: ${reviewTasksForUserCount}`}>
-            <span className="dashboard__stat-icon">
-              <CheckCircleOutlined />
-            </span>
-            <span className="dashboard__stat-text">
-              <strong>{reviewTasksForUserCount}</strong>
-              <span>На проверке</span>
-            </span>
-          </div>
-        </button>
-      </div>
-
-      <div className="dashboard__grid">
-        <Card className="dashboard__tasks" loading={loading}>
+      {hasNoProjects ? (
+        <Card className="dashboard__tasks dashboard__tasks--setup">
           <div className="dashboard__table-head">
             <div>
               <Typography.Text className="dashboard__eyebrow">Рабочий список</Typography.Text>
-              <Typography.Title level={2}>
-                {isReviewFocusActive
-                  ? "Задачи на проверке"
-                  : activeView.key === "all"
-                    ? "Все задачи"
-                    : `Задачи: ${activeView.title.toLowerCase()}`}
-              </Typography.Title>
-            </div>
-            <div className="dashboard__pulse" aria-label="Индикаторы задач">
-              <span>
-                <strong>{activeTasks.length}</strong>
-                показано
-              </span>
-              <span className={activeOverdueCount ? "dashboard__pulse-item dashboard__pulse-item--danger" : "dashboard__pulse-item"}>
-                <strong>{activeOverdueCount}</strong>
-                просрочено
-              </span>
-              <span className={activeDueSoonCount ? "dashboard__pulse-item dashboard__pulse-item--warn" : "dashboard__pulse-item"}>
-                <strong>{activeDueSoonCount}</strong>
-                скоро
-              </span>
-              <span className={activeUrgentCount ? "dashboard__pulse-item dashboard__pulse-item--urgent" : "dashboard__pulse-item"}>
-                <strong>{activeUrgentCount}</strong>
-                срочно
-              </span>
+              <Typography.Title level={2}>Создайте первый проект</Typography.Title>
             </div>
           </div>
-          <div className="dashboard__filters-panel">
-            <Select
-              allowClear
-              className="dashboard__filter-select"
-              placeholder="Все проекты"
-              options={projectOptions}
-              value={projectFilter}
-              onChange={handleDashboardProjectChange}
-            />
-            <Select
-              allowClear
-              mode="multiple"
-              className="dashboard__filter-select dashboard__filter-select--wide"
-              placeholder="Все категории"
-              options={dashboardCategoryOptions}
-              value={categoryFilter}
-              onChange={setCategoryFilter}
-              maxTagCount="responsive"
-            />
-            <Input.Search
-              allowClear
-              className="dashboard__filter-select dashboard__filter-select--wide"
-              placeholder="Поиск по задачам"
-              value={searchText}
-              onChange={(event) => setSearchText(event.target.value)}
-            />
-            <Select
-              className="dashboard__filter-select"
-              value={quickFilter}
-              onChange={setQuickFilter}
-              options={[
-                { value: "active", label: "Активные" },
-                { value: "today", label: "Сегодня" },
-                { value: "overdue", label: "Просрочено" },
-                { value: "review", label: "Ждут проверки" },
-                { value: "unassigned", label: "Без ответственного" },
-                { value: "all", label: "Все" }
-              ]}
-            />
-            <Button icon={<ClearOutlined />} onClick={resetFilters}>
-              Сбросить
-            </Button>
+          <div className="dashboard__empty-start">
+            <div className="dashboard__empty-main">
+              <span className="dashboard__empty-icon" aria-hidden="true">
+                <FolderAddOutlined />
+              </span>
+              <Typography.Title level={3}>Добавьте проект, чтобы создавать задачи</Typography.Title>
+              <Typography.Paragraph>
+                Проект объединяет задачи, участников, категории и сроки. После создания здесь появится рабочий список
+                по ролям и дедлайнам.
+              </Typography.Paragraph>
+              <Space className="dashboard__empty-actions" wrap>
+                <Button type="primary" size="large" icon={<PlusOutlined />} onClick={() => navigate("/app/projects")}>
+                  Добавить проект
+                </Button>
+                <Button size="large" icon={<RocketOutlined />} onClick={() => navigate("/app/onboarding")}>
+                  Открыть быстрый старт
+                </Button>
+              </Space>
+            </div>
+            <div className="dashboard__empty-preview" aria-hidden="true">
+              <div className="dashboard__empty-preview-row">
+                <span>Проект</span>
+                <strong>Рабочее пространство</strong>
+              </div>
+              <div className="dashboard__empty-preview-row">
+                <span>Участники</span>
+                <strong>Команда проекта</strong>
+              </div>
+              <div className="dashboard__empty-preview-row">
+                <span>Первая задача</span>
+                <strong>Срок, ответственный, статус</strong>
+              </div>
+            </div>
           </div>
-          <TaskTable tasks={activeTasks} categoryMap={categoryMap} />
         </Card>
-      </div>
+      ) : (
+        <>
+          <div className="dashboard__stats" role="tablist" aria-label="Фильтр задач по роли">
+            {statItems.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                role="tab"
+                className={activeRoleTab === item.key ? "dashboard__stat-card dashboard__stat-card--active" : "dashboard__stat-card"}
+                aria-label={`${item.title}: ${visibleTasks[item.key].length}`}
+                aria-pressed={activeRoleTab === item.key}
+                aria-selected={activeRoleTab === item.key}
+                onClick={() => setActiveRoleTab(item.key)}
+              >
+                <div className="dashboard__stat-content" aria-label={`${item.title}: ${visibleTasks[item.key].length}`}>
+                  <span className="dashboard__stat-icon">{item.icon}</span>
+                  <span className="dashboard__stat-text">
+                    <strong>{visibleTasks[item.key].length}</strong>
+                    <span>{item.title}</span>
+                  </span>
+                </div>
+              </button>
+            ))}
+            <button
+              type="button"
+              className={isReviewFocusActive ? "dashboard__stat-card dashboard__stat-card--review dashboard__stat-card--active" : "dashboard__stat-card dashboard__stat-card--review"}
+              aria-label={`На проверке: ${reviewTasksForUserCount}`}
+              aria-pressed={isReviewFocusActive}
+              onClick={showReviewTasks}
+            >
+              <div className="dashboard__stat-content" aria-label={`На проверке: ${reviewTasksForUserCount}`}>
+                <span className="dashboard__stat-icon">
+                  <CheckCircleOutlined />
+                </span>
+                <span className="dashboard__stat-text">
+                  <strong>{reviewTasksForUserCount}</strong>
+                  <span>На проверке</span>
+                </span>
+              </div>
+            </button>
+          </div>
+
+          <div className="dashboard__grid">
+            <Card className="dashboard__tasks" loading={loading}>
+              <div className="dashboard__table-head">
+                <div>
+                  <Typography.Text className="dashboard__eyebrow">Рабочий список</Typography.Text>
+                  <Typography.Title level={2}>
+                    {isReviewFocusActive
+                      ? "Задачи на проверке"
+                      : activeView.key === "all"
+                        ? "Все задачи"
+                        : `Задачи: ${activeView.title.toLowerCase()}`}
+                  </Typography.Title>
+                </div>
+                <div className="dashboard__pulse" aria-label="Индикаторы задач">
+                  <span>
+                    <strong>{activeTasks.length}</strong>
+                    показано
+                  </span>
+                  <span className={activeOverdueCount ? "dashboard__pulse-item dashboard__pulse-item--danger" : "dashboard__pulse-item"}>
+                    <strong>{activeOverdueCount}</strong>
+                    просрочено
+                  </span>
+                  <span className={activeDueSoonCount ? "dashboard__pulse-item dashboard__pulse-item--warn" : "dashboard__pulse-item"}>
+                    <strong>{activeDueSoonCount}</strong>
+                    скоро
+                  </span>
+                  <span className={activeUrgentCount ? "dashboard__pulse-item dashboard__pulse-item--urgent" : "dashboard__pulse-item"}>
+                    <strong>{activeUrgentCount}</strong>
+                    срочно
+                  </span>
+                </div>
+              </div>
+              <div className="dashboard__filters-panel">
+                <Select
+                  allowClear
+                  className="dashboard__filter-select"
+                  placeholder="Все проекты"
+                  options={projectOptions}
+                  value={projectFilter}
+                  onChange={handleDashboardProjectChange}
+                />
+                <Select
+                  allowClear
+                  mode="multiple"
+                  className="dashboard__filter-select dashboard__filter-select--wide"
+                  placeholder="Все категории"
+                  options={dashboardCategoryOptions}
+                  value={categoryFilter}
+                  onChange={setCategoryFilter}
+                  maxTagCount="responsive"
+                />
+                <Input.Search
+                  allowClear
+                  className="dashboard__filter-select dashboard__filter-select--wide"
+                  placeholder="Поиск по задачам"
+                  value={searchText}
+                  onChange={(event) => setSearchText(event.target.value)}
+                />
+                <Select
+                  className="dashboard__filter-select"
+                  value={quickFilter}
+                  onChange={setQuickFilter}
+                  options={[
+                    { value: "active", label: "Активные" },
+                    { value: "today", label: "Сегодня" },
+                    { value: "overdue", label: "Просрочено" },
+                    { value: "review", label: "Ждут проверки" },
+                    { value: "unassigned", label: "Без ответственного" },
+                    { value: "all", label: "Все" }
+                  ]}
+                />
+                <Button icon={<ClearOutlined />} onClick={resetFilters}>
+                  Сбросить
+                </Button>
+              </div>
+              <TaskTable tasks={activeTasks} categoryMap={categoryMap} />
+            </Card>
+          </div>
+        </>
+      )}
 
       <Drawer
         title="Новая задача"

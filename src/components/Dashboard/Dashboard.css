@@ -173,6 +173,78 @@
   line-height: 1.15;
 }
 
+.dashboard__empty-start {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  gap: 24px;
+  align-items: center;
+  min-height: 300px;
+  padding: 28px 30px 32px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.dashboard__empty-main {
+  max-width: 620px;
+}
+
+.dashboard__empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 14px;
+  border-radius: 12px;
+  background: var(--brand-blue-100);
+  color: var(--brand-blue-600);
+  font-size: 24px;
+}
+
+.dashboard__empty-main h3.ant-typography {
+  margin: 0 0 8px;
+  color: var(--text-primary);
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.dashboard__empty-main .ant-typography {
+  max-width: 560px;
+  color: var(--text-secondary);
+}
+
+.dashboard__empty-actions {
+  margin-top: 10px;
+}
+
+.dashboard__empty-preview {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.dashboard__empty-preview-row {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.dashboard__empty-preview-row span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.dashboard__empty-preview-row strong {
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.25;
+}
+
 .dashboard__pulse {
   display: flex;
   flex-wrap: wrap;
@@ -381,6 +453,14 @@
   .dashboard__filters-panel .ant-btn {
     width: 100%;
   }
+
+  .dashboard__empty-start {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard__empty-preview {
+    max-width: 420px;
+  }
 }
 
 @media (max-width: 720px) {
@@ -423,6 +503,21 @@
   .dashboard__filters-panel {
     padding-right: 12px;
     padding-left: 12px;
+  }
+
+  .dashboard__empty-start {
+    min-height: auto;
+    padding: 22px 12px 26px;
+  }
+
+  .dashboard__empty-main h3.ant-typography {
+    font-size: 22px;
+  }
+
+  .dashboard__empty-actions,
+  .dashboard__empty-actions .ant-space-item,
+  .dashboard__empty-actions .ant-btn {
+    width: 100%;
   }
 
   .dashboard__filters-panel {
@@ -484,5 +579,15 @@
 
   .dashboard__pulse span {
     justify-content: center;
+  }
+
+  .dashboard__empty-preview {
+    display: none;
+  }
+
+  .dashboard__empty-icon {
+    width: 42px;
+    height: 42px;
+    font-size: 21px;
   }
 }
