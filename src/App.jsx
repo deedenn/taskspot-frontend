@@ -5,6 +5,7 @@ import { apiFetch, getToken, setToken } from "./api.js";
 import { AppLayout } from "./components/AppLayout/AppLayout.jsx";
 import { AuthPage } from "./components/AuthPage/AuthPage.jsx";
 import { LandingPage } from "./components/LandingPage/LandingPage.jsx";
+import { VerifyEmail } from "./components/VerifyEmail/VerifyEmail.jsx";
 
 const Dashboard = lazy(() => import("./components/Dashboard/Dashboard.jsx").then((module) => ({ default: module.Dashboard })));
 const AdminDashboard = lazy(() => import("./components/AdminDashboard/AdminDashboard.jsx").then((module) => ({ default: module.AdminDashboard })));
@@ -92,6 +93,7 @@ export function App() {
           <Route path="/" element={<LandingPage user={user} />} />
           <Route path="/login" element={<AuthPage mode="login" auth={auth} />} />
           <Route path="/register" element={<AuthPage mode="register" auth={auth} />} />
+          <Route path="/verify-email" element={<VerifyEmail auth={auth} />} />
           <Route
             path="/app"
             element={user ? <AppLayout auth={auth} /> : <Navigate to="/login" replace />}

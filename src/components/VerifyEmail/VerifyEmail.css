@@ -1,4 +1,4 @@
-.auth-page {
+.verify-email {
   display: grid;
   min-height: 100vh;
   place-items: center;
@@ -6,13 +6,10 @@
   background:
     radial-gradient(circle at 18% 16%, rgba(109, 93, 246, 0.13), transparent 28%),
     radial-gradient(circle at 82% 28%, rgba(59, 130, 246, 0.16), transparent 30%),
-    linear-gradient(135deg, rgba(246, 248, 251, 0.97), rgba(234, 243, 255, 0.94)),
-    url("https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1600&q=80");
-  background-position: center;
-  background-size: cover;
+    linear-gradient(135deg, rgba(246, 248, 251, 0.97), rgba(234, 243, 255, 0.94));
 }
 
-.auth-page__brand {
+.verify-email__brand {
   position: absolute;
   top: 28px;
   left: 32px;
@@ -20,63 +17,74 @@
   text-decoration: none;
 }
 
-.auth-page__brand .brand-logo {
+.verify-email__brand .brand-logo {
   width: 168px;
   height: 40px;
   box-shadow: 0 12px 36px rgba(7, 20, 38, 0.12);
 }
 
-.auth-page__card {
+.verify-email__card {
   width: min(100%, 440px);
   border-radius: 8px;
   border-color: rgba(226, 232, 240, 0.9);
   box-shadow: 0 24px 80px rgba(7, 20, 38, 0.14);
 }
 
-.auth-page__card h1.ant-typography {
-  margin-bottom: 8px;
-  font-size: 30px;
-}
-
-.auth-page__alert {
-  margin-bottom: 18px;
-}
-
-.auth-page__switch {
-  margin-top: 20px;
+.verify-email__state {
+  display: grid;
+  justify-items: center;
   text-align: center;
 }
 
-.auth-page__actions {
+.verify-email__state h1.ant-typography {
+  margin: 12px 0 8px;
+  font-size: 30px;
+}
+
+.verify-email__icon {
+  font-size: 44px;
+}
+
+.verify-email__icon--success {
+  color: #16a34a;
+}
+
+.verify-email__icon--error {
+  color: #dc2626;
+}
+
+.verify-email__alert {
   width: 100%;
+  margin: 8px 0 18px;
+  text-align: left;
 }
 
 @media (max-width: 560px) {
-  .auth-page {
+  .verify-email {
     align-content: start;
     padding: 76px 14px 18px;
     place-items: stretch;
   }
 
-  .auth-page__brand {
+  .verify-email__brand {
     top: 22px;
     left: 18px;
   }
 
-  .auth-page__brand .brand-logo {
+  .verify-email__brand .brand-logo {
     width: 146px;
     height: 34px;
   }
 
-  .auth-page__card {
+  .verify-email__card {
     width: 100%;
   }
 
-  .auth-page__card .ant-card-body {
+  .verify-email__card .ant-card-body {
     padding: 18px;
   }
 
-  .auth-page__card h1.ant-typography {
+  .verify-email__state h1.ant-typography {
     font-size: 26px;
   }
 }
