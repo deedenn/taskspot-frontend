@@ -475,6 +475,14 @@ export function Dashboard({ currentUser }) {
     setQuickFilter("active");
   }
 
+  function handleHideClosedChange(value) {
+    setHideClosed(value);
+
+    if (!value && quickFilter === "active") {
+      setQuickFilter("all");
+    }
+  }
+
   function showReviewTasks() {
     setActiveRoleTab("initiated");
     setQuickFilter("review");
@@ -601,13 +609,13 @@ export function Dashboard({ currentUser }) {
                 type={hideClosed ? "primary" : "default"}
                 icon={hideClosed ? <EyeInvisibleOutlined /> : <EyeOutlined />}
                 aria-label={hideClosed ? "Показать закрытые задачи" : "Скрыть закрытые задачи"}
-                onClick={() => setHideClosed((value) => !value)}
+                onClick={() => handleHideClosedChange(!hideClosed)}
               />
             </Tooltip>
           ) : (
             <Space className="dashboard__filter" size={8}>
               <Typography.Text>Скрыть закрытые</Typography.Text>
-              <Switch checked={hideClosed} onChange={setHideClosed} />
+              <Switch checked={hideClosed} onChange={handleHideClosedChange} />
             </Space>
           )}
           {hasNoProjects ? (
