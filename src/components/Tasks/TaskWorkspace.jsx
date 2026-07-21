@@ -167,7 +167,7 @@ export function TaskWorkspace({ project, currentUser }) {
         body: JSON.stringify({
           ...values,
           projectId: project._id,
-          dueDate: values.dueDate.toISOString(),
+          dueDate: values.dueDate ? values.dueDate.toISOString() : undefined,
           checklist: (values.checklistText || "")
             .split("\n")
             .map((text) => ({ text: text.trim() }))
@@ -419,7 +419,6 @@ export function TaskWorkspace({ project, currentUser }) {
           <Form.Item
             name="dueDate"
             label="Срок выполнения"
-            rules={[{ required: true, message: "Укажите срок" }]}
           >
             <DatePicker className="tasks__full-width" />
           </Form.Item>
@@ -528,7 +527,7 @@ function TaskCard({ task, currentUser, categoryMap, onStatusChange, onReturnToWo
           <Tag color={priorityColor}>{priorityLabel}</Tag>
         </Space>
         <span className={isDueSoon(task) ? "tasks__due-date tasks__due-date--soon" : "tasks__due-date"}>
-          Срок: {dayjs(task.dueDate).format("DD.MM.YYYY")}
+          Срок: {task.dueDate ? dayjs(task.dueDate).format("DD.MM.YYYY") : "Без срока"}
           {isDueSoon(task) && <Tag color="red">срок близко</Tag>}
         </span>
       </div>

@@ -54,6 +54,26 @@
   margin-top: 10px;
 }
 
+.task-details__editor {
+  margin-top: 16px;
+  background: var(--surface-muted);
+}
+
+.task-details__editor h3.ant-typography {
+  margin: 0 0 14px;
+  font-size: 18px;
+}
+
+.task-details__editor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 12px;
+}
+
+.task-details__full-width {
+  width: 100%;
+}
+
 .task-details__priority-editor {
   display: flex;
   align-items: center;
@@ -188,8 +208,13 @@
     width: 100%;
   }
 
+  .task-details__editor-grid {
+    grid-template-columns: 1fr;
+  }
+
   .task-details__actions .ant-space-item,
   .task-details__actions .ant-btn,
+  .task-details__editor .ant-btn,
   .task-details__priority-editor,
   .task-details__priority-editor .ant-select {
     width: 100%;

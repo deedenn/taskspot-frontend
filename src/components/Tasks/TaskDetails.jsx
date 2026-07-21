@@ -11,12 +11,12 @@ import {
   RetweetOutlined,
   RollbackOutlined
 } from "@ant-design/icons";
-import { Alert, Button, Card, Checkbox, Empty, Form, Input, List, Modal, Select, Space, Spin, Tag, Timeline, Typography, Upload, message } from "antd";
+import { Alert, Button, Card, Checkbox, DatePicker, Empty, Form, Input, List, Modal, Select, Space, Spin, Tag, Timeline, Typography, Upload, message } from "antd";
 import dayjs from "dayjs";
 import { Link, useParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../../api.js";
-import { fullName } from "../../utils/users.js";
+import { fullName, userOptionLabel } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
 import "./TaskDetails.css";
 
@@ -108,6 +108,7 @@ export function TaskDetails({ currentUser }) {
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [deletingAttachmentId, setDeletingAttachmentId] = useState("");
   const [returnModalOpen, setReturnModalOpen] = useState(false);
+  const [detailsForm] = Form.useForm();
   const [commentForm] = Form.useForm();
   const [returnForm] = Form.useForm();
 
@@ -128,6 +129,18 @@ export function TaskDetails({ currentUser }) {
   useEffect(() => {
     loadTask();
   }, [taskId]);
+
+  useEffect(() => {
+    if (!task) return;
+
+    detailsForm.setFieldsValue({
+      description: task.description,
+      dueDate: task.dueDate ? dayjs(task.dueDate) : null,
+      assignee: idOf(task.assignee) || "",
+      observers: (task.observers || []).map(idOf),
+      categories: (task.categories || []).map(idOf)
+    });
+  }, [detailsForm, task]);
 
   async function updateStatus(status, extra = {}, requireConfirm = false) {
     if (requireConfirm) {
@@ -176,6 +189,28 @@ export function TaskDetails({ currentUser }) {
       });
       setTask(data.task);
       message.success("Приоритет обновлён");
+    } catch (error) {
+      message.error(error.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function updateDetails(values) {
+    setSaving(true);
+    try {
+      const data = await apiFetch(`/tasks/${task._id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          description: values.description,
+          dueDate: values.dueDate ? values.dueDate.toISOString() : null,
+          assignee: values.assignee || "",
+          observers: values.observers || [],
+          categories: values.categories || []
+        })
+      });
+      setTask(data.task);
+      message.success("Детали задачи обновлены");
     } catch (error) {
       message.error(error.message);
     } finally {
@@ -329,8 +364,20 @@ export function TaskDetails({ currentUser }) {
   const canManageAttachments = !projectArchived && (isCreator || isAssignee || isProjectAdmin);
   const canSendToReview = !projectArchived && isAssignee && !["review", "done", "closed"].includes(task.status);
   const canReview = !projectArchived && isCreator && ["review", "done"].includes(task.status);
+  const canEditDetails = !projectArchived && (isCreator || isProjectAdmin) && task.status !== "closed";
   const canChangePriority = !projectArchived && isCreator && task.status !== "closed";
   const assigneeLabel = task.assignee ? fullName(task.assignee) : task.assigneeEmail || "не назначен";
+  const dueDateLabel = task.dueDate ? dayjs(task.dueDate).format("DD.MM.YYYY") : "Без срока";
+  const memberOptions = (task.project?.members || [])
+    .map((member) => ({
+      value: idOf(member.user),
+      label: userOptionLabel(member.user)
+    }))
+    .filter((option) => option.value);
+  const categoryOptions = (task.project?.categories || []).map((category) => ({
+    value: idOf(category),
+    label: category.name
+  }));
 
   return (
     <section className="task-details">
@@ -345,7 +392,7 @@ export function TaskDetails({ currentUser }) {
               <Tag color={statusColor}>{statusLabel}</Tag>
               <Tag color={priorityColor}>{priorityLabel}</Tag>
               <Typography.Text type="secondary">
-                {task.project?.name} · срок {dayjs(task.dueDate).format("DD.MM.YYYY")}
+                {task.project?.name} · срок {dueDateLabel}
               </Typography.Text>
             </Space>
             <Typography.Title level={1}>{task.description}</Typography.Title>
@@ -380,6 +427,38 @@ export function TaskDetails({ currentUser }) {
             ) : null;
           })}
         </Space>
+
+        {canEditDetails && (
+          <Card className="task-details__editor">
+            <Typography.Title level={3}>Параметры задачи</Typography.Title>
+            <Form form={detailsForm} layout="vertical" onFinish={updateDetails}>
+              <Form.Item
+                name="description"
+                label="Описание"
+                rules={[{ required: true, message: "Опишите задачу" }]}
+              >
+                <Input.TextArea rows={3} />
+              </Form.Item>
+              <div className="task-details__editor-grid">
+                <Form.Item name="dueDate" label="Срок выполнения">
+                  <DatePicker className="task-details__full-width" allowClear />
+                </Form.Item>
+                <Form.Item name="assignee" label="Ответственный">
+                  <Select allowClear options={memberOptions} placeholder="Без ответственного" />
+                </Form.Item>
+                <Form.Item name="observers" label="Наблюдатели">
+                  <Select mode="multiple" options={memberOptions} placeholder="Выберите наблюдателей" />
+                </Form.Item>
+                <Form.Item name="categories" label="Категории">
+                  <Select mode="multiple" options={categoryOptions} placeholder="Выберите категории" />
+                </Form.Item>
+              </div>
+              <Button type="primary" htmlType="submit" loading={saving}>
+                Сохранить параметры
+              </Button>
+            </Form>
+          </Card>
+        )}
 
         {canChangePriority && (
           <div className="task-details__priority-editor">

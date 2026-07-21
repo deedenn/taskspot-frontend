@@ -262,6 +262,9 @@ export function Dashboard({ currentUser }) {
   const [searchText, setSearchText] = useState("");
   const [quickFilter, setQuickFilter] = useState("active");
   const [activeRoleTab, setActiveRoleTab] = useState("all");
+  const [quickProjectId, setQuickProjectId] = useState();
+  const [quickDescription, setQuickDescription] = useState("");
+  const [quickCreating, setQuickCreating] = useState(false);
   const [pendingAttachmentFiles, setPendingAttachmentFiles] = useState([]);
   const [creatingTask, setCreatingTask] = useState(false);
   const [form] = Form.useForm();
@@ -310,6 +313,22 @@ export function Dashboard({ currentUser }) {
     () => activeProjects.map((project) => ({ value: project._id, label: project.name })),
     [activeProjects]
   );
+  const defaultQuickProjectId = useMemo(() => {
+    const filteredProject = activeProjects.find((project) => project._id === projectFilter);
+    return filteredProject?._id || activeProjects[0]?._id;
+  }, [activeProjects, projectFilter]);
+
+  useEffect(() => {
+    const activeIds = new Set(activeProjects.map((project) => project._id));
+    const filteredProject = activeProjects.find((project) => project._id === projectFilter);
+
+    setQuickProjectId((currentProjectId) => {
+      if (!activeProjects.length) return undefined;
+      if (filteredProject) return filteredProject._id;
+      if (currentProjectId && activeIds.has(currentProjectId)) return currentProjectId;
+      return defaultQuickProjectId;
+    });
+  }, [activeProjects, defaultQuickProjectId, projectFilter]);
 
   const memberOptions = useMemo(
     () =>
@@ -524,7 +543,7 @@ export function Dashboard({ currentUser }) {
         method: "POST",
         body: JSON.stringify({
           ...values,
-          dueDate: values.dueDate.toISOString(),
+          dueDate: values.dueDate ? values.dueDate.toISOString() : undefined,
           checklist: (values.checklistText || "")
             .split("\n")
             .map((text) => ({ text: text.trim() }))
@@ -562,6 +581,52 @@ export function Dashboard({ currentUser }) {
       message.error(error.message);
     } finally {
       setCreatingTask(false);
+    }
+  }
+
+  async function createQuickTask() {
+    const description = quickDescription.trim();
+
+    if (!description) {
+      message.warning("Опишите задачу");
+      return;
+    }
+
+    if (!quickProjectId) {
+      message.warning(activeProjects.length ? "Выберите проект" : "Сначала создайте активный проект");
+      return;
+    }
+
+    setQuickCreating(true);
+    try {
+      const data = await apiFetch("/tasks", {
+        method: "POST",
+        body: JSON.stringify({
+          projectId: quickProjectId,
+          description
+        })
+      });
+
+      setData((currentData) => ({
+        ...currentData,
+        initiated: [
+          data.task,
+          ...currentData.initiated.filter((task) => task._id !== data.task._id)
+        ]
+      }));
+      setQuickDescription("");
+      setActiveRoleTab("all");
+      setHideClosed(true);
+      setQuickFilter("active");
+      setProjectFilter(quickProjectId);
+      setCategoryFilter([]);
+      setSearchText("");
+      message.success("Задача создана");
+      void loadDashboard();
+    } catch (error) {
+      message.error(error.message || "Не удалось создать задачу. Попробуйте еще раз");
+    } finally {
+      setQuickCreating(false);
     }
   }
 
@@ -757,6 +822,37 @@ export function Dashboard({ currentUser }) {
                   </span>
                 </div>
               </div>
+              <div className="dashboard__quick-add" aria-label="Быстрое добавление задачи">
+                <Select
+                  className="dashboard__quick-project"
+                  placeholder="Проект"
+                  options={createProjectOptions}
+                  value={quickProjectId}
+                  onChange={setQuickProjectId}
+                  disabled={quickCreating || !activeProjects.length}
+                />
+                <Input
+                  className="dashboard__quick-input"
+                  placeholder={activeProjects.length ? "Что нужно сделать? Нажмите Enter, чтобы добавить" : "Нет активных проектов"}
+                  value={quickDescription}
+                  onChange={(event) => setQuickDescription(event.target.value)}
+                  onPressEnter={createQuickTask}
+                  disabled={quickCreating || !activeProjects.length}
+                  maxLength={240}
+                />
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  loading={quickCreating}
+                  disabled={!activeProjects.length}
+                  onClick={createQuickTask}
+                >
+                  Добавить
+                </Button>
+                <Button onClick={openCreateTask} disabled={!activeProjects.length}>
+                  Подробнее
+                </Button>
+              </div>
               <div className="dashboard__filters-panel">
                 <Select
                   allowClear
@@ -836,7 +932,6 @@ export function Dashboard({ currentUser }) {
             <Form.Item
               name="dueDate"
               label="Срок выполнения"
-              rules={[{ required: true, message: "Укажите срок" }]}
             >
               <DatePicker className="dashboard__full-width" />
             </Form.Item>

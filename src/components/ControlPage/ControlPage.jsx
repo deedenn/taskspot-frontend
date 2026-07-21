@@ -33,7 +33,7 @@ function TaskList({ tasks, empty }) {
                   <Tag color={color}>{label}</Tag>
                 </Space>
               }
-              description={`${task.project?.name || "Проект"} · срок ${dayjs(task.dueDate).format("DD.MM.YYYY")} · ${task.assignee ? fullName(task.assignee) : task.assigneeEmail || "без ответственного"}`}
+              description={`${task.project?.name || "Проект"} · срок ${task.dueDate ? dayjs(task.dueDate).format("DD.MM.YYYY") : "Без срока"} · ${task.assignee ? fullName(task.assignee) : task.assigneeEmail || "без ответственного"}`}
             />
           </List.Item>
         );
