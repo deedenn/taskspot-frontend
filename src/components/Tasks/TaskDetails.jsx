@@ -8,13 +8,14 @@ import {
   FileOutlined,
   HistoryOutlined,
   PaperClipOutlined,
+  PlusOutlined,
   RetweetOutlined,
   RollbackOutlined
 } from "@ant-design/icons";
 import { Alert, Button, Card, Checkbox, DatePicker, Empty, Form, Input, List, Modal, Select, Space, Spin, Tag, Timeline, Typography, Upload, message } from "antd";
 import dayjs from "dayjs";
 import { Link, useParams } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "../../api.js";
 import { fullName, userOptionLabel } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
@@ -99,18 +100,38 @@ function formatActivity(activity) {
   return activity.details || [activity.from, activity.to].filter(Boolean).join(" -> ");
 }
 
+function normalizeIdList(value = []) {
+  return value.map(idOf).filter(Boolean).sort();
+}
+
+function serializeDetails(values) {
+  return JSON.stringify({
+    description: values.description?.trim() || "",
+    dueDate: values.dueDate ? dayjs(values.dueDate).toISOString() : null,
+    assignee: values.assignee || "",
+    observers: normalizeIdList(values.observers || []),
+    categories: normalizeIdList(values.categories || [])
+  });
+}
+
 export function TaskDetails({ currentUser }) {
   const { taskId } = useParams();
   const [task, setTask] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [detailsSaveStatus, setDetailsSaveStatus] = useState("idle");
+  const [newChecklistText, setNewChecklistText] = useState("");
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [deletingAttachmentId, setDeletingAttachmentId] = useState("");
   const [returnModalOpen, setReturnModalOpen] = useState(false);
   const [detailsForm] = Form.useForm();
   const [commentForm] = Form.useForm();
   const [returnForm] = Form.useForm();
+  const detailsSaveTimerRef = useRef(null);
+  const detailsSaveSnapshotRef = useRef("");
+  const detailsChangeVersionRef = useRef(0);
+  const applyingTaskToFormRef = useRef(false);
 
   async function loadTask() {
     setLoading(true);
@@ -133,14 +154,28 @@ export function TaskDetails({ currentUser }) {
   useEffect(() => {
     if (!task) return;
 
-    detailsForm.setFieldsValue({
+    const nextValues = {
       description: task.description,
       dueDate: task.dueDate ? dayjs(task.dueDate) : null,
       assignee: idOf(task.assignee) || "",
       observers: (task.observers || []).map(idOf),
       categories: (task.categories || []).map(idOf)
-    });
+    };
+
+    applyingTaskToFormRef.current = true;
+    detailsForm.setFieldsValue(nextValues);
+    detailsSaveSnapshotRef.current = serializeDetails(nextValues);
+    applyingTaskToFormRef.current = false;
   }, [detailsForm, task]);
+
+  useEffect(
+    () => () => {
+      if (detailsSaveTimerRef.current) {
+        clearTimeout(detailsSaveTimerRef.current);
+      }
+    },
+    []
+  );
 
   async function updateStatus(status, extra = {}, requireConfirm = false) {
     if (requireConfirm) {
@@ -196,26 +231,72 @@ export function TaskDetails({ currentUser }) {
     }
   }
 
-  async function updateDetails(values) {
+  async function saveDetails(values, { silent = false, version = detailsChangeVersionRef.current } = {}) {
+    const nextSnapshot = serializeDetails(values);
+
+    if (nextSnapshot === detailsSaveSnapshotRef.current) {
+      setDetailsSaveStatus("saved");
+      return;
+    }
+
+    if (!values.description?.trim()) {
+      setDetailsSaveStatus("error");
+      if (!silent) message.warning("Опишите задачу");
+      return;
+    }
+
     setSaving(true);
+    setDetailsSaveStatus("saving");
     try {
       const data = await apiFetch(`/tasks/${task._id}`, {
         method: "PATCH",
         body: JSON.stringify({
-          description: values.description,
+          description: values.description.trim(),
           dueDate: values.dueDate ? values.dueDate.toISOString() : null,
           assignee: values.assignee || "",
           observers: values.observers || [],
           categories: values.categories || []
         })
       });
-      setTask(data.task);
-      message.success("Детали задачи обновлены");
+      detailsSaveSnapshotRef.current = nextSnapshot;
+      setDetailsSaveStatus("saved");
+
+      if (version === detailsChangeVersionRef.current) {
+        setTask(data.task);
+      }
+
+      if (!silent) message.success("Детали задачи обновлены");
     } catch (error) {
+      setDetailsSaveStatus("error");
       message.error(error.message);
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleDetailsChange(_, values) {
+    if (applyingTaskToFormRef.current) return;
+
+    detailsChangeVersionRef.current += 1;
+    const version = detailsChangeVersionRef.current;
+    setDetailsSaveStatus("dirty");
+
+    if (detailsSaveTimerRef.current) {
+      clearTimeout(detailsSaveTimerRef.current);
+    }
+
+    detailsSaveTimerRef.current = setTimeout(() => {
+      void saveDetails(detailsForm.getFieldsValue(), { silent: true, version });
+    }, 650);
+  }
+
+  function flushDetailsSave() {
+    if (detailsSaveTimerRef.current) {
+      clearTimeout(detailsSaveTimerRef.current);
+      detailsSaveTimerRef.current = null;
+    }
+
+    void saveDetails(detailsForm.getFieldsValue(), { silent: true });
   }
 
   async function updateChecklist(checklist) {
@@ -231,6 +312,23 @@ export function TaskDetails({ currentUser }) {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function addChecklistItem() {
+    const text = newChecklistText.trim();
+
+    if (!text) {
+      message.warning("Введите пункт чек-листа");
+      return;
+    }
+
+    setNewChecklistText("");
+    await updateChecklist([...(task.checklist || []), { text, done: false }]);
+  }
+
+  async function deleteChecklistItem(index) {
+    const checklist = (task.checklist || []).filter((_, itemIndex) => itemIndex !== index);
+    await updateChecklist(checklist);
   }
 
   async function uploadAttachmentFile(file) {
@@ -365,6 +463,7 @@ export function TaskDetails({ currentUser }) {
   const canSendToReview = !projectArchived && isAssignee && !["review", "done", "closed"].includes(task.status);
   const canReview = !projectArchived && isCreator && ["review", "done"].includes(task.status);
   const canEditDetails = !projectArchived && (isCreator || isProjectAdmin) && task.status !== "closed";
+  const canEditChecklist = !projectArchived && (isCreator || isAssignee || isProjectAdmin);
   const canChangePriority = !projectArchived && isCreator && task.status !== "closed";
   const assigneeLabel = task.assignee ? fullName(task.assignee) : task.assigneeEmail || "не назначен";
   const dueDateLabel = task.dueDate ? dayjs(task.dueDate).format("DD.MM.YYYY") : "Без срока";
@@ -430,14 +529,25 @@ export function TaskDetails({ currentUser }) {
 
         {canEditDetails && (
           <Card className="task-details__editor">
-            <Typography.Title level={3}>Параметры задачи</Typography.Title>
-            <Form form={detailsForm} layout="vertical" onFinish={updateDetails}>
+            <div className="task-details__editor-head">
+              <Typography.Title level={3}>Параметры задачи</Typography.Title>
+              <Typography.Text className={`task-details__save-state task-details__save-state--${detailsSaveStatus}`}>
+                {detailsSaveStatus === "saving"
+                  ? "Сохраняем..."
+                  : detailsSaveStatus === "dirty"
+                    ? "Есть изменения"
+                    : detailsSaveStatus === "error"
+                      ? "Не сохранено"
+                      : "Сохранено"}
+              </Typography.Text>
+            </div>
+            <Form form={detailsForm} layout="vertical" onValuesChange={handleDetailsChange}>
               <Form.Item
                 name="description"
                 label="Описание"
                 rules={[{ required: true, message: "Опишите задачу" }]}
               >
-                <Input.TextArea rows={3} />
+                <Input.TextArea rows={3} onBlur={flushDetailsSave} />
               </Form.Item>
               <div className="task-details__editor-grid">
                 <Form.Item name="dueDate" label="Срок выполнения">
@@ -453,9 +563,6 @@ export function TaskDetails({ currentUser }) {
                   <Select mode="multiple" options={categoryOptions} placeholder="Выберите категории" />
                 </Form.Item>
               </div>
-              <Button type="primary" htmlType="submit" loading={saving}>
-                Сохранить параметры
-              </Button>
             </Form>
           </Card>
         )}
@@ -564,23 +671,53 @@ export function TaskDetails({ currentUser }) {
         {task.checklist?.length ? (
           <div className="task-details__checklist">
             {task.checklist.map((item, index) => (
-              <Checkbox
-                key={item._id || index}
-                checked={item.done}
-                disabled={projectArchived || saving || (!isAssignee && !isCreator)}
-                onChange={(event) => {
-                  const checklist = task.checklist.map((entry, entryIndex) =>
-                    entryIndex === index ? { ...entry, done: event.target.checked } : entry
-                  );
-                  updateChecklist(checklist);
-                }}
-              >
-                {item.text}
-              </Checkbox>
+              <div className="task-details__checklist-item" key={item._id || index}>
+                <Checkbox
+                  checked={item.done}
+                  disabled={!canEditChecklist || saving}
+                  onChange={(event) => {
+                    const checklist = task.checklist.map((entry, entryIndex) =>
+                      entryIndex === index ? { ...entry, done: event.target.checked } : entry
+                    );
+                    updateChecklist(checklist);
+                  }}
+                >
+                  {item.text}
+                </Checkbox>
+                {canEditChecklist && (
+                  <Button
+                    danger
+                    type="text"
+                    icon={<DeleteOutlined />}
+                    aria-label="Удалить пункт чек-листа"
+                    disabled={saving}
+                    onClick={() => deleteChecklistItem(index)}
+                  />
+                )}
+              </div>
             ))}
           </div>
         ) : (
           <Empty description="Чек-листа нет" />
+        )}
+        {canEditChecklist && (
+          <div className="task-details__checklist-add">
+            <Input
+              value={newChecklistText}
+              placeholder="Добавить пункт чек-листа"
+              disabled={saving}
+              onChange={(event) => setNewChecklistText(event.target.value)}
+              onPressEnter={addChecklistItem}
+            />
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              loading={saving}
+              onClick={addChecklistItem}
+            >
+              Добавить
+            </Button>
+          </div>
         )}
       </Card>
 

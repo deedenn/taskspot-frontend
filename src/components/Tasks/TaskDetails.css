@@ -60,8 +60,41 @@
 }
 
 .task-details__editor h3.ant-typography {
-  margin: 0 0 14px;
+  margin: 0;
   font-size: 18px;
+}
+
+.task-details__editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 14px;
+}
+
+.task-details__save-state {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  font-size: 18px;
+  background: #ffffff;
+}
+
+.task-details__save-state.ant-typography {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.task-details__save-state--saving.ant-typography,
+.task-details__save-state--dirty.ant-typography {
+  color: var(--brand-blue-600);
+}
+
+.task-details__save-state--error.ant-typography {
+  color: #cf1322;
+  border-color: #ffccc7;
+  background: #fff1f0;
 }
 
 .task-details__editor-grid {
@@ -97,6 +130,32 @@
 .task-details__checklist {
   display: grid;
   gap: 10px;
+}
+
+.task-details__checklist-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.task-details__checklist-item .ant-checkbox-wrapper {
+  min-width: 0;
+}
+
+.task-details__checklist-item .ant-checkbox-wrapper span:last-child {
+  overflow-wrap: anywhere;
+}
+
+.task-details__checklist-add {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 10px;
+  margin-top: 14px;
 }
 
 .task-details__attachment-form {
@@ -214,10 +273,24 @@
 
   .task-details__actions .ant-space-item,
   .task-details__actions .ant-btn,
-  .task-details__editor .ant-btn,
+  .task-details__checklist-add .ant-btn,
   .task-details__priority-editor,
   .task-details__priority-editor .ant-select {
     width: 100%;
+  }
+
+  .task-details__editor-head,
+  .task-details__checklist-add {
+    grid-template-columns: 1fr;
+  }
+
+  .task-details__editor-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .task-details__save-state {
+    width: fit-content;
   }
 
   .task-details__priority-editor {
