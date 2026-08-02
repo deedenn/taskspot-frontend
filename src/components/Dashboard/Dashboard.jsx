@@ -7,7 +7,6 @@ import {
   FolderAddOutlined,
   PaperClipOutlined,
   PlusOutlined,
-  RocketOutlined,
   SendOutlined,
   UnorderedListOutlined
 } from "@ant-design/icons";
@@ -165,6 +164,39 @@ function TaskTable({ tasks, categoryMap }) {
       )
     },
     {
+      title: "Ответственный",
+      key: "assignee",
+      width: 210,
+      sorter: (first, second) => {
+        const firstAssignee = first.assignee ? fullName(first.assignee) : first.assigneeEmail || "";
+        const secondAssignee = second.assignee ? fullName(second.assignee) : second.assigneeEmail || "";
+        return firstAssignee.localeCompare(secondAssignee, "ru");
+      },
+      render: (_, task) => {
+        if (task.assignee) {
+          return (
+            <div className="dashboard__assignee-cell">
+              <span>{fullName(task.assignee)}</span>
+              {task.assignee.email && (
+                <Typography.Text type="secondary">{task.assignee.email}</Typography.Text>
+              )}
+            </div>
+          );
+        }
+
+        if (task.assigneeEmail) {
+          return (
+            <Space size={6} wrap>
+              <Typography.Text>{task.assigneeEmail}</Typography.Text>
+              <Tag color="gold">ждёт регистрации</Tag>
+            </Space>
+          );
+        }
+
+        return <Typography.Text type="secondary">Без ответственного</Typography.Text>;
+      }
+    },
+    {
       title: "Срок",
       dataIndex: "dueDate",
       key: "dueDate",
@@ -234,7 +266,7 @@ function TaskTable({ tasks, categoryMap }) {
       dataSource={tasks}
       rowKey="_id"
       size="middle"
-      scroll={{ x: 1060 }}
+      scroll={{ x: 1270 }}
       rowClassName={(task) =>
         [
           isDeadlineAlert(task) ? "dashboard__task-row--due" : "",
@@ -726,9 +758,6 @@ export function Dashboard({ currentUser }) {
               <Space className="dashboard__empty-actions" wrap>
                 <Button type="primary" size="large" icon={<PlusOutlined />} onClick={() => navigate("/app/projects")}>
                   Добавить проект
-                </Button>
-                <Button size="large" icon={<RocketOutlined />} onClick={() => navigate("/app/onboarding")}>
-                  Открыть быстрый старт
                 </Button>
               </Space>
             </div>

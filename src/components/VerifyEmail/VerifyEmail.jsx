@@ -60,7 +60,7 @@ export function VerifyEmail({ auth }) {
             <Typography.Paragraph>
               Регистрация завершена. Теперь можно создавать проекты, приглашать команду и ставить задачи.
             </Typography.Paragraph>
-            <Button type="primary" size="large" block onClick={() => navigate("/app/onboarding", { replace: true })}>
+            <Button type="primary" size="large" block onClick={() => navigate("/app/dashboard", { replace: true })}>
               Перейти в Taskspot
             </Button>
           </div>

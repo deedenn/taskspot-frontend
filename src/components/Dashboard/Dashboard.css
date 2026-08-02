@@ -370,6 +370,19 @@
   background: var(--brand-blue-100);
 }
 
+.dashboard__assignee-cell {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dashboard__assignee-cell > span,
+.dashboard__assignee-cell .ant-typography {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .dashboard__task-row--due > td {
   background: #fff1f0;
 }

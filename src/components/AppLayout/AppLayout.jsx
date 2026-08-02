@@ -11,7 +11,6 @@ import {
   MenuOutlined,
   MenuUnfoldOutlined,
   PieChartOutlined,
-  RocketOutlined,
   SnippetsOutlined,
   UserOutlined
 } from "@ant-design/icons";
@@ -84,11 +83,6 @@ export function AppLayout({ auth }) {
           key: "/app/dashboard",
           icon: <PieChartOutlined />,
           label: <Link to="/app/dashboard">Главная</Link>
-        },
-        {
-          key: "/app/onboarding",
-          icon: <RocketOutlined />,
-          label: <Link to="/app/onboarding">Старт</Link>
         },
         {
           key: "/app/control",

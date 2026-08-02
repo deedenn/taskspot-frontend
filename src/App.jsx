@@ -12,7 +12,6 @@ const AdminDashboard = lazy(() => import("./components/AdminDashboard/AdminDashb
 const CalendarPage = lazy(() => import("./components/CalendarPage/CalendarPage.jsx").then((module) => ({ default: module.CalendarPage })));
 const BillingPage = lazy(() => import("./components/BillingPage/BillingPage.jsx").then((module) => ({ default: module.BillingPage })));
 const ControlPage = lazy(() => import("./components/ControlPage/ControlPage.jsx").then((module) => ({ default: module.ControlPage })));
-const Onboarding = lazy(() => import("./components/Onboarding/Onboarding.jsx").then((module) => ({ default: module.Onboarding })));
 const OverdueTasks = lazy(() => import("./components/OverdueTasks/OverdueTasks.jsx").then((module) => ({ default: module.OverdueTasks })));
 const Profile = lazy(() => import("./components/Profile/Profile.jsx").then((module) => ({ default: module.Profile })));
 const ProjectTasks = lazy(() => import("./components/Projects/ProjectTasks.jsx").then((module) => ({ default: module.ProjectTasks })));
@@ -98,8 +97,8 @@ export function App() {
             path="/app"
             element={user ? <AppLayout auth={auth} /> : <Navigate to="/login" replace />}
           >
-            <Route index element={<Navigate to={user?.isSuperAdmin ? "/app/admin" : "/app/onboarding"} replace />} />
-            <Route path="onboarding" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><Onboarding currentUser={user} /></Suspense></RequireRegularUser>} />
+            <Route index element={<Navigate to={user?.isSuperAdmin ? "/app/admin" : "/app/dashboard"} replace />} />
+            <Route path="onboarding" element={<Navigate to="/app/dashboard" replace />} />
             <Route path="dashboard" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><Dashboard currentUser={user} /></Suspense></RequireRegularUser>} />
             <Route path="control" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><ControlPage /></Suspense></RequireRegularUser>} />
             <Route path="calendar" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><CalendarPage /></Suspense></RequireRegularUser>} />
