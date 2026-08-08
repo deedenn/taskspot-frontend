@@ -2,7 +2,7 @@ import { AlertOutlined, CheckCircleOutlined, ClockCircleOutlined, TeamOutlined }
 import { Card, Empty, List, Space, Statistic, Table, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { apiFetch } from "../../api.js";
 import { fullName } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
@@ -16,7 +16,7 @@ const statusLabels = {
   closed: ["Закрыта", "default"]
 };
 
-function TaskList({ tasks, empty }) {
+function TaskList({ tasks, empty, currentRoute }) {
   if (!tasks?.length) return <Empty description={empty} />;
 
   return (
@@ -29,7 +29,9 @@ function TaskList({ tasks, empty }) {
             <List.Item.Meta
               title={
                 <Space wrap>
-                  <Link to={`/app/tasks/${task._id}`}>{task.description}</Link>
+                  <Link to={`/app/tasks/${task._id}`} state={{ returnTo: currentRoute }}>
+                    {task.description}
+                  </Link>
                   <Tag color={color}>{label}</Tag>
                 </Space>
               }
@@ -43,6 +45,7 @@ function TaskList({ tasks, empty }) {
 }
 
 export function ControlPage() {
+  const location = useLocation();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -65,6 +68,7 @@ export function ControlPage() {
   }, []);
 
   const summary = data?.summary || {};
+  const currentRoute = `${location.pathname}${location.search}`;
 
   return (
     <section className="control-page">
@@ -94,10 +98,10 @@ export function ControlPage() {
 
       <div className="control-page__grid">
         <Card title="Просроченные задачи" loading={loading}>
-          <TaskList tasks={data?.overdue} empty="Просроченных задач нет" />
+          <TaskList tasks={data?.overdue} empty="Просроченных задач нет" currentRoute={currentRoute} />
         </Card>
         <Card title="Ждут проверки" loading={loading}>
-          <TaskList tasks={data?.waitingReview} empty="Задач на проверке нет" />
+          <TaskList tasks={data?.waitingReview} empty="Задач на проверке нет" currentRoute={currentRoute} />
         </Card>
       </div>
 

@@ -1,7 +1,7 @@
 import { Badge, Button, Calendar, Card, Empty, Grid, List, Space, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { apiFetch } from "../../api.js";
 import { fullName } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
@@ -37,6 +37,7 @@ function uniqueTasks(data) {
 }
 
 export function CalendarPage() {
+  const location = useLocation();
   const [tasks, setTasks] = useState([]);
   const [selectedDate, setSelectedDate] = useState(dayjs());
   const [error, setError] = useState("");
@@ -75,6 +76,7 @@ export function CalendarPage() {
   }, [tasks]);
 
   const selectedTasks = tasksByDate.get(selectedDate.format("YYYY-MM-DD")) || [];
+  const currentRoute = `${location.pathname}${location.search}`;
   const agendaDates = useMemo(
     () => Array.from(tasksByDate.entries()).sort(([dateA], [dateB]) => dateA.localeCompare(dateB)),
     [tasksByDate]
@@ -153,7 +155,11 @@ export function CalendarPage() {
                     <List.Item.Meta
                       title={
                         <Space wrap>
-                          <Link className="calendar-page__task-link" to={`/app/tasks/${task._id}`}>
+                          <Link
+                            className="calendar-page__task-link"
+                            to={`/app/tasks/${task._id}`}
+                            state={{ returnTo: currentRoute }}
+                          >
                             {task.description}
                           </Link>
                           <Tag color={priorityColor}>{priorityLabel}</Tag>

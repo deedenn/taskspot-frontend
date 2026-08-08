@@ -1,7 +1,7 @@
 import { Alert, Card, Empty, List, Space, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { apiFetch } from "../../api.js";
 import { fullName } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
@@ -45,6 +45,7 @@ function isOverdue(task) {
 }
 
 export function OverdueTasks() {
+  const location = useLocation();
   const [tasks, setTasks] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -71,6 +72,7 @@ export function OverdueTasks() {
     () => tasks.filter(isOverdue).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate)),
     [tasks]
   );
+  const currentRoute = `${location.pathname}${location.search}`;
 
   return (
     <section className="overdue-tasks">
@@ -110,7 +112,11 @@ export function OverdueTasks() {
                       title={
                         <Space wrap>
                           <Tag color="cyan">{task.project?.name || "Без проекта"}</Tag>
-                          <Link className="overdue-tasks__task-link" to={`/app/tasks/${task._id}`}>
+                          <Link
+                            className="overdue-tasks__task-link"
+                            to={`/app/tasks/${task._id}`}
+                            state={{ returnTo: currentRoute }}
+                          >
                             {task.description}
                           </Link>
                           <Tag color={priorityColor}>{priorityLabel}</Tag>

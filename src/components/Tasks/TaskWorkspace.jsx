@@ -2,7 +2,7 @@ import { CheckCircleOutlined, CommentOutlined, DeleteOutlined, EyeInvisibleOutli
 import { Alert, Button, Card, DatePicker, Drawer, Empty, Form, Grid, Input, List, Modal, Select, Space, Switch, Tag, Tooltip, Typography, Upload, message } from "antd";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { apiFetch } from "../../api.js";
 import { fullName, userOptionLabel } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
@@ -63,6 +63,7 @@ function isProjectArchived(project) {
 }
 
 export function TaskWorkspace({ project, currentUser }) {
+  const location = useLocation();
   const [tasks, setTasks] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -75,6 +76,7 @@ export function TaskWorkspace({ project, currentUser }) {
   const screens = Grid.useBreakpoint();
   const isCompactControls = !screens.sm;
   const projectArchived = isProjectArchived(project);
+  const currentRoute = `${location.pathname}${location.search}`;
 
   const memberOptions = useMemo(
     () =>
@@ -381,6 +383,7 @@ export function TaskWorkspace({ project, currentUser }) {
               task={task}
               currentUser={currentUser}
               categoryMap={categoryMap}
+              currentRoute={currentRoute}
               onStatusChange={changeStatus}
               onReturnToWork={returnTaskToWork}
               onComment={addComment}
@@ -502,7 +505,7 @@ export function TaskWorkspace({ project, currentUser }) {
   );
 }
 
-function TaskCard({ task, currentUser, categoryMap, onStatusChange, onReturnToWork, onComment, readOnly = false }) {
+function TaskCard({ task, currentUser, categoryMap, currentRoute, onStatusChange, onReturnToWork, onComment, readOnly = false }) {
   const [commentForm] = Form.useForm();
   const status = statusOptions.find((item) => item.value === normalizedStatus(task.status));
   const assigneeLabel = task.assignee ? fullName(task.assignee) : task.assigneeEmail || "не назначен";
@@ -532,7 +535,7 @@ function TaskCard({ task, currentUser, categoryMap, onStatusChange, onReturnToWo
         </span>
       </div>
       <Typography.Title level={3}>
-        <Link className="tasks__title-link" to={`/app/tasks/${task._id}`}>
+        <Link className="tasks__title-link" to={`/app/tasks/${task._id}`} state={{ returnTo: currentRoute }}>
           {task.description}
         </Link>
       </Typography.Title>

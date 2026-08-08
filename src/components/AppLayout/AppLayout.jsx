@@ -25,6 +25,19 @@ import "./AppLayout.css";
 
 const { Header, Sider, Content } = Layout;
 
+function selectedMenuKey(pathname) {
+  if (pathname.startsWith("/app/projects")) return "/app/projects";
+  if (pathname.startsWith("/app/tasks")) return "/app/dashboard";
+  if (pathname.startsWith("/app/control")) return "/app/control";
+  if (pathname.startsWith("/app/calendar")) return "/app/calendar";
+  if (pathname.startsWith("/app/overdue")) return "/app/overdue";
+  if (pathname.startsWith("/app/templates")) return "/app/templates";
+  if (pathname.startsWith("/app/billing")) return "/app/billing";
+  if (pathname.startsWith("/app/profile")) return "/app/profile";
+  if (pathname.startsWith("/app/admin")) return "/app/admin";
+  return "/app/dashboard";
+}
+
 function localizeNotificationMessage(messageText = "") {
   const rules = [
     {
@@ -69,6 +82,8 @@ export function AppLayout({ auth }) {
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;
   const isSuperAdmin = Boolean(auth.user?.isSuperAdmin);
+  const activeMenuKey = selectedMenuKey(location.pathname);
+  const currentRoute = `${location.pathname}${location.search}`;
 
   const navItems = isSuperAdmin
     ? [
@@ -220,10 +235,11 @@ export function AppLayout({ auth }) {
 	
 	            return notification.task?._id ? (
 	              <Link
-	                className="app-layout__notification-link"
-	                to={`/app/tasks/${notification.task._id}`}
-	                onClick={() => markNotificationRead(notification)}
-	              >
+                className="app-layout__notification-link"
+                to={`/app/tasks/${notification.task._id}`}
+                state={{ returnTo: currentRoute }}
+                onClick={() => markNotificationRead(notification)}
+              >
 	                {content}
 	              </Link>
 	            ) : (
@@ -252,7 +268,7 @@ export function AppLayout({ auth }) {
           <Link to={isSuperAdmin ? "/app/admin" : "/app/dashboard"} className="app-layout__brand">
             <BrandLogo compact={collapsed} variant="light" />
           </Link>
-          <Menu theme="dark" mode="inline" selectedKeys={[location.pathname]} items={navItems} />
+          <Menu theme="dark" mode="inline" selectedKeys={[activeMenuKey]} items={navItems} />
         </Sider>
       )}
       <Layout>
@@ -308,7 +324,7 @@ export function AppLayout({ auth }) {
       >
         <Menu
           mode="inline"
-          selectedKeys={[location.pathname]}
+          selectedKeys={[activeMenuKey]}
           items={navItems}
           onClick={() => setMobileMenuOpen(false)}
         />

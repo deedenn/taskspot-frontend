@@ -1,12 +1,12 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { App as AntApp, Spin } from "antd";
 import { apiFetch, getToken, setToken } from "./api.js";
 import { AppLayout } from "./components/AppLayout/AppLayout.jsx";
-import { AuthPage } from "./components/AuthPage/AuthPage.jsx";
-import { LandingPage } from "./components/LandingPage/LandingPage.jsx";
-import { VerifyEmail } from "./components/VerifyEmail/VerifyEmail.jsx";
 
+const LandingPage = lazy(() => import("./components/LandingPage/LandingPage.jsx").then((module) => ({ default: module.LandingPage })));
+const AuthPage = lazy(() => import("./components/AuthPage/AuthPage.jsx").then((module) => ({ default: module.AuthPage })));
+const VerifyEmail = lazy(() => import("./components/VerifyEmail/VerifyEmail.jsx").then((module) => ({ default: module.VerifyEmail })));
 const Dashboard = lazy(() => import("./components/Dashboard/Dashboard.jsx").then((module) => ({ default: module.Dashboard })));
 const AdminDashboard = lazy(() => import("./components/AdminDashboard/AdminDashboard.jsx").then((module) => ({ default: module.AdminDashboard })));
 const CalendarPage = lazy(() => import("./components/CalendarPage/CalendarPage.jsx").then((module) => ({ default: module.CalendarPage })));
@@ -43,6 +43,16 @@ function RequireSuperAdmin({ user, children }) {
   return children;
 }
 
+function RequireAuth({ user, children }) {
+  const location = useLocation();
+
+  if (!user) {
+    return <Navigate to="/login" replace state={{ returnTo: `${location.pathname}${location.search}` }} />;
+  }
+
+  return children;
+}
+
 export function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(Boolean(getToken()));
@@ -54,6 +64,16 @@ export function App() {
       .then(({ user: currentUser }) => setUser(currentUser))
       .catch(() => setToken(null))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    function handleUnauthorized() {
+      setUser(null);
+    }
+
+    window.addEventListener("taskspot:unauthorized", handleUnauthorized);
+
+    return () => window.removeEventListener("taskspot:unauthorized", handleUnauthorized);
   }, []);
 
   const auth = useMemo(
@@ -89,13 +109,13 @@ export function App() {
     <AntApp>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<LandingPage user={user} />} />
-          <Route path="/login" element={<AuthPage mode="login" auth={auth} />} />
-          <Route path="/register" element={<AuthPage mode="register" auth={auth} />} />
-          <Route path="/verify-email" element={<VerifyEmail auth={auth} />} />
+          <Route path="/" element={<Suspense fallback={<RouteLoader />}><LandingPage user={user} /></Suspense>} />
+          <Route path="/login" element={<Suspense fallback={<RouteLoader />}><AuthPage mode="login" auth={auth} /></Suspense>} />
+          <Route path="/register" element={<Suspense fallback={<RouteLoader />}><AuthPage mode="register" auth={auth} /></Suspense>} />
+          <Route path="/verify-email" element={<Suspense fallback={<RouteLoader />}><VerifyEmail auth={auth} /></Suspense>} />
           <Route
             path="/app"
-            element={user ? <AppLayout auth={auth} /> : <Navigate to="/login" replace />}
+            element={<RequireAuth user={user}><AppLayout auth={auth} /></RequireAuth>}
           >
             <Route index element={<Navigate to={user?.isSuperAdmin ? "/app/admin" : "/app/dashboard"} replace />} />
             <Route path="onboarding" element={<Navigate to="/app/dashboard" replace />} />

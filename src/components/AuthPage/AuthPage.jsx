@@ -18,6 +18,10 @@ export function AuthPage({ mode, auth }) {
   const [resending, setResending] = useState(false);
   const [resendMessage, setResendMessage] = useState("");
   const isRegister = mode === "register";
+  const returnTo =
+    typeof location.state?.returnTo === "string" && location.state.returnTo.startsWith("/app/")
+      ? location.state.returnTo
+      : "";
   const passwordRules = isRegister
     ? [
         { required: true, message: "Укажите пароль" },
@@ -59,7 +63,7 @@ export function AuthPage({ mode, auth }) {
   }, [form, invitationToken, isRegister]);
 
   if (auth.user) {
-    return <Navigate to="/app/dashboard" replace />;
+    return <Navigate to={auth.user.isSuperAdmin ? "/app/admin" : returnTo || "/app/dashboard"} replace />;
   }
 
   async function handleFinish(values) {
@@ -82,7 +86,7 @@ export function AuthPage({ mode, auth }) {
       }
 
       const signedInUser = await auth.signIn("/auth/login", values);
-      navigate(signedInUser?.isSuperAdmin ? "/app/admin" : "/app/dashboard", { replace: true });
+      navigate(signedInUser?.isSuperAdmin ? "/app/admin" : returnTo || "/app/dashboard", { replace: true });
     } catch (requestError) {
       setError(requestError.message);
     } finally {

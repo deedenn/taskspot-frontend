@@ -420,6 +420,102 @@
   font-weight: 600;
 }
 
+.dashboard__mobile-list {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.dashboard__mobile-empty {
+  padding: 32px 12px;
+}
+
+.dashboard__mobile-task {
+  display: grid;
+  gap: 12px;
+  padding: 13px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: #ffffff;
+  color: inherit;
+  text-decoration: none;
+  box-shadow: 0 8px 22px rgba(7, 20, 38, 0.05);
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.dashboard__mobile-task:hover,
+.dashboard__mobile-task:focus-visible {
+  border-color: var(--brand-blue-600);
+  color: inherit;
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.13);
+  transform: translateY(-1px);
+}
+
+.dashboard__mobile-task:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.22);
+  outline-offset: 2px;
+}
+
+.dashboard__mobile-task--due {
+  border-color: #ffccc7;
+  background: #fff8f7;
+  box-shadow: inset 4px 0 0 #ff4d4f, 0 8px 22px rgba(7, 20, 38, 0.05);
+}
+
+.dashboard__mobile-task--urgent:not(.dashboard__mobile-task--due) {
+  border-color: #ffd591;
+  background: #fffaf2;
+  box-shadow: inset 4px 0 0 #fa8c16, 0 8px 22px rgba(7, 20, 38, 0.05);
+}
+
+.dashboard__mobile-task-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.dashboard__mobile-task-main .ant-typography {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashboard__mobile-task-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.dashboard__mobile-task-meta > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.dashboard__mobile-task-meta strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard__mobile-task-date--alert {
+  color: #cf1322 !important;
+}
+
+.dashboard__mobile-task-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
 .dashboard__project-tag {
   font-weight: 600;
 }
@@ -599,6 +695,10 @@
 
   .dashboard__task-table .ant-table {
     border-radius: 0 0 10px 10px;
+  }
+
+  .dashboard__mobile-task-meta {
+    grid-template-columns: 1fr;
   }
 }
 

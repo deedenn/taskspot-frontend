@@ -14,7 +14,7 @@ import {
 } from "@ant-design/icons";
 import { Alert, Button, Card, Checkbox, DatePicker, Empty, Form, Input, List, Modal, Select, Space, Spin, Tag, Timeline, Typography, Upload, message } from "antd";
 import dayjs from "dayjs";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "../../api.js";
 import { fullName, userOptionLabel } from "../../utils/users.js";
@@ -116,6 +116,7 @@ function serializeDetails(values) {
 
 export function TaskDetails({ currentUser }) {
   const { taskId } = useParams();
+  const location = useLocation();
   const [task, setTask] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -478,10 +479,16 @@ export function TaskDetails({ currentUser }) {
     label: category.name
   }));
 
+  const returnTo =
+    typeof location.state?.returnTo === "string" && location.state.returnTo.startsWith("/app/")
+      ? location.state.returnTo
+      : "/app/dashboard";
+  const backLabel = returnTo === "/app/dashboard" ? "Назад на главную" : "Назад";
+
   return (
     <section className="task-details">
-      <Link className="task-details__back" to="/app/dashboard">
-        <ArrowLeftOutlined /> Назад на главную
+      <Link className="task-details__back" to={returnTo}>
+        <ArrowLeftOutlined /> {backLabel}
       </Link>
 
       <Card className={isUrgentActive(task) ? "task-details__main task-details__main--urgent" : "task-details__main"}>

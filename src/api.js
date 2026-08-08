@@ -1,7 +1,17 @@
-const API_URL =
+export const API_URL =
   import.meta.env.VITE_API_URL ||
   (import.meta.env.PROD ? "https://api.taskspot.ru/api" : "http://localhost:4000/api");
 const TOKEN_KEY = "taskflow_token";
+const DEFAULT_TIMEOUT = 30000;
+
+export class ApiError extends Error {
+  constructor(message, { status, data } = {}) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.data = data;
+  }
+}
 
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY);
@@ -17,8 +27,16 @@ export function setToken(token) {
 
 export async function apiFetch(path, options = {}) {
   const token = getToken();
+  const { timeout = DEFAULT_TIMEOUT, signal, ...fetchOptions } = options;
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeout);
+
+  if (signal) {
+    signal.addEventListener("abort", () => controller.abort(), { once: true });
+  }
+
   const headers = {
-    "Content-Type": "application/json",
+    ...(fetchOptions.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
     ...(options.headers || {})
   };
 
@@ -26,17 +44,32 @@ export async function apiFetch(path, options = {}) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers
-  });
+  try {
+    const response = await fetch(`${API_URL}${path}`, {
+      ...fetchOptions,
+      headers,
+      signal: controller.signal
+    });
 
-  const data = await response.json().catch(() => ({}));
+    const data = await response.json().catch(() => ({}));
 
-  if (!response.ok) {
-    throw new Error(data.message || "Request failed");
+    if (response.status === 401) {
+      setToken(null);
+      window.dispatchEvent(new CustomEvent("taskspot:unauthorized"));
+    }
+
+    if (!response.ok) {
+      throw new ApiError(data.message || "Request failed", { status: response.status, data });
+    }
+
+    return data;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new ApiError("Превышено время ожидания ответа сервера", { status: 0 });
+    }
+
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
   }
-
-  return data;
 }
-

@@ -31,11 +31,14 @@ import {
 } from "antd";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { apiFetch } from "../../api.js";
+import { useApiResource } from "../../hooks/useApiResource.js";
 import { fullName, userOptionLabel } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
 import "./Dashboard.css";
+
+const EMPTY_DASHBOARD_DATA = { initiated: [], assigned: [], observing: [], notifications: [] };
 
 const statusLabels = {
   open: ["Открыта", "blue"],
@@ -136,7 +139,27 @@ function formatDateValue(date) {
   return date ? dayjs(date).valueOf() : Number.MAX_SAFE_INTEGER;
 }
 
-function TaskTable({ tasks, categoryMap }) {
+function TaskCategories({ task, categoryMap }) {
+  const items = (task.categories || [])
+    .map((category) => categoryMap.get(idOf(category)) || (category?.name ? { name: category.name, color: category.color } : null))
+    .filter(Boolean);
+
+  if (!items.length) {
+    return <Typography.Text type="secondary">Без категории</Typography.Text>;
+  }
+
+  return (
+    <Space size={[0, 6]} wrap>
+      {items.map((category) => (
+        <Tag key={category._id || category.name} color={category.color}>
+          {category.name}
+        </Tag>
+      ))}
+    </Space>
+  );
+}
+
+function TaskTable({ tasks, categoryMap, currentRoute }) {
   const columns = [
     {
       title: "Задача",
@@ -145,7 +168,7 @@ function TaskTable({ tasks, categoryMap }) {
       width: 320,
       sorter: (first, second) => first.description.localeCompare(second.description, "ru"),
       render: (description, task) => (
-        <Link className="dashboard__task-link" to={`/app/tasks/${task._id}`}>
+        <Link className="dashboard__task-link" to={`/app/tasks/${task._id}`} state={{ returnTo: currentRoute }}>
           {description}
         </Link>
       )
@@ -226,25 +249,7 @@ function TaskTable({ tasks, categoryMap }) {
       dataIndex: "categories",
       key: "categories",
       width: 220,
-      render: (categories = []) => {
-        const items = categories
-          .map((category) => categoryMap.get(idOf(category)) || (category?.name ? { name: category.name, color: category.color } : null))
-          .filter(Boolean);
-
-        if (!items.length) {
-          return <Typography.Text type="secondary">Без категории</Typography.Text>;
-        }
-
-        return (
-          <Space size={[0, 6]} wrap>
-            {items.map((category) => (
-              <Tag key={category._id || category.name} color={category.color}>
-                {category.name}
-              </Tag>
-            ))}
-          </Space>
-        );
-      }
+      render: (_, task) => <TaskCategories task={task} categoryMap={categoryMap} />
     },
     {
       title: "Приоритет",
@@ -281,12 +286,68 @@ function TaskTable({ tasks, categoryMap }) {
   );
 }
 
+function TaskMobileList({ tasks, categoryMap, currentRoute }) {
+  if (!tasks.length) {
+    return (
+      <div className="dashboard__mobile-empty">
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Задач пока нет" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="dashboard__mobile-list">
+      {tasks.map((task) => {
+        const [statusLabel, statusColor] = statusLabels[task.status] || [task.status, "default"];
+        const [priorityLabel, priorityColor] = priorityLabels[task.priority] || priorityLabels.medium;
+        const assigneeName = task.assignee
+          ? fullName(task.assignee)
+          : task.assigneeEmail || "Без ответственного";
+
+        return (
+          <Link
+            key={task._id}
+            className={[
+              "dashboard__mobile-task",
+              isDeadlineAlert(task) ? "dashboard__mobile-task--due" : "",
+              isUrgentActive(task) ? "dashboard__mobile-task--urgent" : ""
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            to={`/app/tasks/${task._id}`}
+            state={{ returnTo: currentRoute }}
+          >
+            <div className="dashboard__mobile-task-main">
+              <Typography.Text strong>{task.description}</Typography.Text>
+              <Typography.Text type="secondary">{task.project?.name || "Без проекта"}</Typography.Text>
+            </div>
+            <div className="dashboard__mobile-task-meta">
+              <span>
+                <Typography.Text type="secondary">Срок</Typography.Text>
+                <strong className={isDeadlineAlert(task) ? "dashboard__mobile-task-date dashboard__mobile-task-date--alert" : "dashboard__mobile-task-date"}>
+                  {task.dueDate ? dayjs(task.dueDate).format("DD.MM.YYYY") : "Без срока"}
+                </strong>
+              </span>
+              <span>
+                <Typography.Text type="secondary">Ответственный</Typography.Text>
+                <strong>{assigneeName}</strong>
+              </span>
+            </div>
+            <div className="dashboard__mobile-task-tags">
+              <Tag color={statusColor}>{statusLabel}</Tag>
+              <Tag color={priorityColor}>{priorityLabel}</Tag>
+              <TaskCategories task={task} categoryMap={categoryMap} />
+            </div>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
 export function Dashboard({ currentUser }) {
   const navigate = useNavigate();
-  const [data, setData] = useState({ initiated: [], assigned: [], observing: [], notifications: [] });
-  const [projects, setProjects] = useState([]);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [hideClosed, setHideClosed] = useState(true);
   const [projectFilter, setProjectFilter] = useState();
@@ -302,6 +363,35 @@ export function Dashboard({ currentUser }) {
   const [form] = Form.useForm();
   const screens = Grid.useBreakpoint();
   const isCompactControls = !screens.sm;
+  const isMobileTaskList = !screens.md;
+  const currentRoute = `${location.pathname}${location.search}`;
+  const dashboardResource = useApiResource(async ({ signal }) => {
+    const [dashboardData, projectsData] = await Promise.all([
+      apiFetch("/dashboard", { signal }),
+      apiFetch("/projects", { signal })
+    ]);
+
+    return {
+      dashboard: dashboardData,
+      projects: projectsData.projects
+    };
+  }, []);
+  const data = dashboardResource.data?.dashboard || EMPTY_DASHBOARD_DATA;
+  const projects = dashboardResource.data?.projects || [];
+  const error = dashboardResource.error;
+  const loading = dashboardResource.loading;
+
+  function updateDashboardData(updater) {
+    dashboardResource.setData((current) => {
+      const currentDashboard = current?.dashboard || EMPTY_DASHBOARD_DATA;
+      const nextDashboard = typeof updater === "function" ? updater(currentDashboard) : updater;
+
+      return {
+        dashboard: nextDashboard,
+        projects: current?.projects || []
+      };
+    });
+  }
   const selectedProjectId = Form.useWatch("projectId", form);
   const selectedProject = useMemo(
     () => projects.find((project) => project._id === selectedProjectId),
@@ -312,27 +402,14 @@ export function Dashboard({ currentUser }) {
     [projects]
   );
 
-  async function loadDashboard() {
-    setLoading(true);
-    setError("");
+  async function loadDashboard(options) {
     try {
-      const [dashboardData, projectsData] = await Promise.all([
-        apiFetch("/dashboard"),
-        apiFetch("/projects")
-      ]);
-      setData(dashboardData);
-      setProjects(projectsData.projects);
+      return await dashboardResource.reload(options);
     } catch (error) {
-      setError(error.message);
       message.error(error.message);
-    } finally {
-      setLoading(false);
+      return null;
     }
   }
-
-  useEffect(() => {
-    loadDashboard();
-  }, []);
 
   const projectOptions = useMemo(
     () => projects.map((project) => ({
@@ -534,6 +611,14 @@ export function Dashboard({ currentUser }) {
     }
   }
 
+  function handleRoleTabClick(roleKey) {
+    setActiveRoleTab(roleKey);
+
+    if (roleKey === "all" || quickFilter === "review") {
+      setQuickFilter(hideClosed ? "active" : "all");
+    }
+  }
+
   function showReviewTasks() {
     setActiveRoleTab("initiated");
     setQuickFilter("review");
@@ -639,7 +724,7 @@ export function Dashboard({ currentUser }) {
         })
       });
 
-      setData((currentData) => ({
+      updateDashboardData((currentData) => ({
         ...currentData,
         initiated: [
           data.task,
@@ -789,7 +874,7 @@ export function Dashboard({ currentUser }) {
                 aria-label={`${item.title}: ${visibleTasks[item.key].length}`}
                 aria-pressed={activeRoleTab === item.key}
                 aria-selected={activeRoleTab === item.key}
-                onClick={() => setActiveRoleTab(item.key)}
+                onClick={() => handleRoleTabClick(item.key)}
               >
                 <div className="dashboard__stat-content" aria-label={`${item.title}: ${visibleTasks[item.key].length}`}>
                   <span className="dashboard__stat-icon">{item.icon}</span>
@@ -925,7 +1010,11 @@ export function Dashboard({ currentUser }) {
                   Сбросить
                 </Button>
               </div>
-              <TaskTable tasks={activeTasks} categoryMap={categoryMap} />
+              {isMobileTaskList ? (
+                <TaskMobileList tasks={activeTasks} categoryMap={categoryMap} currentRoute={currentRoute} />
+              ) : (
+                <TaskTable tasks={activeTasks} categoryMap={categoryMap} currentRoute={currentRoute} />
+              )}
             </Card>
           </div>
         </>
