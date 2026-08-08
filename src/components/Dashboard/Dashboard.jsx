@@ -2,8 +2,8 @@ import {
   CheckCircleOutlined,
   ClearOutlined,
   DeleteOutlined,
-  EyeInvisibleOutlined,
   EyeOutlined,
+  FilterOutlined,
   FolderAddOutlined,
   PaperClipOutlined,
   PlusOutlined,
@@ -349,6 +349,7 @@ export function Dashboard({ currentUser }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [hideClosed, setHideClosed] = useState(true);
   const [projectFilter, setProjectFilter] = useState();
   const [categoryFilter, setCategoryFilter] = useState([]);
@@ -362,7 +363,6 @@ export function Dashboard({ currentUser }) {
   const [creatingTask, setCreatingTask] = useState(false);
   const [form] = Form.useForm();
   const screens = Grid.useBreakpoint();
-  const isCompactControls = !screens.sm;
   const isMobileTaskList = !screens.md;
   const currentRoute = `${location.pathname}${location.search}`;
   const dashboardResource = useApiResource(async ({ signal }) => {
@@ -589,6 +589,30 @@ export function Dashboard({ currentUser }) {
   const activeDueSoonCount = activeTasks.filter((task) => !isOverdue(task) && isDueSoon(task)).length;
   const activeUrgentCount = activeTasks.filter(isUrgentActive).length;
   const hasNoProjects = !loading && !error && projects.length === 0;
+  const hasManyProjects = projects.length > 1;
+  const hasManyActiveProjects = activeProjects.length > 1;
+  const selectedProjectName = projects.find((project) => project._id === projectFilter)?.name;
+  const selectedCategories = categoryFilter
+    .map((categoryId) => {
+      const category = categoryMap.get(categoryId);
+      return category ? { id: categoryId, name: category.name } : null;
+    })
+    .filter(Boolean);
+  const hasActiveFilters =
+    Boolean(projectFilter) ||
+    Boolean(categoryFilter.length) ||
+    Boolean(searchText.trim()) ||
+    !hideClosed ||
+    quickFilter !== "active" ||
+    activeRoleTab !== "all";
+  const advancedFiltersCount = categoryFilter.length + (!hideClosed ? 1 : 0) + (projectFilter && !hasManyProjects ? 1 : 0);
+  const quickFilterItems = [
+    { key: "active", label: "Активные" },
+    { key: "today", label: "Сегодня" },
+    { key: "overdue", label: "Просрочено" },
+    { key: "review", label: "На проверке", count: reviewTasksForUserCount },
+    { key: "unassigned", label: "Без ответственного" }
+  ];
 
   function handleDashboardProjectChange(projectId) {
     setProjectFilter(projectId);
@@ -601,6 +625,7 @@ export function Dashboard({ currentUser }) {
     setSearchText("");
     setHideClosed(true);
     setQuickFilter("active");
+    setActiveRoleTab("all");
   }
 
   function handleHideClosedChange(value) {
@@ -608,6 +633,10 @@ export function Dashboard({ currentUser }) {
 
     if (!value && quickFilter === "active") {
       setQuickFilter("all");
+    }
+
+    if (value && quickFilter === "all") {
+      setQuickFilter("active");
     }
   }
 
@@ -622,6 +651,15 @@ export function Dashboard({ currentUser }) {
   function showReviewTasks() {
     setActiveRoleTab("initiated");
     setQuickFilter("review");
+  }
+
+  function handleQuickFilterClick(filterKey) {
+    if (filterKey === "review") {
+      showReviewTasks();
+      return;
+    }
+
+    setQuickFilter(filterKey);
   }
 
   function defaultAssignee(project) {
@@ -735,7 +773,7 @@ export function Dashboard({ currentUser }) {
       setActiveRoleTab("all");
       setHideClosed(true);
       setQuickFilter("active");
-      setProjectFilter(quickProjectId);
+      setProjectFilter(hasManyProjects ? quickProjectId : undefined);
       setCategoryFilter([]);
       setSearchText("");
       message.success("Задача создана");
@@ -784,22 +822,6 @@ export function Dashboard({ currentUser }) {
           <Typography.Paragraph>Единый рабочий список по проектам, срокам и ролям.</Typography.Paragraph>
         </div>
         <Space wrap>
-          {isCompactControls ? (
-            <Tooltip title={hideClosed ? "Закрытые скрыты" : "Закрытые показаны"}>
-              <Button
-                className="dashboard__filter-button"
-                type={hideClosed ? "primary" : "default"}
-                icon={hideClosed ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-                aria-label={hideClosed ? "Показать закрытые задачи" : "Скрыть закрытые задачи"}
-                onClick={() => handleHideClosedChange(!hideClosed)}
-              />
-            </Tooltip>
-          ) : (
-            <Space className="dashboard__filter" size={8}>
-              <Typography.Text>Скрыть закрытые</Typography.Text>
-              <Switch checked={hideClosed} onChange={handleHideClosedChange} />
-            </Space>
-          )}
           {hasNoProjects ? (
             <Button type="primary" icon={<FolderAddOutlined />} onClick={() => navigate("/app/projects")}>
               Создать проект
@@ -864,46 +886,6 @@ export function Dashboard({ currentUser }) {
         </Card>
       ) : (
         <>
-          <div className="dashboard__stats" role="tablist" aria-label="Фильтр задач по роли">
-            {statItems.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                role="tab"
-                className={activeRoleTab === item.key ? "dashboard__stat-card dashboard__stat-card--active" : "dashboard__stat-card"}
-                aria-label={`${item.title}: ${visibleTasks[item.key].length}`}
-                aria-pressed={activeRoleTab === item.key}
-                aria-selected={activeRoleTab === item.key}
-                onClick={() => handleRoleTabClick(item.key)}
-              >
-                <div className="dashboard__stat-content" aria-label={`${item.title}: ${visibleTasks[item.key].length}`}>
-                  <span className="dashboard__stat-icon">{item.icon}</span>
-                  <span className="dashboard__stat-text">
-                    <strong>{visibleTasks[item.key].length}</strong>
-                    <span>{item.title}</span>
-                  </span>
-                </div>
-              </button>
-            ))}
-            <button
-              type="button"
-              className={isReviewFocusActive ? "dashboard__stat-card dashboard__stat-card--review dashboard__stat-card--active" : "dashboard__stat-card dashboard__stat-card--review"}
-              aria-label={`На проверке: ${reviewTasksForUserCount}`}
-              aria-pressed={isReviewFocusActive}
-              onClick={showReviewTasks}
-            >
-              <div className="dashboard__stat-content" aria-label={`На проверке: ${reviewTasksForUserCount}`}>
-                <span className="dashboard__stat-icon">
-                  <CheckCircleOutlined />
-                </span>
-                <span className="dashboard__stat-text">
-                  <strong>{reviewTasksForUserCount}</strong>
-                  <span>На проверке</span>
-                </span>
-              </div>
-            </button>
-          </div>
-
           <div className="dashboard__grid">
             <Card className="dashboard__tasks" loading={loading}>
               <div className="dashboard__table-head">
@@ -936,15 +918,132 @@ export function Dashboard({ currentUser }) {
                   </span>
                 </div>
               </div>
-              <div className="dashboard__quick-add" aria-label="Быстрое добавление задачи">
-                <Select
-                  className="dashboard__quick-project"
-                  placeholder="Проект"
-                  options={createProjectOptions}
-                  value={quickProjectId}
-                  onChange={setQuickProjectId}
-                  disabled={quickCreating || !activeProjects.length}
-                />
+              <div className="dashboard__workbar">
+                <div className="dashboard__stats" role="tablist" aria-label="Фильтр задач по роли">
+                  {statItems.map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      role="tab"
+                      className={activeRoleTab === item.key ? "dashboard__stat-card dashboard__stat-card--active" : "dashboard__stat-card"}
+                      aria-label={`${item.title}: ${visibleTasks[item.key].length}`}
+                      aria-pressed={activeRoleTab === item.key}
+                      aria-selected={activeRoleTab === item.key}
+                      onClick={() => handleRoleTabClick(item.key)}
+                    >
+                      <div className="dashboard__stat-content" aria-label={`${item.title}: ${visibleTasks[item.key].length}`}>
+                        <span className="dashboard__stat-icon">{item.icon}</span>
+                        <span className="dashboard__stat-text">
+                          <strong>{visibleTasks[item.key].length}</strong>
+                          <span>{item.title}</span>
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="dashboard__filter-line">
+                  <div className="dashboard__quick-filters" aria-label="Быстрые фильтры задач">
+                    {quickFilterItems.map((item) => {
+                      const isActive = quickFilter === item.key;
+
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          className={isActive ? "dashboard__quick-chip dashboard__quick-chip--active" : "dashboard__quick-chip"}
+                          aria-pressed={isActive}
+                          onClick={() => handleQuickFilterClick(item.key)}
+                        >
+                          <span>{item.label}</span>
+                          {typeof item.count === "number" && <strong>{item.count}</strong>}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className={hasManyProjects ? "dashboard__search-line" : "dashboard__search-line dashboard__search-line--compact"}>
+                    <Input.Search
+                      allowClear
+                      className="dashboard__search"
+                      placeholder="Поиск по задачам"
+                      value={searchText}
+                      onChange={(event) => setSearchText(event.target.value)}
+                    />
+                    {hasManyProjects && (
+                      <Select
+                        allowClear
+                        className="dashboard__project-filter"
+                        placeholder="Все проекты"
+                        options={projectOptions}
+                        value={projectFilter}
+                        onChange={handleDashboardProjectChange}
+                      />
+                    )}
+                    <Button icon={<FilterOutlined />} onClick={() => setFiltersOpen(true)}>
+                      Фильтры{advancedFiltersCount ? ` · ${advancedFiltersCount}` : ""}
+                    </Button>
+                    {hasActiveFilters && (
+                      <Button icon={<ClearOutlined />} onClick={resetFilters}>
+                        Сбросить
+                      </Button>
+                    )}
+                  </div>
+
+                  {(selectedProjectName || selectedCategories.length || !hideClosed) && (
+                    <div className="dashboard__active-filters" aria-label="Активные фильтры">
+                      {selectedProjectName && (
+                        <Tag
+                          closable
+                          onClose={(event) => {
+                            event.preventDefault();
+                            handleDashboardProjectChange();
+                          }}
+                        >
+                          Проект: {selectedProjectName}
+                        </Tag>
+                      )}
+                      {selectedCategories.map((category) => (
+                        <Tag
+                          key={category.id}
+                          closable
+                          onClose={(event) => {
+                            event.preventDefault();
+                            setCategoryFilter((items) => items.filter((categoryId) => categoryId !== category.id));
+                          }}
+                        >
+                          Категория: {category.name}
+                        </Tag>
+                      ))}
+                      {!hideClosed && (
+                        <Tag
+                          closable
+                          onClose={(event) => {
+                            event.preventDefault();
+                            handleHideClosedChange(true);
+                          }}
+                        >
+                          Закрытые показаны
+                        </Tag>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div
+                className={hasManyActiveProjects ? "dashboard__quick-add" : "dashboard__quick-add dashboard__quick-add--single-project"}
+                aria-label="Быстрое добавление задачи"
+              >
+                {hasManyActiveProjects && (
+                  <Select
+                    className="dashboard__quick-project"
+                    placeholder="Проект"
+                    options={createProjectOptions}
+                    value={quickProjectId}
+                    onChange={setQuickProjectId}
+                    disabled={quickCreating || !activeProjects.length}
+                  />
+                )}
                 <Input
                   className="dashboard__quick-input"
                   placeholder={activeProjects.length ? "Что нужно сделать? Нажмите Enter, чтобы добавить" : "Нет активных проектов"}
@@ -967,49 +1066,6 @@ export function Dashboard({ currentUser }) {
                   Подробнее
                 </Button>
               </div>
-              <div className="dashboard__filters-panel">
-                <Select
-                  allowClear
-                  className="dashboard__filter-select"
-                  placeholder="Все проекты"
-                  options={projectOptions}
-                  value={projectFilter}
-                  onChange={handleDashboardProjectChange}
-                />
-                <Select
-                  allowClear
-                  mode="multiple"
-                  className="dashboard__filter-select dashboard__filter-select--wide"
-                  placeholder="Все категории"
-                  options={dashboardCategoryOptions}
-                  value={categoryFilter}
-                  onChange={setCategoryFilter}
-                  maxTagCount="responsive"
-                />
-                <Input.Search
-                  allowClear
-                  className="dashboard__filter-select dashboard__filter-select--wide"
-                  placeholder="Поиск по задачам"
-                  value={searchText}
-                  onChange={(event) => setSearchText(event.target.value)}
-                />
-                <Select
-                  className="dashboard__filter-select"
-                  value={quickFilter}
-                  onChange={setQuickFilter}
-                  options={[
-                    { value: "active", label: "Активные" },
-                    { value: "today", label: "Сегодня" },
-                    { value: "overdue", label: "Просрочено" },
-                    { value: "review", label: "Ждут проверки" },
-                    { value: "unassigned", label: "Без ответственного" },
-                    { value: "all", label: "Все" }
-                  ]}
-                />
-                <Button icon={<ClearOutlined />} onClick={resetFilters}>
-                  Сбросить
-                </Button>
-              </div>
               {isMobileTaskList ? (
                 <TaskMobileList tasks={activeTasks} categoryMap={categoryMap} currentRoute={currentRoute} />
               ) : (
@@ -1019,6 +1075,42 @@ export function Dashboard({ currentUser }) {
           </div>
         </>
       )}
+
+      <Drawer
+        title="Фильтры задач"
+        open={filtersOpen}
+        width={screens.sm ? 420 : "100%"}
+        onClose={() => setFiltersOpen(false)}
+        extra={
+          <Button icon={<ClearOutlined />} onClick={resetFilters} disabled={!hasActiveFilters}>
+            Сбросить
+          </Button>
+        }
+      >
+        <div className="dashboard__filters-drawer">
+          <div className="dashboard__drawer-field">
+            <Typography.Text strong>Категории</Typography.Text>
+            <Select
+              allowClear
+              mode="multiple"
+              placeholder="Все категории"
+              options={dashboardCategoryOptions}
+              value={categoryFilter}
+              onChange={setCategoryFilter}
+              maxTagCount="responsive"
+            />
+          </div>
+          <div className="dashboard__drawer-switch">
+            <div>
+              <Typography.Text strong>Показывать закрытые задачи</Typography.Text>
+              <Typography.Paragraph type="secondary">
+                По умолчанию закрытые задачи скрыты, чтобы рабочий список оставался коротким.
+              </Typography.Paragraph>
+            </div>
+            <Switch checked={!hideClosed} onChange={(value) => handleHideClosedChange(!value)} />
+          </div>
+        </div>
+      </Drawer>
 
       <Drawer
         title="Новая задача"
