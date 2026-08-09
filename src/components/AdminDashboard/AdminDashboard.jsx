@@ -8,12 +8,11 @@ import {
   ProjectOutlined,
   StopOutlined,
   RiseOutlined,
-  TeamOutlined,
   UnlockOutlined,
   UserAddOutlined,
   UserOutlined
 } from "@ant-design/icons";
-import { Button, Card, Empty, Input, Popconfirm, Progress, Segmented, Select, Space, Statistic, Table, Tag, Typography, message } from "antd";
+import { Button, Card, DatePicker, Empty, Form, Input, Modal, Popconfirm, Progress, Segmented, Select, Space, Statistic, Table, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../../api.js";
@@ -32,6 +31,10 @@ const statusLabels = {
   inactive: ["Неактивен", "default"],
   blocked: ["Заблокирован", "red"]
 };
+
+function planLabel(plan) {
+  return planLabels[plan] || [plan, "default"];
+}
 
 function formatMoney(value) {
   return new Intl.NumberFormat("ru-RU", {
@@ -52,6 +55,7 @@ function MetricCard({ icon, title, value, hint, tone = "blue", suffix }) {
 }
 
 export function AdminDashboard({ currentUser }) {
+  const [planForm] = Form.useForm();
   const [periodDays, setPeriodDays] = useState(30);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -62,6 +66,9 @@ export function AdminDashboard({ currentUser }) {
   const [userSearch, setUserSearch] = useState("");
   const [userStatus, setUserStatus] = useState("all");
   const [updatingUserId, setUpdatingUserId] = useState("");
+  const [planUser, setPlanUser] = useState(null);
+  const [planModalOpen, setPlanModalOpen] = useState(false);
+  const [planSaving, setPlanSaving] = useState(false);
 
   async function loadOverview(nextPeriod = periodDays) {
     setLoading(true);
@@ -133,6 +140,28 @@ export function AdminDashboard({ currentUser }) {
     [data]
   );
 
+  function primaryPlan(user) {
+    return user?.plans?.find((item) => item.role === "owner") || user?.plans?.[0];
+  }
+
+  function openPlanModal(user) {
+    const currentPlan = primaryPlan(user);
+    setPlanUser(user);
+    planForm.setFieldsValue({
+      organizationId: currentPlan?.organizationId,
+      plan: currentPlan?.plan || "free",
+      expiresAt: currentPlan?.planExpiresAt ? dayjs(currentPlan.planExpiresAt) : null,
+      note: currentPlan?.planChangeReason || ""
+    });
+    setPlanModalOpen(true);
+  }
+
+  function closePlanModal() {
+    setPlanModalOpen(false);
+    setPlanUser(null);
+    planForm.resetFields();
+  }
+
   const planColumns = [
     {
       title: "Тариф",
@@ -141,7 +170,7 @@ export function AdminDashboard({ currentUser }) {
       render: (label, row) => <Tag color={row.color}>{label}</Tag>
     },
     {
-      title: "Организаций",
+      title: "Компаний",
       dataIndex: "organizations",
       key: "organizations"
     },
@@ -184,21 +213,25 @@ export function AdminDashboard({ currentUser }) {
       key: "plans",
       render: (plans = []) => {
         if (!plans.length) {
-          return <Typography.Text type="secondary">Нет организаций</Typography.Text>;
+          return <Typography.Text type="secondary">Нет компаний</Typography.Text>;
         }
 
         return (
-          <Space wrap size={4}>
-            {plans.slice(0, 3).map((item) => {
-              const [label, color] = planLabels[item.plan] || [item.plan, "default"];
+          <div className="admin-dashboard__plan-list">
+            {plans.slice(0, 2).map((item) => {
+              const [label, color] = planLabel(item.plan);
+              const expiresAt = item.planExpiresAt ? dayjs(item.planExpiresAt).format("DD.MM.YYYY") : "без срока";
               return (
-                <Tag key={`${item.organization}-${item.plan}`} color={color}>
-                  {label}
-                </Tag>
+                <div key={`${item.organizationId}-${item.plan}`} className="admin-dashboard__plan-row">
+                  <Tag color={color}>{label}</Tag>
+                  <span>
+                    {item.organization} · {expiresAt}
+                  </span>
+                </div>
               );
             })}
-            {plans.length > 3 && <Tag>+{plans.length - 3}</Tag>}
-          </Space>
+            {plans.length > 2 && <Tag>+{plans.length - 2}</Tag>}
+          </div>
         );
       }
     },
@@ -227,25 +260,34 @@ export function AdminDashboard({ currentUser }) {
         const nextStatus = isBlocked ? "active" : "blocked";
 
         return (
-          <Popconfirm
-            title={isBlocked ? "Разблокировать пользователя?" : "Заблокировать пользователя?"}
-            description={
-              isBlocked
-                ? "Пользователь снова сможет войти и работать в сервисе."
-                : "Пользователь сразу потеряет доступ, включая уже активные сессии."
-            }
-            okText={isBlocked ? "Разблокировать" : "Заблокировать"}
-            cancelText="Отмена"
-            onConfirm={() => updateUserStatus(user, nextStatus)}
-          >
+          <Space wrap>
             <Button
-              danger={!isBlocked}
-              icon={isBlocked ? <UnlockOutlined /> : <StopOutlined />}
-              loading={updatingUserId === user._id}
+              icon={<PayCircleOutlined />}
+              disabled={!user.plans?.length}
+              onClick={() => openPlanModal(user)}
             >
-              {isBlocked ? "Разблокировать" : "Блокировать"}
+              Тариф
             </Button>
-          </Popconfirm>
+            <Popconfirm
+              title={isBlocked ? "Разблокировать пользователя?" : "Заблокировать пользователя?"}
+              description={
+                isBlocked
+                  ? "Пользователь снова сможет войти и работать в сервисе."
+                  : "Пользователь сразу потеряет доступ, включая уже активные сессии."
+              }
+              okText={isBlocked ? "Разблокировать" : "Заблокировать"}
+              cancelText="Отмена"
+              onConfirm={() => updateUserStatus(user, nextStatus)}
+            >
+              <Button
+                danger={!isBlocked}
+                icon={isBlocked ? <UnlockOutlined /> : <StopOutlined />}
+                loading={updatingUserId === user._id}
+              >
+                {isBlocked ? "Разблокировать" : "Блокировать"}
+              </Button>
+            </Popconfirm>
+          </Space>
         );
       }
     }
@@ -267,6 +309,40 @@ export function AdminDashboard({ currentUser }) {
       message.error(error.message);
     } finally {
       setUpdatingUserId("");
+    }
+  }
+
+  async function updateUserPlan() {
+    if (!planUser) return;
+
+    let values;
+    try {
+      values = await planForm.validateFields();
+    } catch {
+      return;
+    }
+
+    setPlanSaving(true);
+
+    try {
+      const result = await apiFetch(`/admin/users/${planUser._id}/plan`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          organizationId: values.organizationId,
+          plan: values.plan,
+          expiresAt: values.expiresAt ? values.expiresAt.toISOString() : "",
+          note: values.note || ""
+        })
+      });
+
+      setUsers((items) => items.map((item) => (item._id === planUser._id ? result.user : item)));
+      message.success("Тариф пользователя обновлен");
+      closePlanModal();
+      loadOverview(periodDays);
+    } catch (error) {
+      message.error(error.message);
+    } finally {
+      setPlanSaving(false);
     }
   }
 
@@ -362,9 +438,9 @@ export function AdminDashboard({ currentUser }) {
         />
         <MetricCard
           icon={<ProjectOutlined />}
-          title="Организаций"
+          title="Компаний"
           value={data?.organizations.total || 0}
-          hint={`${data?.organizations.paid || 0} платных организаций`}
+          hint={`${data?.organizations.paid || 0} платных компаний · ${data?.organizations.manualPlans || 0} ручных тарифов`}
           tone="gold"
         />
       </div>
@@ -442,7 +518,7 @@ export function AdminDashboard({ currentUser }) {
             dataSource={planRows}
             rowKey="plan"
             pagination={false}
-            locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Нет организаций" /> }}
+            locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Нет компаний" /> }}
           />
         </Card>
         <Card title="Пользователи сервиса">
@@ -494,6 +570,72 @@ export function AdminDashboard({ currentUser }) {
           />
         </Card>
       </div>
+
+      <Modal
+        title="Изменить тариф пользователя"
+        open={planModalOpen}
+        onCancel={closePlanModal}
+        onOk={updateUserPlan}
+        confirmLoading={planSaving}
+        okText="Сохранить тариф"
+        cancelText="Отмена"
+        destroyOnHidden
+      >
+        {planUser && (
+          <div className="admin-dashboard__plan-modal">
+            <div className="admin-dashboard__plan-user">
+              <Typography.Text strong>{fullName(planUser)}</Typography.Text>
+              <Typography.Text type="secondary">{planUser.email}</Typography.Text>
+            </div>
+            <Form form={planForm} layout="vertical">
+              <Form.Item
+                name="organizationId"
+                label="Компания"
+                rules={[{ required: true, message: "Выберите компанию" }]}
+              >
+                <Select
+                  placeholder="Выберите компанию"
+                  options={(planUser.plans || []).map((item) => ({
+                    label: `${item.organization} · ${planLabel(item.plan)[0]}`,
+                    value: item.organizationId
+                  }))}
+                  onChange={(organizationId) => {
+                    const selectedPlan = planUser.plans.find((item) => item.organizationId === organizationId);
+                    planForm.setFieldsValue({
+                      plan: selectedPlan?.plan || "free",
+                      expiresAt: selectedPlan?.planExpiresAt ? dayjs(selectedPlan.planExpiresAt) : null,
+                      note: selectedPlan?.planChangeReason || ""
+                    });
+                  }}
+                />
+              </Form.Item>
+              <Form.Item
+                name="plan"
+                label="Тариф"
+                rules={[{ required: true, message: "Выберите тариф" }]}
+              >
+                <Select
+                  options={Object.entries(planLabels).map(([value, [label]]) => ({
+                    label,
+                    value
+                  }))}
+                />
+              </Form.Item>
+              <Form.Item name="expiresAt" label="Действует до">
+                <DatePicker className="admin-dashboard__full-width" format="DD.MM.YYYY" allowClear />
+              </Form.Item>
+              <Form.Item name="note" label="Комментарий администратора">
+                <Input.TextArea
+                  rows={3}
+                  maxLength={240}
+                  showCount
+                  placeholder="Например: тестовый доступ на 30 дней или ручная оплата по счету"
+                />
+              </Form.Item>
+            </Form>
+          </div>
+        )}
+      </Modal>
     </section>
   );
 }

@@ -108,6 +108,43 @@
   margin-bottom: 14px;
 }
 
+.admin-dashboard__plan-list {
+  display: grid;
+  gap: 6px;
+  min-width: 220px;
+}
+
+.admin-dashboard__plan-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.admin-dashboard__plan-row .ant-tag {
+  margin-inline-end: 0;
+}
+
+.admin-dashboard__plan-modal {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-dashboard__plan-user {
+  display: grid;
+  gap: 3px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-muted);
+}
+
+.admin-dashboard__full-width {
+  width: 100%;
+}
+
 @media (max-width: 1180px) {
   .admin-dashboard__metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
