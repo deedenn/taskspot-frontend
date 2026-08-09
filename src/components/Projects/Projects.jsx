@@ -16,7 +16,7 @@ import {
 import { Alert, Avatar, Button, Card, Checkbox, ColorPicker, Empty, Form, Input, Modal, Popconfirm, Segmented, Select, Space, Tag, Tooltip, Typography, message } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { apiFetch } from "../../api.js";
+import { apiFetch, isLimitError, limitErrorText } from "../../api.js";
 import { fullName } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
 import "./Projects.css";
@@ -178,6 +178,19 @@ export function Projects({ user }) {
     loadProjects();
   }, []);
 
+  function showLimitDialog(error) {
+    if (!isLimitError(error)) return false;
+
+    Modal.warning({
+      title: "Лимит тарифа исчерпан",
+      content: limitErrorText(error),
+      okText: "Перейти в тарифы",
+      onOk: () => navigate("/app/billing")
+    });
+
+    return true;
+  }
+
   async function createProject(values) {
     try {
       const data = await apiFetch("/projects", {
@@ -190,7 +203,9 @@ export function Projects({ user }) {
       navigate(`/app/projects/${data.project._id}`);
       message.success("Проект создан");
     } catch (error) {
-      message.error(error.message);
+      if (!showLimitDialog(error)) {
+        message.error(error.message);
+      }
     }
   }
 
@@ -240,7 +255,9 @@ export function Projects({ user }) {
       updateProject(data.project);
       message.success("Проект восстановлен");
     } catch (error) {
-      message.error(error.message);
+      if (!showLimitDialog(error)) {
+        message.error(error.message);
+      }
     } finally {
       setProjectActionLoading("");
     }
@@ -305,7 +322,9 @@ export function Projects({ user }) {
         message.warning("Приглашение создано, но письмо не отправилось");
       }
     } catch (error) {
-      message.error(error.message);
+      if (!showLimitDialog(error)) {
+        message.error(error.message);
+      }
     }
   }
 

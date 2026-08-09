@@ -19,6 +19,29 @@
   width: 100%;
 }
 
+.billing-page__usage-item {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-panel);
+}
+
+.billing-page__usage-item--warning {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.billing-page__usage-item--danger {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.billing-page__usage-note {
+  font-size: 13px;
+}
+
 .billing-page__plans {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

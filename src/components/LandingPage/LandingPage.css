@@ -14,6 +14,7 @@
 .landing__hero,
 .landing__features,
 .landing__workflow,
+.landing__audiences,
 .landing__pricing,
 .landing__seo,
 .landing__final {
@@ -323,6 +324,7 @@
 }
 
 .landing__workflow,
+.landing__audiences,
 .landing__pricing,
 .landing__seo,
 .landing__final {
@@ -347,6 +349,32 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
+}
+
+.landing__audience-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.landing__audience-card {
+  min-height: 170px;
+  padding: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.landing__audience-card h3 {
+  margin: 0 0 10px;
+  font-size: 19px;
+}
+
+.landing__audience-card p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.78);
+  line-height: 1.58;
 }
 
 .landing__workflow-card {
@@ -584,6 +612,7 @@
   .landing__hero,
   .landing__features,
   .landing__workflow-grid,
+  .landing__audience-grid,
   .landing__pricing-head,
   .landing__pricing-grid,
   .landing__seo {

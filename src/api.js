@@ -13,6 +13,26 @@ export class ApiError extends Error {
   }
 }
 
+export function isLimitError(error) {
+  return error instanceof ApiError && (error.status === 402 || error.data?.code === "limit_exceeded");
+}
+
+export function limitErrorText(error) {
+  if (!isLimitError(error)) {
+    return error?.message || "Действие недоступно";
+  }
+
+  const usage = error.data?.usage;
+  const plan = error.data?.plan?.name;
+  const base = error.data?.message || error.message || "Лимит текущего тарифа исчерпан";
+
+  if (usage?.limit !== undefined) {
+    return `${base}: ${usage.used} / ${usage.limit}${plan ? ` на тарифе «${plan}»` : ""}.`;
+  }
+
+  return base;
+}
+
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY);
 }

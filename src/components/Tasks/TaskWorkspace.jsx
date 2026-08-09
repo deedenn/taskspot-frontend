@@ -2,8 +2,8 @@ import { CheckCircleOutlined, CommentOutlined, DeleteOutlined, EyeInvisibleOutli
 import { Alert, Button, Card, DatePicker, Drawer, Empty, Form, Grid, Input, List, Modal, Select, Space, Switch, Tag, Tooltip, Typography, Upload, message } from "antd";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { apiFetch } from "../../api.js";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { apiFetch, isLimitError, limitErrorText } from "../../api.js";
 import { fullName, userOptionLabel } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
 import "./TaskWorkspace.css";
@@ -64,6 +64,7 @@ function isProjectArchived(project) {
 
 export function TaskWorkspace({ project, currentUser }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -161,6 +162,19 @@ export function TaskWorkspace({ project, currentUser }) {
     loadTasks();
   }, [project._id]);
 
+  function showLimitDialog(error) {
+    if (!isLimitError(error)) return false;
+
+    Modal.warning({
+      title: "Лимит тарифа исчерпан",
+      content: limitErrorText(error),
+      okText: "Перейти в тарифы",
+      onOk: () => navigate("/app/billing")
+    });
+
+    return true;
+  }
+
   async function createTask(values) {
     setCreatingTask(true);
     try {
@@ -203,7 +217,9 @@ export function TaskWorkspace({ project, currentUser }) {
         message.success(pendingAttachmentFiles.length ? "Задача создана, файлы добавлены" : "Задача создана");
       }
     } catch (error) {
-      message.error(error.message);
+      if (!showLimitDialog(error)) {
+        message.error(error.message);
+      }
     } finally {
       setCreatingTask(false);
     }

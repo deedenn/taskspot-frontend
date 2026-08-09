@@ -18,6 +18,7 @@ import {
   Empty,
   Form,
   Input,
+  Modal,
   Select,
   Space,
   Switch,
@@ -32,7 +33,7 @@ import {
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { apiFetch } from "../../api.js";
+import { apiFetch, isLimitError, limitErrorText } from "../../api.js";
 import { useApiResource } from "../../hooks/useApiResource.js";
 import { fullName, userOptionLabel } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
@@ -733,7 +734,9 @@ export function Dashboard({ currentUser }) {
       setDrawerOpen(false);
       await loadDashboard();
     } catch (error) {
-      message.error(error.message);
+      if (!showLimitDialog(error)) {
+        message.error(error.message);
+      }
     } finally {
       setCreatingTask(false);
     }
@@ -779,7 +782,9 @@ export function Dashboard({ currentUser }) {
       message.success("Задача создана");
       void loadDashboard();
     } catch (error) {
-      message.error(error.message || "Не удалось создать задачу. Попробуйте еще раз");
+      if (!showLimitDialog(error)) {
+        message.error(error.message || "Не удалось создать задачу. Попробуйте еще раз");
+      }
     } finally {
       setQuickCreating(false);
     }
@@ -1231,3 +1236,15 @@ export function Dashboard({ currentUser }) {
     </section>
   );
 }
+  function showLimitDialog(error) {
+    if (!isLimitError(error)) return false;
+
+    Modal.warning({
+      title: "Лимит тарифа исчерпан",
+      content: limitErrorText(error),
+      okText: "Перейти в тарифы",
+      onOk: () => navigate("/app/billing")
+    });
+
+    return true;
+  }

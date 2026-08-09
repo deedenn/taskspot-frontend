@@ -226,7 +226,7 @@ export function AppLayout({ auth }) {
                   title={localizeNotificationMessage(notification.message)}
                   description={
                     <span>
-                      {notification.project?.name} · {dayjs(notification.createdAt).format("DD.MM.YYYY HH:mm")}
+                      {notification.project?.name || notification.organization?.name || "Taskspot"} · {dayjs(notification.createdAt).format("DD.MM.YYYY HH:mm")}
                     </span>
                   }
                 />
