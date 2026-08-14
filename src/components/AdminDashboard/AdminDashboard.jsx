@@ -32,6 +32,13 @@ const statusLabels = {
   blocked: ["Заблокирован", "red"]
 };
 
+const billingRequestLabels = {
+  pending: ["Новая", "gold"],
+  approved: ["Подключена", "green"],
+  rejected: ["Отклонена", "red"],
+  cancelled: ["Отменена", "default"]
+};
+
 function planLabel(plan) {
   return planLabels[plan] || [plan, "default"];
 }
@@ -56,6 +63,7 @@ function MetricCard({ icon, title, value, hint, tone = "blue", suffix }) {
 
 export function AdminDashboard({ currentUser }) {
   const [planForm] = Form.useForm();
+  const [billingForm] = Form.useForm();
   const [periodDays, setPeriodDays] = useState(30);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -69,6 +77,12 @@ export function AdminDashboard({ currentUser }) {
   const [planUser, setPlanUser] = useState(null);
   const [planModalOpen, setPlanModalOpen] = useState(false);
   const [planSaving, setPlanSaving] = useState(false);
+  const [billingRequests, setBillingRequests] = useState([]);
+  const [billingStatus, setBillingStatus] = useState("pending");
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [billingRequest, setBillingRequest] = useState(null);
+  const [billingModalOpen, setBillingModalOpen] = useState(false);
+  const [billingSaving, setBillingSaving] = useState(false);
 
   async function loadOverview(nextPeriod = periodDays) {
     setLoading(true);
@@ -117,9 +131,23 @@ export function AdminDashboard({ currentUser }) {
     }
   }
 
+  async function loadBillingRequests(status = billingStatus) {
+    setBillingLoading(true);
+
+    try {
+      const result = await apiFetch(`/admin/billing-requests?status=${status}`);
+      setBillingRequests(result.billingRequests);
+    } catch (error) {
+      message.error(error.message);
+    } finally {
+      setBillingLoading(false);
+    }
+  }
+
   useEffect(() => {
     loadOverview();
     loadUsers({ page: 1 });
+    loadBillingRequests("pending");
   }, []);
 
   function changePeriod(value) {
@@ -293,6 +321,85 @@ export function AdminDashboard({ currentUser }) {
     }
   ];
 
+  const billingColumns = [
+    {
+      title: "Компания",
+      dataIndex: "organization",
+      key: "organization",
+      render: (organization, request) => (
+        <Space direction="vertical" size={0}>
+          <Typography.Text strong>{organization?.name || "Компания удалена"}</Typography.Text>
+          <Typography.Text type="secondary">
+            {request.requestedBy ? fullName(request.requestedBy) : "Пользователь удалён"} · {request.requestedBy?.email}
+          </Typography.Text>
+        </Space>
+      )
+    },
+    {
+      title: "Заявка",
+      key: "request",
+      render: (_, request) => {
+        const [label, color] = planLabel(request.plan);
+        const [statusLabel, statusColor] = billingRequestLabels[request.status] || [request.status, "default"];
+
+        return (
+          <Space direction="vertical" size={4}>
+            <Space wrap size={4}>
+              <Tag color={color}>{label}</Tag>
+              <Tag color={statusColor}>{statusLabel}</Tag>
+            </Space>
+            <Typography.Text type="secondary">
+              {request.periodMonths} мес. · {formatMoney(request.amount)}
+            </Typography.Text>
+          </Space>
+        );
+      }
+    },
+    {
+      title: "Контакты",
+      key: "contacts",
+      render: (_, request) => (
+        <Space direction="vertical" size={0}>
+          <Typography.Text>{request.contactName || request.requestedBy?.name || "Не указано"}</Typography.Text>
+          <Typography.Text type="secondary">{request.contactEmail || request.requestedBy?.email}</Typography.Text>
+          {request.contactPhone && <Typography.Text type="secondary">{request.contactPhone}</Typography.Text>}
+        </Space>
+      )
+    },
+    {
+      title: "Создана",
+      dataIndex: "createdAt",
+      key: "createdAt",
+      render: (date) => dayjs(date).format("DD.MM.YYYY HH:mm")
+    },
+    {
+      title: "",
+      key: "action",
+      fixed: "right",
+      render: (_, request) => {
+        if (request.status !== "pending") {
+          return request.processedAt ? dayjs(request.processedAt).format("DD.MM.YYYY") : null;
+        }
+
+        return (
+          <Space wrap>
+            <Button type="primary" icon={<CheckCircleOutlined />} onClick={() => openBillingModal(request)}>
+              Включить
+            </Button>
+            <Popconfirm
+              title="Отклонить заявку?"
+              okText="Отклонить"
+              cancelText="Отмена"
+              onConfirm={() => processBillingRequest(request, "rejected")}
+            >
+              <Button danger>Отклонить</Button>
+            </Popconfirm>
+          </Space>
+        );
+      }
+    }
+  ];
+
   async function updateUserStatus(user, status) {
     setUpdatingUserId(user._id);
 
@@ -343,6 +450,60 @@ export function AdminDashboard({ currentUser }) {
       message.error(error.message);
     } finally {
       setPlanSaving(false);
+    }
+  }
+
+  function openBillingModal(request) {
+    setBillingRequest(request);
+    billingForm.setFieldsValue({
+      expiresAt: dayjs().add(request.periodMonths || 1, "month"),
+      paymentStatus: "paid",
+      adminNote: `Ручное включение по заявке на ${request.periodMonths} мес.`
+    });
+    setBillingModalOpen(true);
+  }
+
+  function closeBillingModal() {
+    setBillingModalOpen(false);
+    setBillingRequest(null);
+    billingForm.resetFields();
+  }
+
+  async function processBillingRequest(request, status) {
+    let values = {};
+
+    if (status === "approved") {
+      try {
+        values = await billingForm.validateFields();
+      } catch {
+        return;
+      }
+    }
+
+    setBillingSaving(true);
+
+    try {
+      await apiFetch(`/admin/billing-requests/${request._id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          status,
+          expiresAt: values.expiresAt ? values.expiresAt.toISOString() : undefined,
+          paymentStatus: values.paymentStatus || "paid",
+          adminNote: values.adminNote || ""
+        })
+      });
+
+      message.success(status === "approved" ? "Тариф включен" : "Заявка отклонена");
+      closeBillingModal();
+      await Promise.all([
+        loadBillingRequests(billingStatus),
+        loadOverview(periodDays),
+        loadUsers()
+      ]);
+    } catch (error) {
+      message.error(error.message);
+    } finally {
+      setBillingSaving(false);
     }
   }
 
@@ -443,6 +604,13 @@ export function AdminDashboard({ currentUser }) {
           hint={`${data?.organizations.paid || 0} платных компаний · ${data?.organizations.manualPlans || 0} ручных тарифов`}
           tone="gold"
         />
+        <MetricCard
+          icon={<PayCircleOutlined />}
+          title="Заявок на тариф"
+          value={data?.billing.pendingRequests || 0}
+          hint={`${data?.billing.approvedInPeriod || 0} подключено за период`}
+          tone="purple"
+        />
       </div>
 
       <div className="admin-dashboard__growth">
@@ -519,6 +687,35 @@ export function AdminDashboard({ currentUser }) {
             rowKey="plan"
             pagination={false}
             locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Нет компаний" /> }}
+          />
+        </Card>
+        <Card
+          className="admin-dashboard__card--wide"
+          title="Заявки на тариф"
+          extra={
+            <Select
+              value={billingStatus}
+              onChange={(value) => {
+                setBillingStatus(value);
+                loadBillingRequests(value);
+              }}
+              options={[
+                { label: "Новые", value: "pending" },
+                { label: "Подключённые", value: "approved" },
+                { label: "Отклонённые", value: "rejected" },
+                { label: "Все", value: "all" }
+              ]}
+            />
+          }
+        >
+          <Table
+            columns={billingColumns}
+            dataSource={billingRequests}
+            rowKey="_id"
+            loading={billingLoading}
+            pagination={billingRequests.length > 10 ? { pageSize: 10, showSizeChanger: false } : false}
+            scroll={{ x: 980 }}
+            locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Нет заявок" /> }}
           />
         </Card>
         <Card title="Пользователи сервиса">
@@ -631,6 +828,49 @@ export function AdminDashboard({ currentUser }) {
                   showCount
                   placeholder="Например: тестовый доступ на 30 дней или ручная оплата по счету"
                 />
+              </Form.Item>
+            </Form>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        title="Включить тариф по заявке"
+        open={billingModalOpen}
+        onCancel={closeBillingModal}
+        onOk={() => billingRequest && processBillingRequest(billingRequest, "approved")}
+        confirmLoading={billingSaving}
+        okText="Включить тариф"
+        cancelText="Отмена"
+        destroyOnHidden
+      >
+        {billingRequest && (
+          <div className="admin-dashboard__plan-modal">
+            <div className="admin-dashboard__plan-user">
+              <Typography.Text strong>{billingRequest.organization?.name}</Typography.Text>
+              <Typography.Text type="secondary">
+                {planLabel(billingRequest.plan)[0]} · {billingRequest.periodMonths} мес. · {formatMoney(billingRequest.amount)}
+              </Typography.Text>
+            </div>
+            <Form form={billingForm} layout="vertical">
+              <Form.Item
+                name="expiresAt"
+                label="Тариф действует до"
+                rules={[{ required: true, message: "Укажите срок действия тарифа" }]}
+              >
+                <DatePicker className="admin-dashboard__full-width" format="DD.MM.YYYY" />
+              </Form.Item>
+              <Form.Item name="paymentStatus" label="Статус оплаты">
+                <Select
+                  options={[
+                    { label: "Оплачено", value: "paid" },
+                    { label: "Ожидает оплаты", value: "awaiting_payment" },
+                    { label: "Счёт запрошен", value: "invoice_requested" }
+                  ]}
+                />
+              </Form.Item>
+              <Form.Item name="adminNote" label="Комментарий">
+                <Input.TextArea rows={3} maxLength={240} showCount />
               </Form.Item>
             </Form>
           </div>
