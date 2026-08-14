@@ -88,6 +88,10 @@ export async function apiFetch(path, options = {}) {
       throw new ApiError("Превышено время ожидания ответа сервера", { status: 0 });
     }
 
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new ApiError(`API недоступен: ${API_URL}. Проверьте backend, домен API и CORS.`, { status: 0 });
+    }
+
     throw error;
   } finally {
     window.clearTimeout(timeoutId);
