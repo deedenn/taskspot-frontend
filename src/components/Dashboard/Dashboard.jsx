@@ -1,4 +1,5 @@
 import {
+  ArrowRightOutlined,
   CheckCircleOutlined,
   ClearOutlined,
   DeleteOutlined,
@@ -7,7 +8,9 @@ import {
   FolderAddOutlined,
   PaperClipOutlined,
   PlusOutlined,
+  ProjectOutlined,
   SendOutlined,
+  TeamOutlined,
   UnorderedListOutlined
 } from "@ant-design/icons";
 import {
@@ -362,7 +365,9 @@ export function Dashboard({ currentUser }) {
   const [quickCreating, setQuickCreating] = useState(false);
   const [pendingAttachmentFiles, setPendingAttachmentFiles] = useState([]);
   const [creatingTask, setCreatingTask] = useState(false);
+  const [creatingFirstProject, setCreatingFirstProject] = useState(false);
   const [form] = Form.useForm();
+  const [firstProjectForm] = Form.useForm();
   const screens = Grid.useBreakpoint();
   const isMobileTaskList = !screens.md;
   const currentRoute = `${location.pathname}${location.search}`;
@@ -590,6 +595,8 @@ export function Dashboard({ currentUser }) {
   const activeDueSoonCount = activeTasks.filter((task) => !isOverdue(task) && isDueSoon(task)).length;
   const activeUrgentCount = activeTasks.filter(isUrgentActive).length;
   const hasNoProjects = !loading && !error && projects.length === 0;
+  const hasNoActiveProjects = !loading && !error && projects.length > 0 && activeProjects.length === 0;
+  const needsProjectSetup = hasNoProjects || hasNoActiveProjects;
   const hasManyProjects = projects.length > 1;
   const hasManyActiveProjects = activeProjects.length > 1;
   const selectedProjectName = projects.find((project) => project._id === projectFilter)?.name;
@@ -680,6 +687,56 @@ export function Dashboard({ currentUser }) {
       });
     }
     setDrawerOpen(true);
+  }
+
+  function showLimitDialog(error) {
+    if (!isLimitError(error)) return false;
+
+    Modal.warning({
+      title: "Лимит тарифа исчерпан",
+      content: limitErrorText(error),
+      okText: "Перейти в тарифы",
+      onOk: () => navigate("/app/billing")
+    });
+
+    return true;
+  }
+
+  async function createFirstProject(values) {
+    const name = values.name?.trim();
+
+    if (!name) {
+      message.warning("Укажите название проекта");
+      return;
+    }
+
+    setCreatingFirstProject(true);
+    try {
+      const response = await apiFetch("/projects", {
+        method: "POST",
+        body: JSON.stringify({
+          name,
+          description: values.description?.trim() || undefined
+        })
+      });
+
+      firstProjectForm.resetFields();
+      setQuickProjectId(response.project._id);
+      setProjectFilter(undefined);
+      setCategoryFilter([]);
+      setSearchText("");
+      setHideClosed(true);
+      setQuickFilter("active");
+      setActiveRoleTab("all");
+      await loadDashboard({ silent: true });
+      message.success("Проект создан. Теперь можно добавить первую задачу.");
+    } catch (error) {
+      if (!showLimitDialog(error)) {
+        message.error(error.message || "Не удалось создать проект");
+      }
+    } finally {
+      setCreatingFirstProject(false);
+    }
   }
 
   function handleProjectChange(projectId) {
@@ -827,8 +884,13 @@ export function Dashboard({ currentUser }) {
           <Typography.Paragraph>Единый рабочий список по проектам, срокам и ролям.</Typography.Paragraph>
         </div>
         <Space wrap>
-          {hasNoProjects ? (
-            <Button type="primary" icon={<FolderAddOutlined />} onClick={() => navigate("/app/projects")}>
+          {needsProjectSetup ? (
+            <Button
+              type="primary"
+              icon={<FolderAddOutlined />}
+              loading={creatingFirstProject}
+              onClick={() => firstProjectForm.submit()}
+            >
               Создать проект
             </Button>
           ) : (
@@ -849,12 +911,14 @@ export function Dashboard({ currentUser }) {
         />
       )}
 
-      {hasNoProjects ? (
+      {needsProjectSetup ? (
         <Card className="dashboard__tasks dashboard__tasks--setup">
           <div className="dashboard__table-head">
             <div>
-              <Typography.Text className="dashboard__eyebrow">Рабочий список</Typography.Text>
-              <Typography.Title level={2}>Создайте первый проект</Typography.Title>
+              <Typography.Text className="dashboard__eyebrow">Первый вход</Typography.Text>
+              <Typography.Title level={2}>
+                {hasNoActiveProjects ? "Создайте активный проект" : "Создайте первый проект"}
+              </Typography.Title>
             </div>
           </div>
           <div className="dashboard__empty-start">
@@ -862,29 +926,76 @@ export function Dashboard({ currentUser }) {
               <span className="dashboard__empty-icon" aria-hidden="true">
                 <FolderAddOutlined />
               </span>
-              <Typography.Title level={3}>Добавьте проект, чтобы создавать задачи</Typography.Title>
+              <Typography.Title level={3}>
+                {hasNoActiveProjects ? "Все проекты сейчас в архиве" : "Начните с рабочего пространства"}
+              </Typography.Title>
               <Typography.Paragraph>
-                Проект объединяет задачи, участников, категории и сроки. После создания здесь появится рабочий список
-                по ролям и дедлайнам.
+                Проект объединяет задачи, участников, категории и сроки. Создайте его прямо здесь, а затем добавьте
+                первую задачу одной строкой на главной.
               </Typography.Paragraph>
-              <Space className="dashboard__empty-actions" wrap>
-                <Button type="primary" size="large" icon={<PlusOutlined />} onClick={() => navigate("/app/projects")}>
-                  Добавить проект
-                </Button>
-              </Space>
+              <Form
+                form={firstProjectForm}
+                layout="vertical"
+                className="dashboard__setup-form"
+                onFinish={createFirstProject}
+              >
+                <Form.Item
+                  name="name"
+                  label="Название проекта"
+                  rules={[{ required: true, message: "Укажите название проекта" }]}
+                >
+                  <Input placeholder="Например: Отдел продаж" maxLength={80} />
+                </Form.Item>
+                <Form.Item name="description" label="Описание">
+                  <Input.TextArea
+                    rows={3}
+                    placeholder="Необязательно. Можно указать, какие поручения будут в проекте."
+                    maxLength={300}
+                  />
+                </Form.Item>
+                <Space className="dashboard__empty-actions" wrap>
+                  <Button
+                    type="primary"
+                    size="large"
+                    htmlType="submit"
+                    icon={<PlusOutlined />}
+                    loading={creatingFirstProject}
+                  >
+                    Создать проект
+                  </Button>
+                  <Button size="large" onClick={() => navigate("/app/projects")}>
+                    Открыть раздел проектов
+                  </Button>
+                </Space>
+              </Form>
             </div>
-            <div className="dashboard__empty-preview" aria-hidden="true">
-              <div className="dashboard__empty-preview-row">
-                <span>Проект</span>
-                <strong>Рабочее пространство</strong>
+            <div className="dashboard__empty-preview" aria-label="Что сделать после создания проекта">
+              <div className="dashboard__setup-step">
+                <span className="dashboard__setup-step-icon">
+                  <ProjectOutlined />
+                </span>
+                <div>
+                  <span>Шаг 1</span>
+                  <strong>Создайте проект</strong>
+                </div>
               </div>
-              <div className="dashboard__empty-preview-row">
-                <span>Участники</span>
-                <strong>Команда проекта</strong>
+              <div className="dashboard__setup-step">
+                <span className="dashboard__setup-step-icon">
+                  <TeamOutlined />
+                </span>
+                <div>
+                  <span>Шаг 2</span>
+                  <strong>Пригласите участников</strong>
+                </div>
               </div>
-              <div className="dashboard__empty-preview-row">
-                <span>Первая задача</span>
-                <strong>Срок, ответственный, статус</strong>
+              <div className="dashboard__setup-step">
+                <span className="dashboard__setup-step-icon">
+                  <ArrowRightOutlined />
+                </span>
+                <div>
+                  <span>Шаг 3</span>
+                  <strong>Поставьте первую задачу</strong>
+                </div>
               </div>
             </div>
           </div>
@@ -1236,15 +1347,3 @@ export function Dashboard({ currentUser }) {
     </section>
   );
 }
-  function showLimitDialog(error) {
-    if (!isLimitError(error)) return false;
-
-    Modal.warning({
-      title: "Лимит тарифа исчерпан",
-      content: limitErrorText(error),
-      okText: "Перейти в тарифы",
-      onOk: () => navigate("/app/billing")
-    });
-
-    return true;
-  }
