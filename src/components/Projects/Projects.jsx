@@ -1,6 +1,7 @@
 import {
   InboxOutlined,
   ArrowLeftOutlined,
+  CameraOutlined,
   CloseOutlined,
   CopyOutlined,
   DeleteOutlined,
@@ -13,7 +14,7 @@ import {
   TeamOutlined,
   UserAddOutlined
 } from "@ant-design/icons";
-import { Alert, Avatar, Button, Card, Checkbox, ColorPicker, Empty, Form, Input, Modal, Popconfirm, Segmented, Select, Space, Tag, Tooltip, Typography, message } from "antd";
+import { Alert, Avatar, Button, Card, Checkbox, ColorPicker, Empty, Form, Input, Modal, Popconfirm, Segmented, Select, Space, Tag, Tooltip, Typography, Upload, message } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiFetch, isLimitError, limitErrorText } from "../../api.js";
@@ -83,6 +84,8 @@ const emailStatusLabels = {
   failed: ["Ошибка отправки", "red"]
 };
 
+const MAX_PROJECT_AVATAR_SIZE = 5 * 1024 * 1024;
+
 function formatInvitationEmailError(error) {
   if (!error) {
     return "";
@@ -116,6 +119,8 @@ export function Projects({ user }) {
   const [deleteConfirmationName, setDeleteConfirmationName] = useState("");
   const [deleteConfirmed, setDeleteConfirmed] = useState(false);
   const [projectActionLoading, setProjectActionLoading] = useState("");
+  const [projectAvatarUrls, setProjectAvatarUrls] = useState({});
+  const [projectAvatarUploading, setProjectAvatarUploading] = useState(false);
   const [projectForm] = Form.useForm();
   const [editProjectForm] = Form.useForm();
   const [memberForm] = Form.useForm();
@@ -159,6 +164,8 @@ export function Projects({ user }) {
   const isAdmin = currentMember?.role === "admin";
   const activeProjectArchived = isProjectArchived(activeProject);
   const canManageActiveProject = isAdmin && !activeProjectArchived;
+  const activeProjectCreatorId = userId(activeProject?.createdBy) || userId(activeProject?.members?.find((member) => member.role === "admin")?.user);
+  const canManageActiveProjectAvatar = Boolean(activeProject && !activeProjectArchived && activeProjectCreatorId === user?._id);
 
   async function loadProjects() {
     setLoading(true);
@@ -177,6 +184,41 @@ export function Projects({ user }) {
   useEffect(() => {
     loadProjects();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const projectsWithAvatars = projects.filter((project) => project.avatar?.key);
+
+    if (!projectsWithAvatars.length) {
+      setProjectAvatarUrls({});
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    async function loadAvatarUrls() {
+      const entries = await Promise.all(
+        projectsWithAvatars.map(async (project) => {
+          try {
+            const data = await apiFetch(`/projects/${project._id}/avatar/download-url`);
+            return [project._id, data.url];
+          } catch {
+            return [project._id, ""];
+          }
+        })
+      );
+
+      if (!cancelled) {
+        setProjectAvatarUrls(Object.fromEntries(entries.filter(([, url]) => url)));
+      }
+    }
+
+    loadAvatarUrls();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projects]);
 
   function showLimitDialog(error) {
     if (!isLimitError(error)) return false;
@@ -437,6 +479,129 @@ export function Projects({ user }) {
     setProjects((items) => items.map((item) => (item._id === project._id ? project : item)));
   }
 
+  function renderProjectAvatar(project, { editable = false } = {}) {
+    const avatarUrl = projectAvatarUrls[project._id];
+    const content = avatarUrl ? (
+      <img src={avatarUrl} alt={`Аватар проекта ${project.name}`} />
+    ) : (
+      <FolderOpenOutlined />
+    );
+    const className = avatarUrl
+      ? "projects__project-avatar projects__project-avatar--image"
+      : "projects__project-avatar";
+
+    if (!editable) {
+      return (
+        <span className={className} aria-hidden={!avatarUrl}>
+          {content}
+        </span>
+      );
+    }
+
+    return (
+      <Upload
+        accept="image/*"
+        showUploadList={false}
+        beforeUpload={(file) => {
+          void uploadProjectAvatar(file);
+          return Upload.LIST_IGNORE;
+        }}
+      >
+        <Tooltip title="Обновить аватар проекта">
+          <button
+            type="button"
+            className={`${className} projects__project-avatar--editable`}
+            disabled={projectAvatarUploading}
+            aria-label="Загрузить аватар проекта"
+          >
+            {content}
+            <span className="projects__project-avatar-overlay" aria-hidden="true">
+              <CameraOutlined />
+            </span>
+          </button>
+        </Tooltip>
+      </Upload>
+    );
+  }
+
+  async function uploadProjectAvatar(file) {
+    if (!activeProject) return;
+
+    if (!canManageActiveProjectAvatar) {
+      message.error("Аватар проекта может менять только создатель проекта");
+      return;
+    }
+
+    if (!file.type?.startsWith("image/")) {
+      message.error("Выберите изображение для аватара проекта");
+      return;
+    }
+
+    if (file.size > MAX_PROJECT_AVATAR_SIZE) {
+      message.error("Аватар проекта должен быть меньше 5 МБ");
+      return;
+    }
+
+    setProjectAvatarUploading(true);
+    try {
+      const presign = await apiFetch("/uploads/project-avatar/presign", {
+        method: "POST",
+        body: JSON.stringify({
+          projectId: activeProject._id,
+          fileName: file.name,
+          mimeType: file.type,
+          size: file.size
+        })
+      });
+
+      const uploadResponse = await fetch(presign.uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: {
+          "Content-Type": file.type
+        }
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error("Не удалось загрузить аватар в хранилище");
+      }
+
+      const data = await apiFetch(`/projects/${activeProject._id}/avatar`, {
+        method: "POST",
+        body: JSON.stringify(presign.avatar)
+      });
+
+      updateProject(data.project);
+      message.success("Аватар проекта обновлён");
+    } catch (error) {
+      message.error(error.message);
+    } finally {
+      setProjectAvatarUploading(false);
+    }
+  }
+
+  async function removeProjectAvatar() {
+    if (!activeProject) return;
+
+    setProjectAvatarUploading(true);
+    try {
+      const data = await apiFetch(`/projects/${activeProject._id}/avatar`, {
+        method: "DELETE"
+      });
+      updateProject(data.project);
+      setProjectAvatarUrls((items) => {
+        const nextItems = { ...items };
+        delete nextItems[activeProject._id];
+        return nextItems;
+      });
+      message.success("Аватар проекта удалён");
+    } catch (error) {
+      message.error(error.message);
+    } finally {
+      setProjectAvatarUploading(false);
+    }
+  }
+
   function renderProjectCard(project) {
     const projectMember = project.members.find((member) => userId(member.user) === user?._id);
     const memberCount = project.members.length;
@@ -451,9 +616,7 @@ export function Projects({ user }) {
         onClick={() => navigate(`/app/projects/${project._id}`)}
       >
         <span className="projects__project-card-top">
-          <span className="projects__project-icon" aria-hidden="true">
-            <FolderOpenOutlined />
-          </span>
+          {renderProjectAvatar(project)}
           <span className="projects__project-card-tags">
             {archived && <Tag color="default">Архив</Tag>}
             <Tag color={projectMember?.role === "admin" ? "green" : "blue"}>
@@ -553,73 +716,97 @@ export function Projects({ user }) {
     return (
       <div className="projects__workspace">
         <Card className="projects__summary">
-                <div className="projects__summary-main">
-                  <div className="projects__summary-title">
-                    <span className="projects__summary-icon" aria-hidden="true">
-                      <FolderOpenOutlined />
-                    </span>
-                    <div>
-                      <Typography.Title level={2}>{activeProject.name}</Typography.Title>
-                      <Typography.Paragraph>{activeProject.description || "Описание проекта пока не добавлено"}</Typography.Paragraph>
-                    </div>
-                  </div>
-                  {activeProjectArchived && (
-                    <Alert
-                      type="info"
-                      showIcon
-                      message="Проект в архиве"
-                      description="Задачи доступны для просмотра. Создание задач и изменения в проекте отключены до восстановления."
-                    />
-                  )}
-                  <div className="projects__summary-metrics" aria-label="Показатели проекта">
-                    <div>
-                      <strong>{activeProject.members.length}</strong>
-                      <span>участников</span>
-                    </div>
-                    <div>
-                      <strong>{pendingInvitations.length}</strong>
-                      <span>приглашений</span>
-                    </div>
-                    <div>
-                      <strong>{activeProject.categories.length}</strong>
-                      <span>категорий</span>
-                    </div>
-                  </div>
-                </div>
-                <Space wrap className="projects__summary-actions">
-                  <Tag color={isAdmin ? "green" : "blue"}>{isAdmin ? "Администратор" : "Участник"}</Tag>
-                  {activeProjectArchived && <Tag color="default">Архив</Tag>}
-                  {canManageActiveProject && (
-                    <Button icon={<EditOutlined />} onClick={openEditProject}>
-                      Редактировать
-                    </Button>
-                  )}
-                  {canManageActiveProject && (
-                    <Popconfirm
-                      title="Отправить проект в архив?"
-                      description="Новые задачи и изменения будут отключены, но задачи останутся доступны для просмотра."
-                      okText="Архивировать"
-                      cancelText="Отмена"
-                      onConfirm={archiveProject}
-                    >
-                      <Button icon={<InboxOutlined />} loading={projectActionLoading === "archive"}>
-                        Архивировать
-                      </Button>
-                    </Popconfirm>
-                  )}
-                  {isAdmin && activeProjectArchived && (
-                    <Button icon={<InboxOutlined />} loading={projectActionLoading === "restore"} onClick={restoreProject}>
-                      Вернуть из архива
-                    </Button>
-                  )}
-                  <Button
-                    type="primary"
-                    icon={<FolderOpenOutlined />}
-                    onClick={() => navigate(`/app/projects/${activeProject._id}/tasks`)}
+          <div className="projects__summary-main">
+            <div className="projects__summary-title">
+              <div className="projects__summary-avatar">
+                {renderProjectAvatar(activeProject, { editable: canManageActiveProjectAvatar })}
+                {canManageActiveProjectAvatar && activeProject.avatar?.key && (
+                  <Popconfirm
+                    title="Удалить аватар проекта?"
+                    okText="Удалить"
+                    cancelText="Отмена"
+                    onConfirm={removeProjectAvatar}
                   >
-                    {activeProjectArchived ? "Смотреть задачи" : "Открыть задачи"}
-                  </Button>
-                </Space>
+                    <Button
+                      className="projects__summary-avatar-remove"
+                      type="text"
+                      danger
+                      size="small"
+                      icon={<DeleteOutlined />}
+                      loading={projectAvatarUploading}
+                    >
+                      Удалить
+                    </Button>
+                  </Popconfirm>
+                )}
+                {!canManageActiveProjectAvatar && activeProject.avatar?.uploadedBy && (
+                  <Typography.Text type="secondary" className="projects__summary-avatar-hint">
+                    Аватар меняет создатель
+                  </Typography.Text>
+                )}
+              </div>
+              <div>
+                <Typography.Title level={2}>{activeProject.name}</Typography.Title>
+                <Typography.Paragraph>{activeProject.description || "Описание проекта пока не добавлено"}</Typography.Paragraph>
+              </div>
+            </div>
+            {activeProjectArchived && (
+              <Alert
+                type="info"
+                showIcon
+                message="Проект в архиве"
+                description="Задачи доступны для просмотра. Создание задач и изменения в проекте отключены до восстановления."
+              />
+            )}
+            <div className="projects__summary-metrics" aria-label="Показатели проекта">
+              <div>
+                <strong>{activeProject.members.length}</strong>
+                <span>участников</span>
+              </div>
+              <div>
+                <strong>{pendingInvitations.length}</strong>
+                <span>приглашений</span>
+              </div>
+              <div>
+                <strong>{activeProject.categories.length}</strong>
+                <span>категорий</span>
+              </div>
+            </div>
+          </div>
+          <Space wrap className="projects__summary-actions">
+            <Tag color={isAdmin ? "green" : "blue"}>{isAdmin ? "Администратор" : "Участник"}</Tag>
+            {activeProjectArchived && <Tag color="default">Архив</Tag>}
+            {canManageActiveProject && (
+              <Button icon={<EditOutlined />} onClick={openEditProject}>
+                Редактировать
+              </Button>
+            )}
+            {canManageActiveProject && (
+              <Popconfirm
+                title="Отправить проект в архив?"
+                description="Новые задачи и изменения будут отключены, но задачи останутся доступны для просмотра."
+                okText="Архивировать"
+                cancelText="Отмена"
+                onConfirm={archiveProject}
+              >
+                <Button icon={<InboxOutlined />} loading={projectActionLoading === "archive"}>
+                  Архивировать
+                </Button>
+              </Popconfirm>
+            )}
+            {isAdmin && activeProjectArchived && (
+              <Button icon={<InboxOutlined />} loading={projectActionLoading === "restore"} onClick={restoreProject}>
+                Вернуть из архива
+              </Button>
+            )}
+            <Button
+              type="primary"
+              icon={<FolderOpenOutlined />}
+              onClick={() => navigate(`/app/projects/${activeProject._id}/tasks`)}
+            >
+              {activeProjectArchived ? "Смотреть задачи" : "Открыть задачи"}
+            </Button>
+          </Space>
         </Card>
 
         <Card className="projects__panel" title="Участники и приглашения">
