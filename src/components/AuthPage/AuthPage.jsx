@@ -104,7 +104,7 @@ export function AuthPage({ mode, auth }) {
         method: "POST",
         body: JSON.stringify({ email: registrationEmail })
       });
-      setRegistrationEmailStatus(data.emailDeliveryStatus || "sent");
+      setRegistrationEmailStatus(data.emailDeliveryStatus || "pending");
       setResendMessage(
         data.emailDeliveryStatus === "failed" || data.emailDeliveryStatus === "skipped"
           ? "Не удалось отправить письмо. Попробуйте ещё раз или обратитесь в поддержку."

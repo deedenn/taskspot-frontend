@@ -3,6 +3,20 @@
   gap: 14px;
 }
 
+.tasks__workspace,
+.tasks__results,
+.tasks__list-filters > * {
+  min-width: 0;
+}
+
+.tasks__results {
+  min-height: 160px;
+}
+
+.tasks__card {
+  overflow-wrap: anywhere;
+}
+
 .tasks__search {
   margin-bottom: 14px;
 }
@@ -202,14 +216,14 @@
     grid-template-columns: 1fr;
   }
 
-  .ant-card-extra .ant-space {
+  .tasks__workspace > .ant-card-head .ant-card-extra > .ant-space {
     display: grid;
     grid-template-columns: 40px minmax(0, 1fr);
     width: 100%;
   }
 
-  .ant-card-extra .ant-space-item:last-child,
-  .ant-card-extra .ant-space-item:last-child .ant-btn {
+  .tasks__workspace > .ant-card-head .ant-card-extra > .ant-space > .ant-space-item:last-child,
+  .tasks__workspace > .ant-card-head .ant-card-extra > .ant-space > .ant-space-item:last-child .ant-btn {
     width: 100%;
   }
 }

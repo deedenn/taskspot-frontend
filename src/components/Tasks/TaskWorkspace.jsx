@@ -1,11 +1,12 @@
 import { CheckCircleOutlined, CommentOutlined, DeleteOutlined, EyeInvisibleOutlined, EyeOutlined, PaperClipOutlined, PlusOutlined, RollbackOutlined } from "@ant-design/icons";
-import { Alert, Button, Card, DatePicker, Drawer, Empty, Form, Grid, Input, List, Modal, Pagination, Select, Space, Switch, Tag, Tooltip, Typography, Upload, message } from "antd";
+import { Alert, App as AntApp, Button, Card, DatePicker, Drawer, Empty, Form, Grid, Input, List, Pagination, Select, Space, Spin, Switch, Tag, Tooltip, Typography, Upload } from "antd";
 import dayjs from "dayjs";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { apiFetch, isLimitError, limitErrorText } from "../../api.js";
 import { fullName, userOptionLabel } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
+import { readTaskListState, updateTaskListParams } from "./taskListState.js";
 import "./TaskWorkspace.css";
 
 const statusOptions = [
@@ -63,22 +64,23 @@ function isProjectArchived(project) {
 }
 
 export function TaskWorkspace({ project, currentUser }) {
+  const { modal, message } = AntApp.useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const [tasks, setTasks] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [hideClosed, setHideClosed] = useState(true);
-  const [searchText, setSearchText] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const listParamsRef = useRef(searchParams);
+  listParamsRef.current = searchParams;
+  const { hideClosed, searchQuery, page, pageSize, sort, statusFilter, categoryFilter } = readTaskListState(searchParams);
+  const [searchText, setSearchText] = useState(searchQuery);
   const [total, setTotal] = useState(0);
-  const [sort, setSort] = useState("updatedAt:desc");
-  const [statusFilter, setStatusFilter] = useState();
-  const [categoryFilter, setCategoryFilter] = useState();
   const requestVersion = useRef(0);
+  const requestController = useRef(null);
+  const searchTimer = useRef(null);
+  const reloadTasksRef = useRef(null);
   const [pendingAttachmentFiles, setPendingAttachmentFiles] = useState([]);
   const [creatingTask, setCreatingTask] = useState(false);
   const [form] = Form.useForm();
@@ -121,13 +123,31 @@ export function TaskWorkspace({ project, currentUser }) {
 
   const visibleTasks = tasks;
 
-  useEffect(() => {
-    const timer = setTimeout(() => { setSearchQuery(searchText.trim()); setPage(1); }, 300);
-    return () => clearTimeout(timer);
-  }, [searchText]);
+  const changeList = useCallback((changes, options) => {
+    const params = updateTaskListParams(listParamsRef.current, changes, options);
+    listParamsRef.current = params;
+    setSearchParams(params, { replace: true });
+  }, [setSearchParams]);
 
-  async function loadTasks() {
+  useEffect(() => {
+    setSearchText(searchQuery);
+    clearTimeout(searchTimer.current);
+  }, [searchQuery]);
+
+  useEffect(() => () => clearTimeout(searchTimer.current), []);
+
+  function changeSearch(value, immediate = false) {
+    setSearchText(value);
+    clearTimeout(searchTimer.current);
+    if (immediate || !value) changeList({ search: value.trim() });
+    else searchTimer.current = setTimeout(() => changeList({ search: value.trim() }), 300);
+  }
+
+  const loadTasks = useCallback(async () => {
     const version = ++requestVersion.current;
+    requestController.current?.abort();
+    const controller = new AbortController();
+    requestController.current = controller;
     setLoading(true);
     setError("");
     try {
@@ -135,29 +155,33 @@ export function TaskWorkspace({ project, currentUser }) {
       const query = new URLSearchParams({ projectId: project._id, page, limit: pageSize, search: searchQuery, hideClosed, sort: sortField, order });
       if (statusFilter) query.set("status", statusFilter);
       if (categoryFilter) query.set("category", categoryFilter);
-      const data = await apiFetch(`/tasks?${query}`);
+      const data = await apiFetch(`/tasks?${query}`, { signal: controller.signal });
       if (version !== requestVersion.current) return;
       setTasks(data.tasks);
       setTotal(data.pagination.total);
-      setPage(data.pagination.page);
+      if (data.pagination.page !== page) changeList({ page: data.pagination.page }, { resetPage: false });
     } catch (error) {
-      if (version !== requestVersion.current) return;
+      if (version !== requestVersion.current || controller.signal.aborted) return;
       setError(error.message);
-      message.error(error.message);
     } finally {
       if (version === requestVersion.current) setLoading(false);
     }
-  }
+  }, [project._id, page, pageSize, searchQuery, hideClosed, sort, statusFilter, categoryFilter, changeList]);
 
   useEffect(() => {
+    reloadTasksRef.current = loadTasks;
     loadTasks();
-    return () => { requestVersion.current += 1; };
-  }, [project._id, page, pageSize, searchQuery, hideClosed, sort, statusFilter, categoryFilter]);
+    return () => {
+      reloadTasksRef.current = null;
+      requestVersion.current += 1;
+      requestController.current?.abort();
+    };
+  }, [loadTasks]);
 
   function showLimitDialog(error) {
     if (!isLimitError(error)) return false;
 
-    Modal.warning({
+    modal.warning({
       title: "Лимит тарифа исчерпан",
       content: limitErrorText(error),
       okText: "Перейти в тарифы",
@@ -202,7 +226,7 @@ export function TaskWorkspace({ project, currentUser }) {
       setDrawerOpen(false);
       form.resetFields();
       setPendingAttachmentFiles([]);
-      await loadTasks();
+      await reloadTasksRef.current?.();
       if (failedUploads.length) {
         message.warning(`Задача создана, но не удалось добавить файлов: ${failedUploads.join(", ")}`);
       } else {
@@ -251,7 +275,7 @@ export function TaskWorkspace({ project, currentUser }) {
 
     const nextStatusLabel = statusOptions.find((item) => item.value === status)?.label || status;
     const confirmed = await new Promise((resolve) => {
-      Modal.confirm({
+      modal.confirm({
         title: "Изменить статус задачи?",
         content: `Новый статус: ${nextStatusLabel}. Изменение попадёт в историю задачи.`,
         okText: "Изменить",
@@ -264,11 +288,11 @@ export function TaskWorkspace({ project, currentUser }) {
     if (!confirmed) return;
 
     try {
-      const data = await apiFetch(`/tasks/${task._id}`, {
+      await apiFetch(`/tasks/${task._id}`, {
         method: "PATCH",
         body: JSON.stringify({ status })
       });
-      setTasks((items) => items.map((item) => (item._id === task._id ? data.task : item)));
+      await reloadTasksRef.current?.();
       message.success("Статус обновлён");
     } catch (error) {
       message.error(error.message);
@@ -279,7 +303,7 @@ export function TaskWorkspace({ project, currentUser }) {
     const comment = await new Promise((resolve) => {
       let commentValue = "";
 
-      Modal.confirm({
+      modal.confirm({
         title: "Отправить задачу на доработку?",
         content: (
           <Input.TextArea
@@ -308,11 +332,11 @@ export function TaskWorkspace({ project, currentUser }) {
     if (!comment) return;
 
     try {
-      const data = await apiFetch(`/tasks/${task._id}`, {
+      await apiFetch(`/tasks/${task._id}`, {
         method: "PATCH",
         body: JSON.stringify({ status: "in_progress", comment })
       });
-      setTasks((items) => items.map((item) => (item._id === task._id ? data.task : item)));
+      await reloadTasksRef.current?.();
       message.success("Задача отправлена на доработку");
     } catch (error) {
       message.error(error.message);
@@ -321,11 +345,11 @@ export function TaskWorkspace({ project, currentUser }) {
 
   async function addComment(task, values, resetForm) {
     try {
-      const data = await apiFetch(`/tasks/${task._id}/comments`, {
+      await apiFetch(`/tasks/${task._id}/comments`, {
         method: "POST",
         body: JSON.stringify(values)
       });
-      setTasks((items) => items.map((item) => (item._id === task._id ? data.task : item)));
+      await reloadTasksRef.current?.();
       resetForm();
     } catch (error) {
       message.error(error.message);
@@ -334,6 +358,7 @@ export function TaskWorkspace({ project, currentUser }) {
 
   return (
     <Card
+      className="tasks__workspace"
       title="Задачи"
       extra={
         <Space wrap>
@@ -344,13 +369,13 @@ export function TaskWorkspace({ project, currentUser }) {
                 type={hideClosed ? "primary" : "default"}
                 icon={hideClosed ? <EyeInvisibleOutlined /> : <EyeOutlined />}
                 aria-label={hideClosed ? "Показать закрытые задачи" : "Скрыть закрытые задачи"}
-                onClick={() => setHideClosed((value) => !value)}
+                onClick={() => changeList({ hideClosed: !hideClosed })}
               />
             </Tooltip>
           ) : (
             <Space className="tasks__filter" size={8}>
               <Typography.Text>Скрыть закрытые</Typography.Text>
-              <Switch checked={hideClosed} onChange={(value) => { setHideClosed(value); setPage(1); }} />
+              <Switch aria-label="Скрыть закрытые" checked={hideClosed} onChange={(value) => changeList({ hideClosed: value })} />
             </Space>
           )}
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setDrawerOpen(true)} disabled={projectArchived}>
@@ -358,21 +383,23 @@ export function TaskWorkspace({ project, currentUser }) {
           </Button>
         </Space>
       }
-      loading={loading}
     >
       <Input.Search
         allowClear
         className="tasks__search"
         placeholder="Поиск по задачам"
+        aria-label="Поиск по задачам"
+        maxLength={200}
         value={searchText}
-        onChange={(event) => setSearchText(event.target.value)}
+        onChange={(event) => changeSearch(event.target.value)}
+        onSearch={(value) => changeSearch(value, true)}
       />
       <div className="tasks__list-filters">
         <Select aria-label="Статус задач" allowClear placeholder="Все статусы" value={statusFilter} options={statusOptions}
-          onChange={(value) => { setStatusFilter(value); setPage(1); if (value === "closed") setHideClosed(false); }} />
+          onChange={(value) => changeList({ status: value })} />
         <Select aria-label="Категория задач" allowClear placeholder="Все категории" value={categoryFilter} options={categoryOptions}
-          onChange={(value) => { setCategoryFilter(value); setPage(1); }} />
-        <Select aria-label="Сортировка задач" value={sort} onChange={(value) => { setSort(value); setPage(1); }} options={[
+          onChange={(value) => changeList({ category: value })} />
+        <Select aria-label="Сортировка задач" value={sort} onChange={(value) => changeList({ sort: value })} options={[
           { value: "updatedAt:desc", label: "Сначала обновлённые" },
           { value: "createdAt:desc", label: "Сначала новые" },
           { value: "dueDate:asc", label: "По сроку" },
@@ -395,29 +422,36 @@ export function TaskWorkspace({ project, currentUser }) {
           description="Задачи доступны только для просмотра. Новые задачи, комментарии и изменения статусов отключены."
         />
       )}
-      {visibleTasks.length ? (
-        <div className="tasks">
-          {visibleTasks.map((task) => (
-            <TaskCard
-              key={task._id}
-              task={task}
-              currentUser={currentUser}
-              categoryMap={categoryMap}
-              currentRoute={currentRoute}
-              onStatusChange={changeStatus}
-              onReturnToWork={returnTaskToWork}
-              onComment={addComment}
-              readOnly={projectArchived}
-            />
-          ))}
+      <Spin spinning={loading}>
+        <div className="tasks__results" aria-busy={loading} inert={loading ? true : undefined}>
+          {!error && (visibleTasks.length ? (
+            <div className="tasks">
+              {visibleTasks.map((task) => (
+                <TaskCard
+                  key={task._id}
+                  task={task}
+                  currentUser={currentUser}
+                  categoryMap={categoryMap}
+                  currentRoute={currentRoute}
+                  onStatusChange={changeStatus}
+                  onReturnToWork={returnTaskToWork}
+                  onComment={addComment}
+                  readOnly={projectArchived}
+                />
+              ))}
+            </div>
+          ) : !loading ? (
+            <Empty description={searchQuery || statusFilter || categoryFilter ? "По выбранным условиям задач нет" : hideClosed ? "Нет открытых задач" : "В этом проекте пока нет видимых задач"} />
+          ) : null)}
         </div>
-      ) : (
-        <Empty description={searchQuery || statusFilter || categoryFilter ? "По выбранным условиям задач нет" : hideClosed ? "Нет открытых задач" : "В этом проекте пока нет видимых задач"} />
+      </Spin>
+      {!error && (
+        <Pagination className="tasks__pagination" current={page} pageSize={pageSize} total={total}
+          disabled={loading}
+          showSizeChanger pageSizeOptions={[25, 50, 100]} size="small" responsive
+          showTotal={(count) => `Всего задач: ${count}`}
+          onChange={(nextPage, nextSize) => changeList({ page: nextSize !== pageSize ? 1 : nextPage, limit: nextSize }, { resetPage: false })} />
       )}
-      <Pagination className="tasks__pagination" current={page} pageSize={pageSize} total={total}
-        showSizeChanger pageSizeOptions={[25, 50, 100]} size="small" responsive
-        showTotal={(count) => `Всего задач: ${count}`}
-        onChange={(nextPage, nextSize) => { setPage(nextSize !== pageSize ? 1 : nextPage); setPageSize(nextSize); }} />
 
       <Drawer
         title="Новая задача"

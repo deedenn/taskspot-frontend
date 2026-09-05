@@ -11,6 +11,6 @@ describe("Taskspot frontend smoke", () => {
       </BrowserRouter>
     );
 
-    expect(screen.getByText(/Taskspot/i)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Taskspot", exact: true })).toBeInTheDocument();
   });
 });

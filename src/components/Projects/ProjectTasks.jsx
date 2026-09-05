@@ -86,7 +86,7 @@ export function ProjectTasks({ currentUser }) {
         </div>
       </Card>
 
-      <TaskWorkspace project={project} currentUser={currentUser} />
+      <TaskWorkspace key={project._id} project={project} currentUser={currentUser} />
     </section>
   );
 }

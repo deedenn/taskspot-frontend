@@ -20,6 +20,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { apiFetch, isLimitError, limitErrorText } from "../../api.js";
 import { fullName } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
+import { useInvitationEmailPolling } from "./useInvitationEmailPolling";
 import "./Projects.css";
 
 function userId(user) {
@@ -134,6 +135,7 @@ export function Projects({ user }) {
     () => activeProject?.invitations?.filter((invitation) => invitation.status === "pending") || [],
     [activeProject]
   );
+  useInvitationEmailPolling(projectId, pendingInvitations.some((item) => item.emailStatus === "pending"), setProjects);
   const filteredProjects = useMemo(() => {
     const query = projectSearch.trim().toLowerCase();
 
