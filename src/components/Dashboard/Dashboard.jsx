@@ -42,7 +42,7 @@ import { fullName, userOptionLabel } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
 import "./Dashboard.css";
 
-const EMPTY_DASHBOARD_DATA = { initiated: [], assigned: [], observing: [], notifications: [] };
+const EMPTY_DASHBOARD_DATA = { all: [], initiated: [], assigned: [], observing: [], notifications: [] };
 
 const statusLabels = {
   open: ["Открыта", "blue"],
@@ -132,7 +132,40 @@ function isUrgentActive(task) {
 }
 
 function idOf(value) {
-  return value?._id || value;
+  return String(value?._id || value || "");
+}
+
+function uniqueTasks(tasks = []) {
+  const tasksById = new Map();
+
+  tasks.filter(Boolean).forEach((task) => {
+    const taskId = idOf(task._id || task);
+    if (taskId) tasksById.set(taskId, task);
+  });
+
+  return Array.from(tasksById.values());
+}
+
+function normalizeDashboardData(source, userId) {
+  const dashboard = source || EMPTY_DASHBOARD_DATA;
+  const taskSource = Array.isArray(dashboard.all)
+    ? dashboard.all
+    : [...(dashboard.initiated || []), ...(dashboard.assigned || []), ...(dashboard.observing || [])];
+  const all = uniqueTasks(taskSource);
+  const currentUserId = idOf(userId);
+
+  return {
+    ...dashboard,
+    all,
+    initiated: all.filter((task) => idOf(task.creator) === currentUserId),
+    assigned: all.filter((task) => idOf(task.assignee) === currentUserId),
+    observing: all.filter((task) => (task.observers || []).some((observer) => idOf(observer) === currentUserId))
+  };
+}
+
+function upsertDashboardTask(source, task, userId) {
+  const dashboard = normalizeDashboardData(source, userId);
+  return normalizeDashboardData({ ...dashboard, all: [task, ...dashboard.all] }, userId);
 }
 
 function isProjectArchived(project) {
@@ -382,7 +415,11 @@ export function Dashboard({ currentUser }) {
       projects: projectsData.projects
     };
   }, []);
-  const data = dashboardResource.data?.dashboard || EMPTY_DASHBOARD_DATA;
+  const rawDashboardData = dashboardResource.data?.dashboard || EMPTY_DASHBOARD_DATA;
+  const data = useMemo(
+    () => normalizeDashboardData(rawDashboardData, currentUser?._id),
+    [rawDashboardData, currentUser?._id]
+  );
   const projects = dashboardResource.data?.projects || [];
   const error = dashboardResource.error;
   const loading = dashboardResource.loading;
@@ -564,15 +601,7 @@ export function Dashboard({ currentUser }) {
     });
   }
 
-  const allTasks = useMemo(() => {
-    const tasksById = new Map();
-
-    [...data.initiated, ...data.assigned, ...data.observing].forEach((task) => {
-      tasksById.set(task._id, task);
-    });
-
-    return Array.from(tasksById.values());
-  }, [data]);
+  const allTasks = data.all;
   const reviewTasksForUserCount = useMemo(
     () => data.initiated.filter((task) => ["review", "done"].includes(task.status)).length,
     [data.initiated]
@@ -585,7 +614,7 @@ export function Dashboard({ currentUser }) {
       assigned: applyTaskFilters(data.assigned),
       observing: applyTaskFilters(data.observing)
     }),
-    [allTasks, data, hideClosed, projectFilter, categoryFilter, searchText, categoryNameMap, quickFilter]
+    [allTasks, data.initiated, data.assigned, data.observing, hideClosed, projectFilter, categoryFilter, searchText, categoryNameMap, quickFilter]
   );
 
   const activeView = statItems.find((item) => item.key === activeRoleTab) || statItems[0];
@@ -650,10 +679,6 @@ export function Dashboard({ currentUser }) {
 
   function handleRoleTabClick(roleKey) {
     setActiveRoleTab(roleKey);
-
-    if (roleKey === "all" || quickFilter === "review") {
-      setQuickFilter(hideClosed ? "active" : "all");
-    }
   }
 
   function showReviewTasks() {
@@ -822,13 +847,7 @@ export function Dashboard({ currentUser }) {
         })
       });
 
-      updateDashboardData((currentData) => ({
-        ...currentData,
-        initiated: [
-          data.task,
-          ...currentData.initiated.filter((task) => task._id !== data.task._id)
-        ]
-      }));
+      updateDashboardData((currentData) => upsertDashboardTask(currentData, data.task, currentUser?._id));
       setQuickDescription("");
       setActiveRoleTab("all");
       setHideClosed(true);

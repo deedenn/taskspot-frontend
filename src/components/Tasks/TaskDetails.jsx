@@ -232,6 +232,18 @@ export function TaskDetails({ currentUser }) {
     }
   }
 
+  async function updateRecurrence(frequency) {
+    setSaving(true);
+    try {
+      const data = await apiFetch(`/tasks/${taskId}`, { method: "PATCH", body: JSON.stringify({
+        recurrence: { enabled: frequency !== "none", frequency, timeZone: task.recurrence?.timeZone || "Europe/Moscow" }
+      }) });
+      setTask(data.task);
+      message.success("Расписание обновлено");
+    } catch (error) { message.error(error.message); }
+    finally { setSaving(false); }
+  }
+
   async function saveDetails(values, { silent = false, version = detailsChangeVersionRef.current } = {}) {
     const nextSnapshot = serializeDetails(values);
 
@@ -586,10 +598,25 @@ export function TaskDetails({ currentUser }) {
           </div>
         )}
 
+        {!projectArchived && (isCreator || isProjectAdmin) && (
+          <div className="task-details__priority-editor">
+            <Typography.Text type="secondary">Повтор</Typography.Text>
+            <Select aria-label="Повтор задачи" value={task.recurrence?.enabled ? task.recurrence.frequency : "none"}
+              disabled={saving} onChange={updateRecurrence} options={[
+                { value: "none", label: "Не повторять" }, { value: "daily", label: "Ежедневно" },
+                { value: "weekly", label: "Еженедельно" }, { value: "monthly", label: "Ежемесячно" }
+              ]} />
+          </div>
+        )}
         {task.recurrence?.enabled && (
           <Tag className="task-details__recurrence" icon={<RetweetOutlined />} color="blue">
             Повтор: {task.recurrence.frequency === "daily" ? "ежедневно" : task.recurrence.frequency === "monthly" ? "ежемесячно" : "еженедельно"}
+            {task.recurrence.nextRunAt && ` · ${new Intl.DateTimeFormat("ru-RU", { timeZone: task.recurrence.timeZone || "Europe/Moscow", dateStyle: "short" }).format(new Date(task.recurrence.nextRunAt))}`}
+            {` · ${task.recurrence.timeZone || "Europe/Moscow"}`}
           </Tag>
+        )}
+        {task.recurrence?.enabled && task.recurrence.lastError && (
+          <Alert type="warning" showIcon message={task.recurrence.lastError} />
         )}
 
         {isUrgentActive(task) && (

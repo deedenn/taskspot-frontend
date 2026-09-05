@@ -1,7 +1,7 @@
 import { CheckCircleOutlined, CommentOutlined, DeleteOutlined, EyeInvisibleOutlined, EyeOutlined, PaperClipOutlined, PlusOutlined, RollbackOutlined } from "@ant-design/icons";
-import { Alert, Button, Card, DatePicker, Drawer, Empty, Form, Grid, Input, List, Modal, Select, Space, Switch, Tag, Tooltip, Typography, Upload, message } from "antd";
+import { Alert, Button, Card, DatePicker, Drawer, Empty, Form, Grid, Input, List, Modal, Pagination, Select, Space, Switch, Tag, Tooltip, Typography, Upload, message } from "antd";
 import dayjs from "dayjs";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { apiFetch, isLimitError, limitErrorText } from "../../api.js";
 import { fullName, userOptionLabel } from "../../utils/users.js";
@@ -71,6 +71,14 @@ export function TaskWorkspace({ project, currentUser }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [hideClosed, setHideClosed] = useState(true);
   const [searchText, setSearchText] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [total, setTotal] = useState(0);
+  const [sort, setSort] = useState("updatedAt:desc");
+  const [statusFilter, setStatusFilter] = useState();
+  const [categoryFilter, setCategoryFilter] = useState();
+  const requestVersion = useRef(0);
   const [pendingAttachmentFiles, setPendingAttachmentFiles] = useState([]);
   const [creatingTask, setCreatingTask] = useState(false);
   const [form] = Form.useForm();
@@ -111,56 +119,40 @@ export function TaskWorkspace({ project, currentUser }) {
     [project.categories]
   );
 
-  const visibleTasks = useMemo(
-    () => {
-      const query = searchText.trim().toLowerCase();
+  const visibleTasks = tasks;
 
-      return tasks.filter((task) => {
-        const matchesClosed = !hideClosed || task.status !== "closed";
-        const categoryNames = (task.categories || [])
-          .map((categoryId) => categoryMap.get(idOf(categoryId))?.name)
-          .filter(Boolean)
-          .join(" ");
-        const searchableText = [
-          task.description,
-          fullName(task.creator, ""),
-          task.creator?.email,
-          fullName(task.assignee, ""),
-          task.assignee?.email,
-          task.assigneeEmail,
-          task.observers?.map((observer) => `${fullName(observer, "")} ${observer.email}`).join(" "),
-          statusOptions.find((status) => status.value === task.status)?.label,
-          priorityLabels[task.priority]?.[0],
-          categoryNames
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        const matchesSearch = !query || searchableText.includes(query);
-
-        return matchesClosed && matchesSearch;
-      });
-    },
-    [tasks, hideClosed, searchText, categoryMap]
-  );
+  useEffect(() => {
+    const timer = setTimeout(() => { setSearchQuery(searchText.trim()); setPage(1); }, 300);
+    return () => clearTimeout(timer);
+  }, [searchText]);
 
   async function loadTasks() {
+    const version = ++requestVersion.current;
     setLoading(true);
     setError("");
     try {
-      const data = await apiFetch(`/tasks?projectId=${project._id}`);
+      const [sortField, order] = sort.split(":");
+      const query = new URLSearchParams({ projectId: project._id, page, limit: pageSize, search: searchQuery, hideClosed, sort: sortField, order });
+      if (statusFilter) query.set("status", statusFilter);
+      if (categoryFilter) query.set("category", categoryFilter);
+      const data = await apiFetch(`/tasks?${query}`);
+      if (version !== requestVersion.current) return;
       setTasks(data.tasks);
+      setTotal(data.pagination.total);
+      setPage(data.pagination.page);
     } catch (error) {
+      if (version !== requestVersion.current) return;
       setError(error.message);
       message.error(error.message);
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
   }
 
   useEffect(() => {
     loadTasks();
-  }, [project._id]);
+    return () => { requestVersion.current += 1; };
+  }, [project._id, page, pageSize, searchQuery, hideClosed, sort, statusFilter, categoryFilter]);
 
   function showLimitDialog(error) {
     if (!isLimitError(error)) return false;
@@ -358,7 +350,7 @@ export function TaskWorkspace({ project, currentUser }) {
           ) : (
             <Space className="tasks__filter" size={8}>
               <Typography.Text>Скрыть закрытые</Typography.Text>
-              <Switch checked={hideClosed} onChange={setHideClosed} />
+              <Switch checked={hideClosed} onChange={(value) => { setHideClosed(value); setPage(1); }} />
             </Space>
           )}
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setDrawerOpen(true)} disabled={projectArchived}>
@@ -375,6 +367,18 @@ export function TaskWorkspace({ project, currentUser }) {
         value={searchText}
         onChange={(event) => setSearchText(event.target.value)}
       />
+      <div className="tasks__list-filters">
+        <Select aria-label="Статус задач" allowClear placeholder="Все статусы" value={statusFilter} options={statusOptions}
+          onChange={(value) => { setStatusFilter(value); setPage(1); if (value === "closed") setHideClosed(false); }} />
+        <Select aria-label="Категория задач" allowClear placeholder="Все категории" value={categoryFilter} options={categoryOptions}
+          onChange={(value) => { setCategoryFilter(value); setPage(1); }} />
+        <Select aria-label="Сортировка задач" value={sort} onChange={(value) => { setSort(value); setPage(1); }} options={[
+          { value: "updatedAt:desc", label: "Сначала обновлённые" },
+          { value: "createdAt:desc", label: "Сначала новые" },
+          { value: "dueDate:asc", label: "По сроку" },
+          { value: "description:asc", label: "По названию" }
+        ]} />
+      </div>
       {error && (
         <PageState
           type="error"
@@ -408,8 +412,12 @@ export function TaskWorkspace({ project, currentUser }) {
           ))}
         </div>
       ) : (
-        <Empty description={hideClosed ? "Нет открытых задач" : "В этом проекте пока нет видимых задач"} />
+        <Empty description={searchQuery || statusFilter || categoryFilter ? "По выбранным условиям задач нет" : hideClosed ? "Нет открытых задач" : "В этом проекте пока нет видимых задач"} />
       )}
+      <Pagination className="tasks__pagination" current={page} pageSize={pageSize} total={total}
+        showSizeChanger pageSizeOptions={[25, 50, 100]} size="small" responsive
+        showTotal={(count) => `Всего задач: ${count}`}
+        onChange={(nextPage, nextSize) => { setPage(nextSize !== pageSize ? 1 : nextPage); setPageSize(nextSize); }} />
 
       <Drawer
         title="Новая задача"

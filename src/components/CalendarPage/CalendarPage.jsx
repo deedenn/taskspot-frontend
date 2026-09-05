@@ -23,6 +23,7 @@ const priorityLabels = {
 };
 
 function uniqueTasks(data) {
+  if (data.all) return data.all;
   const map = new Map();
 
   ["initiated", "assigned", "observing"].forEach((key) => {

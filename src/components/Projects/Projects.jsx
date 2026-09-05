@@ -78,8 +78,8 @@ function pluralizeRu(count, forms) {
 }
 
 const emailStatusLabels = {
-  pending: ["Ожидает отправки", "default"],
-  sent: ["Письмо отправлено", "green"],
+  pending: ["В очереди", "default"],
+  sent: ["Передано почтовому серверу", "green"],
   skipped: ["SMTP не настроен", "gold"],
   failed: ["Ошибка отправки", "red"]
 };
@@ -345,6 +345,8 @@ export function Projects({ user }) {
       if (exists) {
         if (data.email?.status === "sent") {
           message.success("Участник добавлен, письмо отправлено");
+        } else if (data.email?.status === "pending") {
+          message.success("Участник добавлен, письмо в очереди на отправку");
         } else if (data.email?.status === "skipped") {
           message.warning("Участник добавлен, но SMTP пока не настроен");
         } else if (data.email?.status === "failed") {
@@ -380,6 +382,8 @@ export function Projects({ user }) {
 
       if (invitation?.emailStatus === "sent") {
         message.success("Приглашение отправлено повторно");
+      } else if (invitation?.emailStatus === "pending") {
+        message.success("Приглашение в очереди на отправку");
       } else if (invitation?.emailStatus === "skipped") {
         message.warning("SMTP пока не настроен, письмо не отправлено");
       } else {

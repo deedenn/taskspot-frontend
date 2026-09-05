@@ -107,8 +107,8 @@ export function AuthPage({ mode, auth }) {
       setRegistrationEmailStatus(data.emailDeliveryStatus || "sent");
       setResendMessage(
         data.emailDeliveryStatus === "failed" || data.emailDeliveryStatus === "skipped"
-          ? "Не удалось отправить письмо. Проверьте настройки SMTP и попробуйте ещё раз."
-          : "Письмо отправлено повторно. Проверьте входящие и папку спам."
+          ? "Не удалось отправить письмо. Попробуйте ещё раз или обратитесь в поддержку."
+          : "Письмо в очереди на отправку. Проверьте входящие через несколько минут."
       );
     } catch (requestError) {
       setError(requestError.message);
@@ -127,7 +127,7 @@ export function AuthPage({ mode, auth }) {
           <>
             <Typography.Title level={1}>Подтвердите email</Typography.Title>
             <Typography.Paragraph>
-              Мы отправили ссылку подтверждения на <strong>{registrationEmail}</strong>. Перейдите по ссылке из письма,
+              Ссылка подтверждения будет отправлена на <strong>{registrationEmail}</strong>. Перейдите по ссылке из письма,
               чтобы начать работу в Taskspot.
             </Typography.Paragraph>
             <Alert
@@ -141,7 +141,7 @@ export function AuthPage({ mode, auth }) {
               }
               description={
                 ["failed", "skipped"].includes(registrationEmailStatus)
-                  ? "Попробуйте отправить ссылку повторно. Если ошибка повторится, проверьте настройки почты на сервере."
+                  ? "Попробуйте отправить ссылку повторно. Если ошибка повторится, обратитесь в поддержку."
                   : "Если письма нет во входящих, проверьте папку спам или отправьте ссылку повторно."
               }
             />

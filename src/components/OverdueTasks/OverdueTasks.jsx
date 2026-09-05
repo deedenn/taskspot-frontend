@@ -23,6 +23,7 @@ const priorityLabels = {
 };
 
 function uniqueVisibleTasks(data) {
+  if (data.all) return data.all;
   const map = new Map();
 
   ["assigned", "initiated", "observing"].forEach((key) => {
