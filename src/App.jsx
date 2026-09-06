@@ -6,6 +6,7 @@ import { AppLayout } from "./components/AppLayout/AppLayout.jsx";
 
 const LandingPage = lazy(() => import("./components/LandingPage/LandingPage.jsx").then((module) => ({ default: module.LandingPage })));
 const AuthPage = lazy(() => import("./components/AuthPage/AuthPage.jsx").then((module) => ({ default: module.AuthPage })));
+const PasswordRecovery = lazy(() => import("./components/AuthPage/PasswordRecovery.jsx").then((module) => ({ default: module.PasswordRecovery })));
 const VerifyEmail = lazy(() => import("./components/VerifyEmail/VerifyEmail.jsx").then((module) => ({ default: module.VerifyEmail })));
 const Dashboard = lazy(() => import("./components/Dashboard/Dashboard.jsx").then((module) => ({ default: module.Dashboard })));
 const AdminDashboard = lazy(() => import("./components/AdminDashboard/AdminDashboard.jsx").then((module) => ({ default: module.AdminDashboard })));
@@ -18,6 +19,22 @@ const ProjectTasks = lazy(() => import("./components/Projects/ProjectTasks.jsx")
 const Projects = lazy(() => import("./components/Projects/Projects.jsx").then((module) => ({ default: module.Projects })));
 const TaskDetails = lazy(() => import("./components/Tasks/TaskDetails.jsx").then((module) => ({ default: module.TaskDetails })));
 const TemplatesPage = lazy(() => import("./components/TemplatesPage/TemplatesPage.jsx").then((module) => ({ default: module.TemplatesPage })));
+
+function ProductActivity({ user }) {
+  const location = useLocation();
+  useEffect(() => {
+    if (!user || user.isSuperAdmin || !location.pathname.startsWith("/app/")) return;
+    const send = () => {
+      if (document.visibilityState === "hidden") return;
+      apiFetch("/analytics/events", { method: "POST", body: JSON.stringify({ event: "active_day" }) }).catch(() => {});
+      if (location.pathname === "/app/billing") apiFetch("/analytics/events", { method: "POST", body: JSON.stringify({ event: "billing_viewed" }) }).catch(() => {});
+    };
+    send();
+    document.addEventListener("visibilitychange", send);
+    return () => document.removeEventListener("visibilitychange", send);
+  }, [user?._id, user?.isSuperAdmin, location.pathname]);
+  return null;
+}
 
 function RouteLoader() {
   return (
@@ -84,6 +101,7 @@ export function App() {
           method: "POST",
           body: JSON.stringify(values)
         });
+        if (data.requiresAdminCode) return data;
         setToken(data.token);
         setUser(data.user);
         return data.user;
@@ -108,10 +126,13 @@ export function App() {
   return (
     <AntApp>
       <BrowserRouter>
+        <ProductActivity user={user} />
         <Routes>
           <Route path="/" element={<Suspense fallback={<RouteLoader />}><LandingPage user={user} /></Suspense>} />
           <Route path="/login" element={<Suspense fallback={<RouteLoader />}><AuthPage mode="login" auth={auth} /></Suspense>} />
           <Route path="/register" element={<Suspense fallback={<RouteLoader />}><AuthPage mode="register" auth={auth} /></Suspense>} />
+          <Route path="/forgot-password" element={<Suspense fallback={<RouteLoader />}><PasswordRecovery auth={auth} /></Suspense>} />
+          <Route path="/reset-password" element={<Suspense fallback={<RouteLoader />}><PasswordRecovery reset auth={auth} /></Suspense>} />
           <Route path="/verify-email" element={<Suspense fallback={<RouteLoader />}><VerifyEmail auth={auth} /></Suspense>} />
           <Route
             path="/app"
@@ -125,7 +146,7 @@ export function App() {
             <Route path="overdue" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><OverdueTasks /></Suspense></RequireRegularUser>} />
             <Route path="templates" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><TemplatesPage currentUser={user} /></Suspense></RequireRegularUser>} />
             <Route path="billing" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><BillingPage /></Suspense></RequireRegularUser>} />
-            <Route path="admin" element={<RequireSuperAdmin user={user}><Suspense fallback={<RouteLoader />}><AdminDashboard currentUser={user} /></Suspense></RequireSuperAdmin>} />
+            <Route path="admin" element={<RequireSuperAdmin user={user}><Suspense fallback={<RouteLoader />}><AdminDashboard currentUser={user} auth={auth} /></Suspense></RequireSuperAdmin>} />
             <Route path="projects" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><Projects user={user} /></Suspense></RequireRegularUser>} />
             <Route path="projects/:projectId" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><Projects user={user} /></Suspense></RequireRegularUser>} />
             <Route path="projects/:projectId/tasks" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><ProjectTasks currentUser={user} /></Suspense></RequireRegularUser>} />

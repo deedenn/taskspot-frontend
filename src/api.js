@@ -47,7 +47,7 @@ export function setToken(token) {
 
 export async function apiFetch(path, options = {}) {
   const token = getToken();
-  const { timeout = DEFAULT_TIMEOUT, signal, ...fetchOptions } = options;
+  const { timeout = DEFAULT_TIMEOUT, signal, responseType, ...fetchOptions } = options;
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), timeout);
 
@@ -71,7 +71,7 @@ export async function apiFetch(path, options = {}) {
       signal: controller.signal
     });
 
-    const data = await response.json().catch(() => ({}));
+    const data = response.ok && responseType === "blob" ? await response.blob() : await response.json().catch(() => ({}));
 
     if (response.status === 401) {
       setToken(null);

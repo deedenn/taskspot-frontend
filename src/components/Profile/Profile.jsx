@@ -110,6 +110,7 @@ export function Profile({ auth }) {
         })
       });
       passwordForm.resetFields();
+      auth.signOut();
       message.success("Пароль изменён");
     } catch (error) {
       message.error(error.message);

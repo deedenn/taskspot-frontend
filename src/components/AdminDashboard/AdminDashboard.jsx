@@ -12,13 +12,15 @@ import {
   UserAddOutlined,
   UserOutlined
 } from "@ant-design/icons";
-import { Button, Card, DatePicker, Empty, Form, Input, Modal, Popconfirm, Progress, Segmented, Select, Space, Statistic, Table, Tag, Typography, message } from "antd";
+import { Tabs, Button, Card, DatePicker, Empty, Form, Input, Modal, Popconfirm, Progress, Segmented, Select, Space, Statistic, Table, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../../api.js";
 import { fullName } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
 import "./AdminDashboard.css";
+import { AdminSecurity } from "./AdminSecurity.jsx";
+import { ProductAnalytics } from "./ProductAnalytics.jsx";
 
 const planLabels = {
   free: ["Бесплатный", "default"],
@@ -61,7 +63,14 @@ function MetricCard({ icon, title, value, hint, tone = "blue", suffix }) {
   );
 }
 
-export function AdminDashboard({ currentUser }) {
+export function AdminDashboard({ currentUser, auth }) {
+  return <Tabs destroyInactiveTabPane items={[
+    { key: "overview", label: "Управление сервисом", children: <ServiceOverview currentUser={currentUser} /> },
+    { key: "product", label: "Развитие продукта", children: <ProductAnalytics /> },
+    { key: "security", label: "Безопасность", children: <AdminSecurity auth={auth} /> }
+  ]} />;
+}
+function ServiceOverview({ currentUser }) {
   const [planForm] = Form.useForm();
   const [billingForm] = Form.useForm();
   const [periodDays, setPeriodDays] = useState(30);
@@ -567,7 +576,7 @@ export function AdminDashboard({ currentUser }) {
           icon={<PayCircleOutlined />}
           title="Получено денег"
           value={formatMoney(data?.revenue.received || 0)}
-          hint="Пока нет модели платежей, значение считается отдельно"
+          hint="Подтверждённые оплаты за всё время, без возвратов"
           tone="gold"
         />
         <MetricCard
@@ -631,7 +640,7 @@ export function AdminDashboard({ currentUser }) {
                 <Progress percent={data.users.activationRate} />
               </div>
               <div>
-                <Typography.Text strong>Конверсия в платные организации</Typography.Text>
+                <Typography.Text strong>Компании на платных тарифах</Typography.Text>
                 <Progress percent={data.revenue.paidConversionRate} strokeColor="#722ed1" />
               </div>
               <div>

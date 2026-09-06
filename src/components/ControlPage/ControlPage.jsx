@@ -1,5 +1,5 @@
 import { AlertOutlined, CheckCircleOutlined, ClockCircleOutlined, TeamOutlined } from "@ant-design/icons";
-import { Card, Empty, List, Space, Statistic, Table, Tag, Typography, message } from "antd";
+import { Tabs, Card, Empty, List, Space, Statistic, Table, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -7,6 +7,7 @@ import { apiFetch } from "../../api.js";
 import { fullName } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
 import "./ControlPage.css";
+import { PeriodReport } from "./PeriodReport.jsx";
 
 const statusLabels = {
   open: ["Открыта", "blue"],
@@ -45,6 +46,10 @@ function TaskList({ tasks, empty, currentRoute }) {
 }
 
 export function ControlPage() {
+  return <Tabs destroyInactiveTabPane items={[{ key: "current", label: "Текущая нагрузка", children: <OperationalControl /> }, { key: "period", label: "Отчёты за период", children: <PeriodReport /> }]} />;
+}
+
+function OperationalControl() {
   const location = useLocation();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");

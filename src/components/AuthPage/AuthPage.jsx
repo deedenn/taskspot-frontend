@@ -10,6 +10,7 @@ export function AuthPage({ mode, auth }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [form] = Form.useForm();
+  const [challenge, setChallenge] = useState(null);
   const [error, setError] = useState("");
   const [inviteInfo, setInviteInfo] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -85,7 +86,12 @@ export function AuthPage({ mode, auth }) {
         }
       }
 
-      const signedInUser = await auth.signIn("/auth/login", values);
+      const signedInUser = await auth.signIn(challenge ? "/auth/login/code" : "/auth/login", challenge ? { challengeId: challenge, code: values.code } : values);
+      if (signedInUser?.requiresAdminCode) {
+        setChallenge(signedInUser.challengeId);
+        form.resetFields();
+        return;
+      }
       navigate(signedInUser?.isSuperAdmin ? "/app/admin" : returnTo || "/app/dashboard", { replace: true });
     } catch (requestError) {
       setError(requestError.message);
@@ -159,10 +165,10 @@ export function AuthPage({ mode, auth }) {
         ) : (
           <>
             <Typography.Title level={1}>
-              {isRegister ? "Создать аккаунт" : "Войти"}
+              {challenge ? "Подтвердите вход" : isRegister ? "Создать аккаунт" : "Войти"}
             </Typography.Title>
             <Typography.Paragraph>
-              {isRegister
+              {challenge ? "Код отправлен на почту администратора. Он действует 10 минут." : isRegister
                 ? "Зарегистрируйтесь по email, чтобы создавать проекты и ставить задачи."
                 : "Введите email и пароль, чтобы открыть рабочее пространство."}
             </Typography.Paragraph>
@@ -203,6 +209,7 @@ export function AuthPage({ mode, auth }) {
                   </Form.Item>
                 </>
               )}
+              {challenge ? <Form.Item name="code" label="Код из письма" rules={[{ required: true, pattern: /^\d{6}$/, message: "Введите 6 цифр" }]}><Input inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus /></Form.Item> : <>
               <Form.Item
                 name="email"
                 label="Email"
@@ -220,11 +227,13 @@ export function AuthPage({ mode, auth }) {
               >
                 <Input.Password prefix={<LockOutlined />} placeholder="Пароль" />
               </Form.Item>
+              </>}
               <Button type="primary" htmlType="submit" block loading={submitting}>
                 {isRegister ? "Зарегистрироваться" : "Войти"}
               </Button>
             </Form>
 
+            {!isRegister && <div className="auth-page__switch">{challenge ? <Button onClick={() => { setChallenge(null); setError(""); form.resetFields(); }}>Вернуться ко входу</Button> : <Link to="/forgot-password">Забыли пароль?</Link>}</div>}
             <div className="auth-page__switch">
               {isRegister ? (
                 <Link to="/login">Уже есть аккаунт? Войти</Link>

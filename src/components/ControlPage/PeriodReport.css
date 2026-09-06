@@ -1,0 +1,16 @@
+.period-report { display: grid; gap: 20px; min-width: 0; }
+.period-report h2.ant-typography { margin: 0; font-size: 24px; }
+.period-report__toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; min-width: 0; }
+.period-report__toolbar > .ant-select { width: 240px; max-width: 100%; }
+.period-report__toolbar > .ant-picker { max-width: 100%; }
+.period-report__summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; border-block: 1px solid #dfe5ee; padding-block: 20px; }
+.period-report__summary > div { display: grid; align-content: start; gap: 8px; min-width: 0; }
+.period-report__summary span { color: #576476; font-size: 14px; overflow-wrap: anywhere; }
+.period-report__summary strong { color: #202a3a; font-size: 26px; }
+.period-report > .ant-segmented { justify-self: start; max-width: 100%; overflow-x: auto; }
+.period-report .ant-table-cell { overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .period-report__summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .period-report__toolbar > .ant-picker, .period-report__toolbar > .ant-select { width: 100%; }
+  .period-report { gap: 16px; }
+}
