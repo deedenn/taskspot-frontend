@@ -1,0 +1,10 @@
+.project-activity .ant-drawer-body { padding: 16px 24px; }
+.project-activity__event { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 20px; width: 100%; min-width: 0; overflow-wrap: anywhere; }
+.project-activity__event time, .project-activity__actor, .project-activity__label { color: #64748b; font-size: 13px; }
+.project-activity__actor { margin: 4px 0 8px; }
+.project-activity__changes { display: grid; gap: 4px; margin-top: 8px; white-space: pre-wrap; }
+.project-activity__footer { margin-top: 20px; }
+@media (max-width: 560px) {
+  .project-activity .ant-drawer-body { padding: 16px; }
+  .project-activity__event { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+}

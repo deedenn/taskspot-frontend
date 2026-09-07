@@ -4,6 +4,7 @@ import { App as AntApp, Spin } from "antd";
 import { apiFetch, getToken, setToken } from "./api.js";
 import { AppLayout } from "./components/AppLayout/AppLayout.jsx";
 
+const PublicPage = lazy(() => import("./components/PublicPages/PublicPage.jsx"));
 const LandingPage = lazy(() => import("./components/LandingPage/LandingPage.jsx").then((module) => ({ default: module.LandingPage })));
 const AuthPage = lazy(() => import("./components/AuthPage/AuthPage.jsx").then((module) => ({ default: module.AuthPage })));
 const PasswordRecovery = lazy(() => import("./components/AuthPage/PasswordRecovery.jsx").then((module) => ({ default: module.PasswordRecovery })));
@@ -129,6 +130,8 @@ export function App() {
         <ProductActivity user={user} />
         <Routes>
           <Route path="/" element={<Suspense fallback={<RouteLoader />}><LandingPage user={user} /></Suspense>} />
+          <Route path="/solutions/*" element={<Suspense fallback={<RouteLoader />}><PublicPage /></Suspense>} />
+          <Route path="/resources/*" element={<Suspense fallback={<RouteLoader />}><PublicPage /></Suspense>} />
           <Route path="/login" element={<Suspense fallback={<RouteLoader />}><AuthPage mode="login" auth={auth} /></Suspense>} />
           <Route path="/register" element={<Suspense fallback={<RouteLoader />}><AuthPage mode="register" auth={auth} /></Suspense>} />
           <Route path="/forgot-password" element={<Suspense fallback={<RouteLoader />}><PasswordRecovery auth={auth} /></Suspense>} />

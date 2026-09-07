@@ -1,0 +1,21 @@
+.project-templates { min-width: 0; }
+.project-templates__header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+.project-templates__header h1.ant-typography { font-size: 28px; margin: 0; }
+.project-templates__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 16px; }
+.project-templates__card.ant-card { border-radius: 8px; min-width: 0; }
+.project-templates__card .ant-card-body { display: flex; flex-direction: column; gap: 12px; height: 100%; }
+.project-templates__card-head { display: flex; align-items: center; justify-content: space-between; min-height: 32px; }
+.project-templates__card h3.ant-typography { font-size: 20px; margin: 0; overflow-wrap: anywhere; }
+.project-templates__description { flex: 1; overflow-wrap: anywhere; }
+.project-templates__card .ant-btn { align-self: flex-start; max-width: 100%; white-space: normal; height: auto; min-height: 32px; }
+.project-templates__fields { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 16px; margin-top: 16px; }
+.project-templates__fields .ant-picker { width: 100%; }
+.project-templates__preview { margin: 20px 0; padding-left: 24px; max-height: 320px; overflow-y: auto; }
+.project-templates__preview > li { padding: 10px 0; border-bottom: 1px solid #e5e7eb; overflow-wrap: anywhere; }
+.project-templates__preview strong { display: block; }
+.project-templates__preview ul { padding-left: 20px; margin-top: 6px; }
+@media (max-width: 600px) {
+  .project-templates__header { align-items: flex-start; }
+  .project-templates__header .ant-btn { height: auto; min-height: 40px; white-space: normal; text-align: left; }
+  .project-templates__fields { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}

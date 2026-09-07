@@ -729,3 +729,34 @@
     font-size: 28px;
   }
 }
+
+.landing__public-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  margin-top: 24px;
+}
+
+.landing__public-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  max-width: 100%;
+  color: #ffffff;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  text-underline-offset: 4px;
+}
+
+.landing__public-links a:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 4px;
+}
+
+@media (max-width: 1040px) {
+  .landing__nav-links {
+    display: flex;
+    grid-column: 1 / -1;
+  }
+}

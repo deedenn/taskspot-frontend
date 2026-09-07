@@ -153,6 +153,8 @@ export function LandingPage({ user }) {
           <a href="#workflow">Как работает</a>
           <a href="#pricing">Тарифы</a>
           <a href="#use-cases">Для кого</a>
+          <a href="/solutions/">Решения</a>
+          <a href="/resources/">Материалы</a>
         </nav>
         <div className="landing__actions">
           {user ? (
@@ -269,6 +271,10 @@ export function LandingPage({ user }) {
             </article>
           ))}
         </div>
+        <nav className="landing__public-links" aria-label="Решения и материалы">
+          <a href="/solutions/">Все решения для команд <ArrowRightOutlined /></a>
+          <a href="/resources/">Статьи и шаблоны <ArrowRightOutlined /></a>
+        </nav>
       </section>
 
       <section className="landing__pricing" id="pricing">

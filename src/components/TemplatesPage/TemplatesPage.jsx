@@ -1,3 +1,6 @@
+import { Tabs } from "antd";
+import { useSearchParams } from "react-router-dom";
+import { ProjectTemplates } from "./ProjectTemplates.jsx";
 import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 import { Button, Card, Empty, Form, Input, List, Popconfirm, Select, Space, Tag, Tooltip, Typography, message } from "antd";
 import { useEffect, useMemo, useState } from "react";
@@ -12,7 +15,7 @@ const priorityOptions = [
   { value: "urgent", label: "Срочно" }
 ];
 
-export function TemplatesPage() {
+function TaskTemplates() {
   const [projects, setProjects] = useState([]);
   const [projectId, setProjectId] = useState();
   const [error, setError] = useState("");
@@ -175,4 +178,13 @@ export function TemplatesPage() {
       </div>
     </section>
   );
+}
+
+export function TemplatesPage({ currentUser }) {
+  const [params, setParams] = useSearchParams();
+  const active = params.get("type") === "projects" ? "projects" : "tasks";
+  return <Tabs activeKey={active} onChange={(key) => setParams({ type: key })} items={[
+    { key: "tasks", label: "Шаблоны задач", children: <TaskTemplates /> },
+    { key: "projects", label: "Шаблоны проектов", children: <ProjectTemplates currentUser={currentUser} /> }
+  ]} />;
 }

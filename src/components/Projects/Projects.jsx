@@ -22,6 +22,7 @@ import { fullName } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
 import { useInvitationEmailPolling } from "./useInvitationEmailPolling";
 import "./Projects.css";
+import { ProjectActivity } from "./ProjectActivity.jsx";
 
 function userId(user) {
   return user?._id || user;
@@ -608,6 +609,16 @@ export function Projects({ user }) {
     }
   }
 
+  async function changeMemberRole(member, role) {
+    try {
+      const data = await apiFetch(`/projects/${activeProject._id}/members/${userId(member.user)}`, {
+        method: "PATCH", body: JSON.stringify({ role })
+      });
+      updateProject(data.project);
+      message.success("Роль обновлена");
+    } catch (error) { message.error(error.message); }
+  }
+
   function renderProjectCard(project) {
     const projectMember = project.members.find((member) => userId(member.user) === user?._id);
     const memberCount = project.members.length;
@@ -780,6 +791,7 @@ export function Projects({ user }) {
             </div>
           </div>
           <Space wrap className="projects__summary-actions">
+            {isAdmin && <ProjectActivity projectId={activeProject._id} revision={activeProject.updatedAt} />}
             <Tag color={isAdmin ? "green" : "blue"}>{isAdmin ? "Администратор" : "Участник"}</Tag>
             {activeProjectArchived && <Tag color="default">Архив</Tag>}
             {canManageActiveProject && (
@@ -857,7 +869,14 @@ export function Projects({ user }) {
                     <Typography.Text type="secondary">{member.user?.email || "Email не указан"}</Typography.Text>
                   </div>
                   <div className="projects__person-tags">
-                    <Tag>{member.role === "admin" ? "Админ" : "Участник"}</Tag>
+                    {canManageActiveProject ? <Select
+                      aria-label={`Роль участника ${displayName(member.user)}`}
+                      value={member.role}
+                      style={{ width: 160, maxWidth: "100%" }}
+                      disabled={member.role === "admin" && activeProject.members.filter((item) => item.role === "admin").length === 1}
+                      options={[{ value: "admin", label: "Администратор" }, { value: "member", label: "Участник" }]}
+                      onChange={(role) => changeMemberRole(member, role)}
+                    /> : <Tag>{member.role === "admin" ? "Админ" : "Участник"}</Tag>}
                   </div>
                   {canManageActiveProject && (
                     <Popconfirm
@@ -1080,6 +1099,9 @@ export function Projects({ user }) {
         okText="Создать"
         cancelText="Отмена"
       >
+        <Button type="link" icon={<CopyOutlined />} onClick={() => navigate("/app/templates?type=projects")}>
+          Создать из шаблона
+        </Button>
         <Form form={projectForm} layout="vertical" onFinish={createProject}>
           <Form.Item name="name" label="Название" rules={[{ required: true, message: "Введите название" }]}>
             <Input />
