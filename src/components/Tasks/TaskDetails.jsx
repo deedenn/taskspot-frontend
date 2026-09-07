@@ -515,6 +515,12 @@ export function TaskDetails({ currentUser }) {
             </Space>
             <Typography.Title level={1}>{task.description}</Typography.Title>
           </div>
+          {canSendToReview && (
+            <Button className="task-details__complete" aria-label="Отметить как выполненную" type="primary" icon={<CheckCircleOutlined />}
+              loading={saving} onClick={() => updateStatus("review")}>
+              Отметить как выполненную
+            </Button>
+          )}
         </div>
 
         <div className="task-details__meta">
@@ -657,16 +663,6 @@ export function TaskDetails({ currentUser }) {
         )}
 
         <Space wrap className="task-details__actions">
-          {canSendToReview && (
-            <Button
-              type="primary"
-              icon={<CheckCircleOutlined />}
-              loading={saving}
-              onClick={() => updateStatus("review")}
-            >
-              Выполнено
-            </Button>
-          )}
           {canReview && (
             <>
               <Button
@@ -831,36 +827,6 @@ export function TaskDetails({ currentUser }) {
       <Card
         title={
           <Space>
-            <HistoryOutlined />
-            История
-          </Space>
-        }
-      >
-        {task.activities?.length ? (
-          <Timeline
-            items={[...task.activities]
-              .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-              .map((activity) => ({
-                children: (
-                  <div className="task-details__activity">
-                    <strong>{fullName(activity.actor)}</strong>{" "}
-                    <span>{activityLabels[activity.action] || activity.action}</span>
-                    {formatActivity(activity) && <p>{formatActivity(activity)}</p>}
-                    <Typography.Text type="secondary">
-                      {dayjs(activity.createdAt).format("DD.MM.YYYY HH:mm")}
-                    </Typography.Text>
-                  </div>
-                )
-              }))}
-          />
-        ) : (
-          <Empty description="История пока пуста" />
-        )}
-      </Card>
-
-      <Card
-        title={
-          <Space>
             <CommentOutlined />
             Комментарии
           </Space>
@@ -898,6 +864,36 @@ export function TaskDetails({ currentUser }) {
             </Form.Item>
             <Button htmlType="submit">Отправить</Button>
           </Form>
+        )}
+      </Card>
+
+      <Card
+        title={
+          <Space>
+            <HistoryOutlined />
+            История
+          </Space>
+        }
+      >
+        {task.activities?.length ? (
+          <Timeline
+            items={[...task.activities]
+              .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+              .map((activity) => ({
+                children: (
+                  <div className="task-details__activity">
+                    <strong>{fullName(activity.actor)}</strong>{" "}
+                    <span>{activityLabels[activity.action] || activity.action}</span>
+                    {formatActivity(activity) && <p>{formatActivity(activity)}</p>}
+                    <Typography.Text type="secondary">
+                      {dayjs(activity.createdAt).format("DD.MM.YYYY HH:mm")}
+                    </Typography.Text>
+                  </div>
+                )
+              }))}
+          />
+        ) : (
+          <Empty description="История пока пуста" />
         )}
       </Card>
 

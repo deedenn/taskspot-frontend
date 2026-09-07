@@ -1,3 +1,4 @@
+import { GlobalSearch } from "./GlobalSearch.jsx";
 import {
   BellOutlined,
   BarChartOutlined,
@@ -28,6 +29,7 @@ const { Header, Sider, Content } = Layout;
 function selectedMenuKey(pathname) {
   if (pathname.startsWith("/app/projects")) return "/app/projects";
   if (pathname.startsWith("/app/tasks")) return "/app/dashboard";
+  if (pathname.startsWith("/app/control/assignees")) return "/app/control/assignees";
   if (pathname.startsWith("/app/control")) return "/app/control";
   if (pathname.startsWith("/app/calendar")) return "/app/calendar";
   if (pathname.startsWith("/app/overdue")) return "/app/overdue";
@@ -80,7 +82,7 @@ export function AppLayout({ auth }) {
   const location = useLocation();
   const navigate = useNavigate();
   const screens = Grid.useBreakpoint();
-  const isMobile = !screens.md;
+  const isMobile = !screens.lg;
   const isSuperAdmin = Boolean(auth.user?.isSuperAdmin);
   const activeMenuKey = selectedMenuKey(location.pathname);
   const currentRoute = `${location.pathname}${location.search}`;
@@ -100,9 +102,13 @@ export function AppLayout({ auth }) {
           label: <Link to="/app/dashboard">Главная</Link>
         },
         {
-          key: "/app/control",
+          key: "control-group",
           icon: <BarChartOutlined />,
-          label: <Link to="/app/control">Контроль</Link>
+          label: "Контроль",
+          children: [
+            { key: "/app/control", label: <Link to="/app/control">Обзор</Link> },
+            { key: "/app/control/assignees", label: <Link to="/app/control/assignees">По ответственным</Link> }
+          ]
         },
         {
           key: "/app/calendar",
@@ -268,7 +274,7 @@ export function AppLayout({ auth }) {
           <Link to={isSuperAdmin ? "/app/admin" : "/app/dashboard"} className="app-layout__brand">
             <BrandLogo compact={collapsed} variant="light" />
           </Link>
-          <Menu theme="dark" mode="inline" selectedKeys={[activeMenuKey]} items={navItems} />
+          <Menu theme="dark" mode="inline" selectedKeys={[activeMenuKey]} defaultOpenKeys={["control-group"]} items={navItems} />
         </Sider>
       )}
       <Layout>
@@ -293,6 +299,7 @@ export function AppLayout({ auth }) {
               />
             )}
           </div>
+          {!isSuperAdmin && <GlobalSearch />}
           <div className="app-layout__user">
             {!isSuperAdmin && (
               <Dropdown dropdownRender={() => notificationsPanel} trigger={["click"]} placement="bottomRight">
@@ -324,7 +331,7 @@ export function AppLayout({ auth }) {
       >
         <Menu
           mode="inline"
-          selectedKeys={[activeMenuKey]}
+          selectedKeys={[activeMenuKey]} defaultOpenKeys={["control-group"]}
           items={navItems}
           onClick={() => setMobileMenuOpen(false)}
         />

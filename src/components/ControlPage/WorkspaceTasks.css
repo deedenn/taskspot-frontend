@@ -1,0 +1,21 @@
+.workspace-tasks { min-width: 0; }
+.workspace-tasks .workspace-tasks__row { display: flex; align-items: center; gap: 16px; min-width: 0; padding: 14px 0; }
+.workspace-tasks__title { display: flex; flex-direction: column; flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere; }
+.workspace-tasks__title a { font-weight: 600; }
+.workspace-tasks__person { flex: 0 1 200px; min-width: 0; overflow-wrap: anywhere; }
+.workspace-tasks__person .ant-avatar { flex: none; }
+.workspace-tasks__date { flex: none; font-variant-numeric: tabular-nums; }
+.workspace-tasks .ant-pagination { margin: 16px 0; }
+.assignee-control { min-width: 0; }
+.assignee-control__filters { display: flex; gap: 12px; margin: 20px 0; flex-wrap: wrap; }
+.assignee-control__filters .ant-select { width: 260px; max-width: 100%; }
+.assignee-control__person { padding: 20px 0; border-bottom: 1px solid #dbe3ed; min-width: 0; }
+.assignee-control__person h2.ant-typography { margin: 0; font-size: 20px; overflow-wrap: anywhere; }
+.assignee-control__summary { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+.assignee-control__summary .ant-tag { margin: 0; }
+@media (max-width: 767px) {
+  .workspace-tasks .workspace-tasks__row { flex-wrap: wrap; gap: 8px 12px; }
+  .workspace-tasks__title { flex-basis: 100%; }
+  .workspace-tasks__person { flex-basis: 100%; }
+  .assignee-control__filters .ant-select { flex: 1 1 200px; width: 100%; }
+}

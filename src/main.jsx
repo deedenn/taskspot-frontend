@@ -1,3 +1,4 @@
+import "./dateLocale.js";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { ConfigProvider } from "antd";

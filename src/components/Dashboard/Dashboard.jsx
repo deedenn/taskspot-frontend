@@ -14,6 +14,7 @@ import {
   UnorderedListOutlined
 } from "@ant-design/icons";
 import {
+  Avatar,
   Button,
   Card,
   DatePicker,
@@ -34,7 +35,7 @@ import {
   message
 } from "antd";
 import dayjs from "dayjs";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { apiFetch, isLimitError, limitErrorText } from "../../api.js";
 import { useApiResource } from "../../hooks/useApiResource.js";
@@ -165,7 +166,7 @@ function normalizeDashboardData(source, userId) {
 
 function upsertDashboardTask(source, task, userId) {
   const dashboard = normalizeDashboardData(source, userId);
-  return normalizeDashboardData({ ...dashboard, all: [task, ...dashboard.all] }, userId);
+  return normalizeDashboardData({ ...dashboard, all: [task, ...dashboard.all.filter((existing) => idOf(existing) !== idOf(task))] }, userId);
 }
 
 function isProjectArchived(project) {
@@ -196,13 +197,33 @@ function TaskCategories({ task, categoryMap }) {
   );
 }
 
-function TaskTable({ tasks, categoryMap, currentRoute }) {
+function TaskStatusControl({ task, currentUser, changingStatus, onStatusChange }) {
+  const editable = idOf(task.assignee) === idOf(currentUser) && Boolean(currentUser)
+    && !isProjectArchived(task.project) && ["open", "in_progress"].includes(task.status);
+  if (!editable) return <Tag color={statusLabels[task.status]?.[1]}>{statusLabels[task.status]?.[0] || task.status}</Tag>;
+  const options = [{ value: task.status, label: statusLabels[task.status][0] }];
+  if (task.status === "open") options.push({ value: "in_progress", label: "В работе" });
+  options.push({ value: "review", label: "Выполнено" });
+  return <Select className="dashboard__status-select" size="small"
+    aria-label={`Статус задачи ${task.description}`} value={task.status} options={options}
+    loading={changingStatus === task._id} disabled={Boolean(changingStatus)}
+    onChange={(status) => onStatusChange(task, status)} />;
+}
+
+function Assignee({ user }) {
+  return <div className="dashboard__assignee-cell">
+    <Avatar size={28} src={user.avatarUrl}>{[user.name, user.lastName].filter(Boolean).map((name) => name[0]).join("")}</Avatar>
+    <span>{fullName(user)}</span>
+  </div>;
+}
+
+function TaskTable({ tasks, categoryMap, currentRoute, ...statusProps }) {
   const columns = [
     {
       title: "Задача",
       dataIndex: "description",
       key: "description",
-      width: 320,
+      width: "24%",
       sorter: (first, second) => first.description.localeCompare(second.description, "ru"),
       render: (description, task) => (
         <Link className="dashboard__task-link" to={`/app/tasks/${task._id}`} state={{ returnTo: currentRoute }}>
@@ -214,7 +235,7 @@ function TaskTable({ tasks, categoryMap, currentRoute }) {
       title: "Проект",
       dataIndex: ["project", "name"],
       key: "project",
-      width: 180,
+      width: "13%",
       sorter: (first, second) => (first.project?.name || "").localeCompare(second.project?.name || "", "ru"),
       render: (projectName, task) => (
         <Space size={6} wrap>
@@ -226,7 +247,7 @@ function TaskTable({ tasks, categoryMap, currentRoute }) {
     {
       title: "Ответственный",
       key: "assignee",
-      width: 210,
+      width: "17%",
       sorter: (first, second) => {
         const firstAssignee = first.assignee ? fullName(first.assignee) : first.assigneeEmail || "";
         const secondAssignee = second.assignee ? fullName(second.assignee) : second.assigneeEmail || "";
@@ -235,12 +256,7 @@ function TaskTable({ tasks, categoryMap, currentRoute }) {
       render: (_, task) => {
         if (task.assignee) {
           return (
-            <div className="dashboard__assignee-cell">
-              <span>{fullName(task.assignee)}</span>
-              {task.assignee.email && (
-                <Typography.Text type="secondary">{task.assignee.email}</Typography.Text>
-              )}
-            </div>
+            <Assignee user={task.assignee} />
           );
         }
 
@@ -260,7 +276,7 @@ function TaskTable({ tasks, categoryMap, currentRoute }) {
       title: "Срок",
       dataIndex: "dueDate",
       key: "dueDate",
-      width: 170,
+      width: "13%",
       defaultSortOrder: "ascend",
       sorter: (first, second) => formatDateValue(first.dueDate) - formatDateValue(second.dueDate),
       render: (dueDate, task) => (
@@ -275,24 +291,22 @@ function TaskTable({ tasks, categoryMap, currentRoute }) {
       title: "Статус",
       dataIndex: "status",
       key: "status",
-      width: 140,
+      width: "12%",
       sorter: (first, second) => (statusOrder[first.status] || 99) - (statusOrder[second.status] || 99),
-      render: (status) => (
-        <Tag color={statusLabels[status]?.[1]}>{statusLabels[status]?.[0] || status}</Tag>
-      )
+      render: (_, task) => <TaskStatusControl task={task} {...statusProps} />
     },
     {
       title: "Категория",
       dataIndex: "categories",
       key: "categories",
-      width: 220,
+      width: "11%",
       render: (_, task) => <TaskCategories task={task} categoryMap={categoryMap} />
     },
     {
       title: "Приоритет",
       dataIndex: "priority",
       key: "priority",
-      width: 130,
+      width: "10%",
       sorter: (first, second) => (priorityOrder[first.priority] || 99) - (priorityOrder[second.priority] || 99),
       render: (priority) => {
         const [priorityLabel, priorityColor] = priorityLabels[priority] || priorityLabels.medium;
@@ -307,8 +321,8 @@ function TaskTable({ tasks, categoryMap, currentRoute }) {
       columns={columns}
       dataSource={tasks}
       rowKey="_id"
-      size="middle"
-      scroll={{ x: 1270 }}
+      size="small"
+      tableLayout="fixed"
       rowClassName={(task) =>
         [
           isDeadlineAlert(task) ? "dashboard__task-row--due" : "",
@@ -323,7 +337,7 @@ function TaskTable({ tasks, categoryMap, currentRoute }) {
   );
 }
 
-function TaskMobileList({ tasks, categoryMap, currentRoute }) {
+function TaskMobileList({ tasks, categoryMap, currentRoute, ...statusProps }) {
   if (!tasks.length) {
     return (
       <div className="dashboard__mobile-empty">
@@ -335,14 +349,13 @@ function TaskMobileList({ tasks, categoryMap, currentRoute }) {
   return (
     <div className="dashboard__mobile-list">
       {tasks.map((task) => {
-        const [statusLabel, statusColor] = statusLabels[task.status] || [task.status, "default"];
         const [priorityLabel, priorityColor] = priorityLabels[task.priority] || priorityLabels.medium;
         const assigneeName = task.assignee
           ? fullName(task.assignee)
           : task.assigneeEmail || "Без ответственного";
 
         return (
-          <Link
+          <article
             key={task._id}
             className={[
               "dashboard__mobile-task",
@@ -351,11 +364,9 @@ function TaskMobileList({ tasks, categoryMap, currentRoute }) {
             ]
               .filter(Boolean)
               .join(" ")}
-            to={`/app/tasks/${task._id}`}
-            state={{ returnTo: currentRoute }}
           >
             <div className="dashboard__mobile-task-main">
-              <Typography.Text strong>{task.description}</Typography.Text>
+              <Link to={`/app/tasks/${task._id}`} state={{ returnTo: currentRoute }} className="dashboard__task-link">{task.description}</Link>
               <Typography.Text type="secondary">{task.project?.name || "Без проекта"}</Typography.Text>
             </div>
             <div className="dashboard__mobile-task-meta">
@@ -367,15 +378,15 @@ function TaskMobileList({ tasks, categoryMap, currentRoute }) {
               </span>
               <span>
                 <Typography.Text type="secondary">Ответственный</Typography.Text>
-                <strong>{assigneeName}</strong>
+                {task.assignee ? <Assignee user={task.assignee} /> : <strong>{assigneeName}</strong>}
               </span>
             </div>
             <div className="dashboard__mobile-task-tags">
-              <Tag color={statusColor}>{statusLabel}</Tag>
+              <TaskStatusControl task={task} {...statusProps} />
               <Tag color={priorityColor}>{priorityLabel}</Tag>
               <TaskCategories task={task} categoryMap={categoryMap} />
             </div>
-          </Link>
+          </article>
         );
       })}
     </div>
@@ -390,7 +401,8 @@ export function Dashboard({ currentUser }) {
   const [hideClosed, setHideClosed] = useState(true);
   const [projectFilter, setProjectFilter] = useState();
   const [categoryFilter, setCategoryFilter] = useState([]);
-  const [searchText, setSearchText] = useState("");
+  const [changingStatus, setChangingStatus] = useState(null);
+  const statusLock = useRef(false);
   const [quickFilter, setQuickFilter] = useState("active");
   const [activeRoleTab, setActiveRoleTab] = useState("all");
   const [quickProjectId, setQuickProjectId] = useState();
@@ -539,42 +551,7 @@ export function Dashboard({ currentUser }) {
     return map;
   }, [projects]);
 
-  const categoryNameMap = useMemo(() => {
-    const map = new Map();
-
-    categoryMap.forEach((category, categoryId) => {
-      map.set(categoryId, category.name);
-    });
-
-    return map;
-  }, [categoryMap]);
-
-  function taskSearchText(task) {
-    const categoryNames = (task.categories || [])
-      .map((categoryId) => categoryNameMap.get(idOf(categoryId)))
-      .filter(Boolean)
-      .join(" ");
-
-    return [
-      task.description,
-      task.project?.name,
-      fullName(task.creator, ""),
-      task.creator?.email,
-      fullName(task.assignee, ""),
-      task.assignee?.email,
-      task.assigneeEmail,
-      task.observers?.map((observer) => `${fullName(observer, "")} ${observer.email}`).join(" "),
-      statusLabels[task.status]?.[0],
-      priorityLabels[task.priority]?.[0],
-      categoryNames
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-  }
-
   function applyTaskFilters(tasks) {
-    const query = searchText.trim().toLowerCase();
 
     return tasks.filter((task) => {
       const matchesClosed = !hideClosed || task.status !== "closed";
@@ -582,7 +559,6 @@ export function Dashboard({ currentUser }) {
       const taskCategories = new Set((task.categories || []).map((categoryId) => idOf(categoryId)));
       const matchesCategories =
         !categoryFilter.length || categoryFilter.every((categoryId) => taskCategories.has(categoryId));
-      const matchesSearch = !query || taskSearchText(task).includes(query);
       const today = dayjs().startOf("day");
       const matchesQuick =
         quickFilter === "active"
@@ -597,7 +573,7 @@ export function Dashboard({ currentUser }) {
                   ? !task.assignee && !task.assigneeEmail && task.status !== "closed"
                   : true;
 
-      return matchesClosed && matchesProject && matchesCategories && matchesSearch && matchesQuick;
+      return matchesClosed && matchesProject && matchesCategories && matchesQuick;
     });
   }
 
@@ -614,15 +590,12 @@ export function Dashboard({ currentUser }) {
       assigned: applyTaskFilters(data.assigned),
       observing: applyTaskFilters(data.observing)
     }),
-    [allTasks, data.initiated, data.assigned, data.observing, hideClosed, projectFilter, categoryFilter, searchText, categoryNameMap, quickFilter]
+    [allTasks, data.initiated, data.assigned, data.observing, hideClosed, projectFilter, categoryFilter, quickFilter]
   );
 
   const activeView = statItems.find((item) => item.key === activeRoleTab) || statItems[0];
   const activeTasks = visibleTasks[activeRoleTab] || [];
   const isReviewFocusActive = activeRoleTab === "initiated" && quickFilter === "review";
-  const activeOverdueCount = activeTasks.filter(isOverdue).length;
-  const activeDueSoonCount = activeTasks.filter((task) => !isOverdue(task) && isDueSoon(task)).length;
-  const activeUrgentCount = activeTasks.filter(isUrgentActive).length;
   const hasNoProjects = !loading && !error && projects.length === 0;
   const hasNoActiveProjects = !loading && !error && projects.length > 0 && activeProjects.length === 0;
   const needsProjectSetup = hasNoProjects || hasNoActiveProjects;
@@ -638,7 +611,6 @@ export function Dashboard({ currentUser }) {
   const hasActiveFilters =
     Boolean(projectFilter) ||
     Boolean(categoryFilter.length) ||
-    Boolean(searchText.trim()) ||
     !hideClosed ||
     quickFilter !== "active" ||
     activeRoleTab !== "all";
@@ -656,10 +628,25 @@ export function Dashboard({ currentUser }) {
     setCategoryFilter([]);
   }
 
+  async function changeTaskStatus(task, status) {
+    if (statusLock.current || status === task.status) return;
+    statusLock.current = true;
+    setChangingStatus(task._id);
+    try {
+      const result = await apiFetch(`/tasks/${task._id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+      updateDashboardData((current) => upsertDashboardTask(current, result.task, currentUser?._id));
+      message.success(status === "review" ? "Задача отправлена на проверку" : "Статус обновлён");
+    } catch (error) {
+      message.error(error.message || "Не удалось изменить статус");
+    } finally {
+      statusLock.current = false;
+      setChangingStatus(null);
+    }
+  }
+
   function resetFilters() {
     setProjectFilter();
     setCategoryFilter([]);
-    setSearchText("");
     setHideClosed(true);
     setQuickFilter("active");
     setActiveRoleTab("all");
@@ -749,7 +736,6 @@ export function Dashboard({ currentUser }) {
       setQuickProjectId(response.project._id);
       setProjectFilter(undefined);
       setCategoryFilter([]);
-      setSearchText("");
       setHideClosed(true);
       setQuickFilter("active");
       setActiveRoleTab("all");
@@ -854,7 +840,6 @@ export function Dashboard({ currentUser }) {
       setQuickFilter("active");
       setProjectFilter(hasManyProjects ? quickProjectId : undefined);
       setCategoryFilter([]);
-      setSearchText("");
       message.success("Задача создана");
       void loadDashboard();
     } catch (error) {
@@ -1034,24 +1019,7 @@ export function Dashboard({ currentUser }) {
                         : `Задачи: ${activeView.title.toLowerCase()}`}
                   </Typography.Title>
                 </div>
-                <div className="dashboard__pulse" aria-label="Индикаторы задач">
-                  <span>
-                    <strong>{activeTasks.length}</strong>
-                    показано
-                  </span>
-                  <span className={activeOverdueCount ? "dashboard__pulse-item dashboard__pulse-item--danger" : "dashboard__pulse-item"}>
-                    <strong>{activeOverdueCount}</strong>
-                    просрочено
-                  </span>
-                  <span className={activeDueSoonCount ? "dashboard__pulse-item dashboard__pulse-item--warn" : "dashboard__pulse-item"}>
-                    <strong>{activeDueSoonCount}</strong>
-                    скоро
-                  </span>
-                  <span className={activeUrgentCount ? "dashboard__pulse-item dashboard__pulse-item--urgent" : "dashboard__pulse-item"}>
-                    <strong>{activeUrgentCount}</strong>
-                    срочно
-                  </span>
-                </div>
+
               </div>
               <div className="dashboard__workbar">
                 <div className="dashboard__stats" role="tablist" aria-label="Фильтр задач по роли">
@@ -1098,13 +1066,6 @@ export function Dashboard({ currentUser }) {
                   </div>
 
                   <div className={hasManyProjects ? "dashboard__search-line" : "dashboard__search-line dashboard__search-line--compact"}>
-                    <Input.Search
-                      allowClear
-                      className="dashboard__search"
-                      placeholder="Поиск по задачам"
-                      value={searchText}
-                      onChange={(event) => setSearchText(event.target.value)}
-                    />
                     {hasManyProjects && (
                       <Select
                         allowClear
@@ -1202,9 +1163,9 @@ export function Dashboard({ currentUser }) {
                 </Button>
               </div>
               {isMobileTaskList ? (
-                <TaskMobileList tasks={activeTasks} categoryMap={categoryMap} currentRoute={currentRoute} />
+                <TaskMobileList tasks={activeTasks} categoryMap={categoryMap} currentRoute={currentRoute} currentUser={currentUser} changingStatus={changingStatus} onStatusChange={changeTaskStatus} />
               ) : (
-                <TaskTable tasks={activeTasks} categoryMap={categoryMap} currentRoute={currentRoute} />
+                <TaskTable tasks={activeTasks} categoryMap={categoryMap} currentRoute={currentRoute} currentUser={currentUser} changingStatus={changingStatus} onStatusChange={changeTaskStatus} />
               )}
             </Card>
           </div>

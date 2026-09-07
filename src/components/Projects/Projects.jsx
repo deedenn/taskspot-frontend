@@ -127,6 +127,9 @@ export function Projects({ user }) {
   const [editProjectForm] = Form.useForm();
   const [memberForm] = Form.useForm();
   const [categoryForm] = Form.useForm();
+  const [categoryToDelete, setCategoryToDelete] = useState(null);
+  const [deletingCategory, setDeletingCategory] = useState(false);
+  const [categoryDeleteError, setCategoryDeleteError] = useState("");
 
   const activeProject = useMemo(
     () => projects.find((project) => project._id === projectId),
@@ -452,34 +455,26 @@ export function Projects({ user }) {
     }
   }
 
-  async function removeCategory(categoryId) {
+  async function removeCategory() {
+    if (!categoryToDelete || deletingCategory) return;
+    setDeletingCategory(true);
+    setCategoryDeleteError("");
     try {
-      const data = await apiFetch(`/projects/${activeProject._id}/categories/${encodeURIComponent(categoryId)}`, {
-        method: "DELETE"
-      });
-      updateProject(data.project || { ...activeProject, categories: data.categories });
-      message.success("Категория удалена");
+      const data = await apiFetch(`/projects/${categoryToDelete.projectId}/categories/${encodeURIComponent(categoryToDelete.id)}`, { method: "DELETE" });
+      updateProject(data.project);
+      setCategoryToDelete(null);
     } catch (error) {
-      message.error(error.message);
+      setCategoryDeleteError(error.message);
+    } finally {
+      setDeletingCategory(false);
     }
   }
 
   function confirmRemoveCategory(category) {
-    const removableCategoryId = category?._id || category?.id;
-
-    if (!removableCategoryId) {
-      message.error("Не удалось определить категорию для удаления");
-      return;
-    }
-
-    Modal.confirm({
-      title: "Удалить категорию?",
-      content: `Категория «${category.name}» будет удалена из проекта и убрана из задач.`,
-      okText: "Удалить",
-      cancelText: "Отмена",
-      okButtonProps: { danger: true },
-      onOk: () => removeCategory(String(removableCategoryId))
-    });
+    const id = category?._id || category?.id;
+    if (!id) return;
+    setCategoryDeleteError("");
+    setCategoryToDelete({ id: String(id), name: category.name, projectId: activeProject._id });
   }
 
   function updateProject(project) {
@@ -1091,6 +1086,14 @@ export function Projects({ user }) {
 
       {projectId ? renderProjectSettings() : renderProjectsList()}
 
+      <Modal title="Удалить категорию?" open={Boolean(categoryToDelete)}
+        onCancel={() => { if (!deletingCategory) setCategoryToDelete(null); }}
+        onOk={removeCategory} confirmLoading={deletingCategory} okText="Удалить" cancelText="Отмена"
+        okButtonProps={{ danger: true }} cancelButtonProps={{ disabled: deletingCategory }}
+        closable={!deletingCategory} maskClosable={!deletingCategory}>
+        <p>Категория «{categoryToDelete?.name}» будет убрана из проекта и его задач. Сами задачи сохранятся.</p>
+        {categoryDeleteError && <Alert type="error" showIcon message={categoryDeleteError} />}
+      </Modal>
       <Modal
         title="Новый проект"
         open={projectModalOpen}

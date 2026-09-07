@@ -175,3 +175,15 @@
     display: none;
   }
 }
+
+.app-layout > .ant-layout { min-width: 0; }
+.app-layout__header { gap: 16px; }
+.app-layout__global-search { flex: 1 1 320px; max-width: 600px; min-width: 120px; }
+.app-layout__user { flex: none; }
+@media (max-width: 1199px) {
+  .app-layout__user > div:not(.ant-dropdown-trigger) { display: none; }
+}
+@media (max-width: 767px) {
+  .app-layout__header { height: auto; min-height: 104px; flex-wrap: wrap; padding-block: 10px; gap: 8px; line-height: normal; }
+  .app-layout__global-search { order: 3; flex-basis: 100%; max-width: none; }
+}

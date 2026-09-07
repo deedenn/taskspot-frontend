@@ -4,6 +4,8 @@ import { App as AntApp, Spin } from "antd";
 import { apiFetch, getToken, setToken } from "./api.js";
 import { AppLayout } from "./components/AppLayout/AppLayout.jsx";
 
+const AssigneeControl = lazy(() => import("./components/ControlPage/AssigneeControl.jsx").then((module) => ({ default: module.AssigneeControl })));
+const TaskSearchPage = lazy(() => import("./components/ControlPage/TaskSearchPage.jsx").then((module) => ({ default: module.TaskSearchPage })));
 const PublicPage = lazy(() => import("./components/PublicPages/PublicPage.jsx"));
 const LandingPage = lazy(() => import("./components/LandingPage/LandingPage.jsx").then((module) => ({ default: module.LandingPage })));
 const AuthPage = lazy(() => import("./components/AuthPage/AuthPage.jsx").then((module) => ({ default: module.AuthPage })));
@@ -147,6 +149,8 @@ export function App() {
             <Route path="control" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><ControlPage /></Suspense></RequireRegularUser>} />
             <Route path="calendar" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><CalendarPage /></Suspense></RequireRegularUser>} />
             <Route path="overdue" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><OverdueTasks /></Suspense></RequireRegularUser>} />
+            <Route path="search" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><TaskSearchPage /></Suspense></RequireRegularUser>} />
+            <Route path="control/assignees" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><AssigneeControl /></Suspense></RequireRegularUser>} />
             <Route path="templates" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><TemplatesPage currentUser={user} /></Suspense></RequireRegularUser>} />
             <Route path="billing" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><BillingPage /></Suspense></RequireRegularUser>} />
             <Route path="admin" element={<RequireSuperAdmin user={user}><Suspense fallback={<RouteLoader />}><AdminDashboard currentUser={user} auth={auth} /></Suspense></RequireSuperAdmin>} />
