@@ -15,10 +15,10 @@ beforeEach(() => {
   window.matchMedia = (query) => ({ matches: query.includes("min-width"), media: query, onchange: null,
     addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent() { return true; } });
 });
-function mockTask(task = baseTask, fail = false) {
+function mockTask(task = baseTask, fail = false, projects = [project]) {
   apiFetch.mockImplementation(async (path, options) => {
     if (path === "/dashboard") return { all: [task], assigned: [task], initiated: [], observing: [] };
-    if (path === "/projects") return { projects: [project] };
+    if (path === "/projects") return { projects };
     if (options?.method === "PATCH") {
       if (fail) throw new Error("Не удалось сохранить статус");
       return { task: { ...task, ...JSON.parse(options.body) } };
@@ -79,6 +79,58 @@ test("failed inline update retains the old status and allows retry", async () =>
   await waitFor(() => expect(apiFetch.mock.calls.some(([, options]) => options?.method === "PATCH")).toBe(true));
   await waitFor(() => expect(select.closest(".ant-select")).not.toHaveClass("ant-select-disabled"));
   expect(within(screen.getByRole("table")).getByText("Открыта")).toBeInTheDocument();
+});
+test("dashboard keeps advanced filters collapsed in the compact workbar", async () => {
+  mockTask();
+  render(<MemoryRouter><Dashboard currentUser={user} /></MemoryRouter>);
+  await screen.findByText("Проверить документ");
+  const filtersButton = screen.getByRole("button", { name: /Фильтры/ });
+  expect(filtersButton).toHaveAttribute("aria-expanded", "false");
+  expect(screen.queryByLabelText("Дополнительные фильтры задач")).not.toBeInTheDocument();
+
+  fireEvent.click(filtersButton);
+  expect(filtersButton).toHaveAttribute("aria-expanded", "true");
+  expect(screen.getByLabelText("Дополнительные фильтры задач")).toBeInTheDocument();
+  expect(within(screen.getByLabelText("Дополнительные фильтры задач")).getByText("Закрытые задачи")).toBeInTheDocument();
+
+  fireEvent.click(within(screen.getByLabelText("Дополнительные фильтры задач")).getByRole("switch"));
+  expect(screen.getByRole("button", { name: /Фильтры · 1/ })).toBeInTheDocument();
+  expect(screen.getByTitle("Все состояния")).toBeInTheDocument();
+});
+test("dashboard uses compact role and quick filter selects", async () => {
+  mockTask({ ...baseTask, status: "review", creator: user });
+  render(<MemoryRouter><Dashboard currentUser={user} /></MemoryRouter>);
+  await screen.findByText("Проверить документ");
+
+  expect(screen.queryByRole("tablist", { name: "Фильтр задач по роли" })).not.toBeInTheDocument();
+  expect(screen.getByRole("combobox", { name: "Роль в списке задач" })).toBeInTheDocument();
+  const quickSelect = screen.getByRole("combobox", { name: "Быстрый фильтр задач" });
+
+  fireEvent.mouseDown(quickSelect);
+  fireEvent.click(await screen.findByText("На проверке · 1"));
+  await screen.findByRole("heading", { name: "Задачи на проверке" });
+});
+test("mobile filters open in a drawer and expose hidden project with accessible controls", async () => {
+  window.matchMedia = (query) => ({ matches: false, media: query, onchange: null,
+    addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent() { return true; } });
+  const secondProject = { ...project, _id: "p2", name: "Маркетинг" };
+  mockTask(baseTask, false, [project, secondProject]);
+  render(<MemoryRouter><Dashboard currentUser={user} /></MemoryRouter>);
+  await screen.findByText("Проверить документ");
+
+  const filtersButton = screen.getByRole("button", { name: /Фильтры$/ });
+  fireEvent.click(filtersButton);
+  const drawerFilters = await screen.findByLabelText("Дополнительные фильтры задач");
+  expect(filtersButton).toHaveAttribute("aria-controls", "dashboard-detailed-filters-drawer");
+  expect(within(drawerFilters).getByRole("combobox", { name: "Проект задач в фильтрах" })).toBeInTheDocument();
+  expect(within(drawerFilters).getByRole("combobox", { name: "Категории задач" })).toBeInTheDocument();
+  expect(within(drawerFilters).getByRole("switch", { name: "Показывать закрытые задачи" })).toBeInTheDocument();
+
+  const projectSelect = within(drawerFilters).getByRole("combobox", { name: "Проект задач в фильтрах" });
+  fireEvent.mouseDown(projectSelect);
+  fireEvent.click(await screen.findByText("Маркетинг"));
+  expect(screen.getByRole("button", { name: /Фильтры · 1/ })).toBeInTheDocument();
+  expect(screen.getByText("Проект: Маркетинг")).toBeInTheDocument();
 });
 test("mobile task row keeps the status control outside its navigation link", async () => {
   window.matchMedia = (query) => ({ matches: false, media: query, onchange: null,
