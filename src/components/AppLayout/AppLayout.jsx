@@ -12,6 +12,7 @@ import {
   MenuOutlined,
   MenuUnfoldOutlined,
   PieChartOutlined,
+  RiseOutlined,
   SnippetsOutlined,
   UserOutlined
 } from "@ant-design/icons";
@@ -31,6 +32,7 @@ function selectedMenuKey(pathname) {
   if (pathname.startsWith("/app/tasks")) return "/app/dashboard";
   if (pathname.startsWith("/app/control/assignees")) return "/app/control/assignees";
   if (pathname.startsWith("/app/control")) return "/app/control";
+  if (pathname.startsWith("/app/efficiency")) return "/app/efficiency";
   if (pathname.startsWith("/app/calendar")) return "/app/calendar";
   if (pathname.startsWith("/app/overdue")) return "/app/overdue";
   if (pathname.startsWith("/app/templates")) return "/app/templates";
@@ -109,6 +111,11 @@ export function AppLayout({ auth }) {
             { key: "/app/control", label: <Link to="/app/control">Обзор</Link> },
             { key: "/app/control/assignees", label: <Link to="/app/control/assignees">По ответственным</Link> }
           ]
+        },
+        {
+          key: "/app/efficiency",
+          icon: <RiseOutlined />,
+          label: <Link to="/app/efficiency">Эффективность</Link>
         },
         {
           key: "/app/calendar",
