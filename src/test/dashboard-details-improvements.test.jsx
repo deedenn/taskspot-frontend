@@ -38,12 +38,12 @@ test("dashboard shows seven fixed-layout columns, avatar/name and inline complet
   expect(table.querySelector('img[src="/avatar.png"]')).not.toBeNull();
   expect(screen.queryByLabelText("Индикаторы задач")).not.toBeInTheDocument();
   expect(screen.queryByPlaceholderText("Поиск по задачам")).not.toBeInTheDocument();
-  const select = screen.getByRole("combobox", { name: "Статус задачи Проверить документ" });
-  fireEvent.mouseDown(select);
-  fireEvent.click(await screen.findByText("Выполнено"));
+  const statusButton = screen.getByRole("button", { name: /Статус задачи Проверить документ: Открыта/ });
+  fireEvent.click(statusButton);
+  fireEvent.click(await screen.findByText("Выполнено — на проверку"));
   await waitFor(() => expect(apiFetch).toHaveBeenCalledWith("/tasks/t", { method: "PATCH", body: JSON.stringify({ status: "review" }) }));
-  await waitFor(() => expect(screen.queryByRole("combobox", { name: "Статус задачи Проверить документ" })).not.toBeInTheDocument());
-  expect(within(table).getByText("Проверка")).toBeInTheDocument();
+  await waitFor(() => expect(screen.queryByRole("button", { name: /Статус задачи Проверить документ/ })).not.toBeInTheDocument());
+  expect(within(table).getByText("На проверке")).toBeInTheDocument();
 });
 test.each([
   ["another assignee", { assignee: { _id: "other", name: "Другой" } }],
@@ -53,7 +53,7 @@ test.each([
   mockTask({ ...baseTask, ...change });
   render(<MemoryRouter><Dashboard currentUser={user} /></MemoryRouter>);
   await screen.findByText("Проверить документ");
-  expect(screen.queryByRole("combobox", { name: "Статус задачи Проверить документ" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Статус задачи Проверить документ/ })).not.toBeInTheDocument();
 });
 test("task completion is in the heading, sends review and history follows comments", async () => {
   mockTask();
@@ -73,11 +73,11 @@ test("task completion is in the heading, sends review and history follows commen
 test("failed inline update retains the old status and allows retry", async () => {
   mockTask(baseTask, true);
   render(<MemoryRouter><Dashboard currentUser={user} /></MemoryRouter>);
-  const select = await screen.findByRole("combobox", { name: "Статус задачи Проверить документ" });
-  fireEvent.mouseDown(select);
-  fireEvent.click(await screen.findByText("Выполнено"));
+  const statusButton = await screen.findByRole("button", { name: /Статус задачи Проверить документ: Открыта/ });
+  fireEvent.click(statusButton);
+  fireEvent.click(await screen.findByText("Выполнено — на проверку"));
   await waitFor(() => expect(apiFetch.mock.calls.some(([, options]) => options?.method === "PATCH")).toBe(true));
-  await waitFor(() => expect(select.closest(".ant-select")).not.toHaveClass("ant-select-disabled"));
+  await waitFor(() => expect(statusButton).not.toBeDisabled());
   expect(within(screen.getByRole("table")).getByText("Открыта")).toBeInTheDocument();
 });
 test("dashboard keeps advanced filters collapsed in the compact workbar", async () => {
@@ -132,15 +132,65 @@ test("mobile filters open in a drawer and expose hidden project with accessible 
   expect(screen.getByRole("button", { name: /Фильтры · 1/ })).toBeInTheDocument();
   expect(screen.getByText("Проект: Маркетинг")).toBeInTheDocument();
 });
+test("task creator can accept a task on review from the dashboard", async () => {
+  const reviewTask = {
+    ...baseTask,
+    status: "review",
+    creator: user,
+    assignee: { _id: "assignee", name: "Пётр" }
+  };
+  mockTask(reviewTask);
+  render(<MemoryRouter><Dashboard currentUser={user} /></MemoryRouter>);
+  await screen.findByText("Проверить документ");
+
+  fireEvent.click(screen.getByRole("button", { name: /Статус задачи Проверить документ: На проверке/ }));
+  fireEvent.click(await screen.findByText("Принять и закрыть"));
+
+  await waitFor(() => expect(apiFetch).toHaveBeenCalledWith("/tasks/t", {
+    method: "PATCH",
+    body: JSON.stringify({ status: "closed" })
+  }));
+  await waitFor(() => expect(screen.queryByText("Проверить документ")).not.toBeInTheDocument());
+});
+test("returning a task to work requires a reviewer comment", async () => {
+  const reviewTask = {
+    ...baseTask,
+    status: "review",
+    creator: user,
+    assignee: { _id: "assignee", name: "Пётр" }
+  };
+  mockTask(reviewTask);
+  render(<MemoryRouter><Dashboard currentUser={user} /></MemoryRouter>);
+  await screen.findByText("Проверить документ");
+
+  fireEvent.click(screen.getByRole("button", { name: /Статус задачи Проверить документ: На проверке/ }));
+  fireEvent.click(await screen.findByText("Вернуть на доработку"));
+  const dialog = await screen.findByRole("dialog", { name: "Вернуть задачу на доработку" });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Вернуть на доработку" }));
+  expect(await within(dialog).findByText("Укажите, что нужно доработать")).toBeInTheDocument();
+  expect(apiFetch.mock.calls.filter(([, options]) => options?.method === "PATCH")).toHaveLength(0);
+
+  fireEvent.change(within(dialog).getByRole("textbox", { name: "Комментарий для ответственного" }), {
+    target: { value: "Добавьте итоговый файл" }
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Вернуть на доработку" }));
+
+  await waitFor(() => expect(apiFetch).toHaveBeenCalledWith("/tasks/t", {
+    method: "PATCH",
+    body: JSON.stringify({ status: "in_progress", comment: "Добавьте итоговый файл" })
+  }));
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "Вернуть задачу на доработку" })).not.toBeInTheDocument());
+  expect(screen.getByText("В работе")).toBeInTheDocument();
+});
 test("mobile task row keeps the status control outside its navigation link", async () => {
   window.matchMedia = (query) => ({ matches: false, media: query, onchange: null,
     addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent() { return true; } });
   mockTask();
   render(<MemoryRouter><Dashboard currentUser={user} /></MemoryRouter>);
-  const select = await screen.findByRole("combobox", { name: "Статус задачи Проверить документ" });
-  expect(select.closest("a")).toBeNull();
+  const statusButton = await screen.findByRole("button", { name: /Статус задачи Проверить документ: Открыта/ });
+  expect(statusButton.closest("a")).toBeNull();
   expect(screen.getByRole("link", { name: "Проверить документ" })).toHaveAttribute("href", "/app/tasks/t");
-  fireEvent.mouseDown(select);
-  fireEvent.click(await screen.findByText("Выполнено"));
-  await waitFor(() => expect(screen.queryByRole("combobox", { name: "Статус задачи Проверить документ" })).not.toBeInTheDocument());
+  fireEvent.click(statusButton);
+  fireEvent.click(await screen.findByText("Выполнено — на проверку"));
+  await waitFor(() => expect(screen.queryByRole("button", { name: /Статус задачи Проверить документ/ })).not.toBeInTheDocument());
 });

@@ -436,8 +436,83 @@
 .dashboard__task-table td { overflow-wrap: anywhere; }
 .dashboard__task-table .ant-tag { max-width: 100%; white-space: normal; margin-inline-end: 0; }
 .dashboard__task-table .ant-table-column-title { min-width: 0; }
-.dashboard__status-select { width: 100%; min-width: 0; }
-.dashboard__mobile-task-tags .dashboard__status-select { width: 150px; }
+.dashboard__status-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  max-width: 100%;
+  padding: 4px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.dashboard__status-control--open {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: var(--brand-blue-700);
+}
+
+.dashboard__status-control--in_progress {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.dashboard__status-control--review,
+.dashboard__status-control--done {
+  border-color: #ddd6fe;
+  background: var(--brand-violet-100);
+  color: #5b21b6;
+}
+
+.dashboard__status-control--closed {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.dashboard__status-control--interactive {
+  cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+}
+
+.dashboard__status-control--interactive:hover:not(:disabled) {
+  filter: brightness(0.97);
+  box-shadow: 0 2px 7px rgba(15, 23, 42, 0.08);
+}
+
+.dashboard__status-control--interactive:focus-visible {
+  outline: 2px solid var(--brand-blue-600);
+  outline-offset: 2px;
+}
+
+.dashboard__status-control--interactive:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.dashboard__status-control-icon,
+.dashboard__status-control-caret {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.dashboard__status-control-caret {
+  font-size: 9px;
+  opacity: 0.7;
+}
+
+.dashboard__status-menu .ant-dropdown-menu-item {
+  min-height: 40px;
+  font-weight: 500;
+}
 @media (min-width: 768px) and (max-width: 1199px) {
   .dashboard__task-table .ant-table { font-size: 12px; }
   .dashboard__task-table .ant-table-cell { padding: 8px 5px !important; }

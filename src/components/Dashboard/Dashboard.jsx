@@ -1,13 +1,22 @@
 import {
   ArrowRightOutlined,
+  CheckCircleOutlined,
+  CheckOutlined,
   ClearOutlined,
+  ClockCircleOutlined,
   DeleteOutlined,
   DownOutlined,
+  EyeOutlined,
   FilterOutlined,
   FolderAddOutlined,
+  LoadingOutlined,
   PaperClipOutlined,
+  PlayCircleOutlined,
   PlusOutlined,
   ProjectOutlined,
+  RollbackOutlined,
+  SafetyCertificateOutlined,
+  SyncOutlined,
   TeamOutlined,
   UpOutlined
 } from "@ant-design/icons";
@@ -16,6 +25,7 @@ import {
   Button,
   Card,
   DatePicker,
+  Dropdown,
   Drawer,
   Empty,
   Form,
@@ -46,8 +56,8 @@ const EMPTY_DASHBOARD_DATA = { all: [], initiated: [], assigned: [], observing: 
 const statusLabels = {
   open: ["Открыта", "blue"],
   in_progress: ["В работе", "gold"],
-  review: ["Проверка", "purple"],
-  done: ["Проверка", "purple"],
+  review: ["На проверке", "purple"],
+  done: ["На проверке", "purple"],
   closed: ["Закрыта", "default"]
 };
 
@@ -180,16 +190,74 @@ function TaskCategories({ task, categoryMap }) {
 }
 
 function TaskStatusControl({ task, currentUser, changingStatus, onStatusChange }) {
-  const editable = idOf(task.assignee) === idOf(currentUser) && Boolean(currentUser)
-    && !isProjectArchived(task.project) && ["open", "in_progress"].includes(task.status);
-  if (!editable) return <Tag color={statusLabels[task.status]?.[1]}>{statusLabels[task.status]?.[0] || task.status}</Tag>;
-  const options = [{ value: task.status, label: statusLabels[task.status][0] }];
-  if (task.status === "open") options.push({ value: "in_progress", label: "В работе" });
-  options.push({ value: "review", label: "Выполнено" });
-  return <Select className="dashboard__status-select" size="small"
-    aria-label={`Статус задачи ${task.description}`} value={task.status} options={options}
-    loading={changingStatus === task._id} disabled={Boolean(changingStatus)}
-    onChange={(status) => onStatusChange(task, status)} />;
+  const isAssignee = idOf(task.assignee) === idOf(currentUser) && Boolean(currentUser);
+  const isReviewer = idOf(task.creator) === idOf(currentUser) && Boolean(currentUser);
+  const isArchived = isProjectArchived(task.project);
+  const isChanging = changingStatus === task._id;
+  const [label] = statusLabels[task.status] || [task.status];
+  const statusIcons = {
+    open: <ClockCircleOutlined />,
+    in_progress: <SyncOutlined />,
+    review: <EyeOutlined />,
+    done: <EyeOutlined />,
+    closed: <CheckCircleOutlined />
+  };
+  const actions = [];
+
+  if (!isArchived && isAssignee && ["open", "in_progress"].includes(task.status)) {
+    if (task.status === "open") {
+      actions.push({ key: "in_progress", icon: <PlayCircleOutlined />, label: "Взять в работу" });
+    }
+    actions.push({ key: "review", icon: <CheckOutlined />, label: "Выполнено — на проверку" });
+  }
+
+  if (!isArchived && isReviewer && ["review", "done"].includes(task.status)) {
+    actions.push({ key: "closed", icon: <SafetyCertificateOutlined />, label: "Принять и закрыть" });
+    actions.push({ key: "return", icon: <RollbackOutlined />, label: "Вернуть на доработку" });
+  }
+
+  const content = (
+    <>
+      <span className="dashboard__status-control-icon" aria-hidden="true">
+        {isChanging ? <LoadingOutlined spin /> : statusIcons[task.status]}
+      </span>
+      <span>{label}</span>
+      {actions.length > 0 && <DownOutlined className="dashboard__status-control-caret" aria-hidden="true" />}
+    </>
+  );
+
+  if (!actions.length) {
+    return (
+      <span className={`dashboard__status-control dashboard__status-control--${task.status}`}>
+        {content}
+      </span>
+    );
+  }
+
+  return (
+    <Dropdown
+      trigger={["click"]}
+      overlayClassName="dashboard__status-menu"
+      menu={{
+        items: actions,
+        onClick: ({ key, domEvent }) => {
+          domEvent.stopPropagation();
+          onStatusChange(task, key);
+        }
+      }}
+    >
+      <button
+        type="button"
+        className={`dashboard__status-control dashboard__status-control--${task.status} dashboard__status-control--interactive`}
+        aria-label={`Статус задачи ${task.description}: ${label}. Изменить`}
+        aria-haspopup="menu"
+        disabled={Boolean(changingStatus)}
+        onClick={(event) => event.stopPropagation()}
+      >
+        {content}
+      </button>
+    </Dropdown>
+  );
 }
 
 function Assignee({ user }) {
@@ -385,6 +453,7 @@ export function Dashboard({ currentUser }) {
   const [projectFilter, setProjectFilter] = useState();
   const [categoryFilter, setCategoryFilter] = useState([]);
   const [changingStatus, setChangingStatus] = useState(null);
+  const [returnTask, setReturnTask] = useState(null);
   const statusLock = useRef(false);
   const [quickFilter, setQuickFilter] = useState("active");
   const [activeRoleTab, setActiveRoleTab] = useState("all");
@@ -396,6 +465,7 @@ export function Dashboard({ currentUser }) {
   const [creatingFirstProject, setCreatingFirstProject] = useState(false);
   const [form] = Form.useForm();
   const [firstProjectForm] = Form.useForm();
+  const [returnForm] = Form.useForm();
   const screens = Grid.useBreakpoint();
   const isMobileTaskList = !screens.md;
   const currentRoute = `${location.pathname}${location.search}`;
@@ -620,19 +690,52 @@ export function Dashboard({ currentUser }) {
     setCategoryFilter([]);
   }
 
-  async function changeTaskStatus(task, status) {
-    if (statusLock.current || status === task.status) return;
+  async function changeTaskStatus(task, status, extra = {}) {
+    if (statusLock.current || status === task.status) return false;
     statusLock.current = true;
     setChangingStatus(task._id);
     try {
-      const result = await apiFetch(`/tasks/${task._id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+      const result = await apiFetch(`/tasks/${task._id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status, ...extra })
+      });
       updateDashboardData((current) => upsertDashboardTask(current, result.task, currentUser?._id));
-      message.success(status === "review" ? "Задача отправлена на проверку" : "Статус обновлён");
+      message.success(
+        status === "review"
+          ? "Задача отправлена на проверку"
+          : status === "closed"
+            ? "Задача принята и закрыта"
+            : extra.comment
+              ? "Задача возвращена на доработку"
+              : "Статус обновлён"
+      );
+      return true;
     } catch (error) {
       message.error(error.message || "Не удалось изменить статус");
+      return false;
     } finally {
       statusLock.current = false;
       setChangingStatus(null);
+    }
+  }
+
+  function handleTaskStatusAction(task, action) {
+    if (action === "return") {
+      returnForm.resetFields();
+      setReturnTask(task);
+      return;
+    }
+
+    changeTaskStatus(task, action);
+  }
+
+  async function returnTaskToWork(values) {
+    if (!returnTask) return;
+    const updated = await changeTaskStatus(returnTask, "in_progress", { comment: values.comment.trim() });
+
+    if (updated) {
+      setReturnTask(null);
+      returnForm.resetFields();
     }
   }
 
@@ -1186,9 +1289,9 @@ export function Dashboard({ currentUser }) {
                 </Button>
               </div>
               {isMobileTaskList ? (
-                <TaskMobileList tasks={activeTasks} categoryMap={categoryMap} currentRoute={currentRoute} currentUser={currentUser} changingStatus={changingStatus} onStatusChange={changeTaskStatus} />
+                <TaskMobileList tasks={activeTasks} categoryMap={categoryMap} currentRoute={currentRoute} currentUser={currentUser} changingStatus={changingStatus} onStatusChange={handleTaskStatusAction} />
               ) : (
-                <TaskTable tasks={activeTasks} categoryMap={categoryMap} currentRoute={currentRoute} currentUser={currentUser} changingStatus={changingStatus} onStatusChange={changeTaskStatus} />
+                <TaskTable tasks={activeTasks} categoryMap={categoryMap} currentRoute={currentRoute} currentUser={currentUser} changingStatus={changingStatus} onStatusChange={handleTaskStatusAction} />
               )}
             </Card>
           </div>
@@ -1251,6 +1354,47 @@ export function Dashboard({ currentUser }) {
           </div>
         </div>
       </Drawer>
+
+      <Modal
+        title="Вернуть задачу на доработку"
+        open={Boolean(returnTask)}
+        okText="Вернуть на доработку"
+        cancelText="Отмена"
+        confirmLoading={Boolean(returnTask && changingStatus === returnTask._id)}
+        okButtonProps={{ disabled: Boolean(changingStatus) }}
+        cancelButtonProps={{ disabled: Boolean(changingStatus) }}
+        onOk={() => returnForm.submit()}
+        onCancel={() => {
+          setReturnTask(null);
+          returnForm.resetFields();
+        }}
+      >
+        <Typography.Paragraph type="secondary">
+          Укажите, что именно нужно исправить. Комментарий увидит ответственный.
+        </Typography.Paragraph>
+        <Form form={returnForm} layout="vertical" onFinish={returnTaskToWork}>
+          <Form.Item
+            name="comment"
+            label="Комментарий для ответственного"
+            rules={[
+              { required: true, message: "Укажите, что нужно доработать" },
+              {
+                validator: (_, value) => value?.trim()
+                  ? Promise.resolve()
+                  : Promise.reject(new Error("Комментарий не может состоять из пробелов"))
+              }
+            ]}
+          >
+            <Input.TextArea
+              autoFocus
+              rows={4}
+              maxLength={1000}
+              showCount
+              placeholder="Например: добавьте итоговый файл и исправьте пункт 3"
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
 
       <Drawer
         title="Новая задача"

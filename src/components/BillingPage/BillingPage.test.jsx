@@ -36,7 +36,7 @@ beforeEach(() => {
     addEventListener() {},
     removeEventListener() {}
   }));
-  global.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
+  globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
 });
 
 afterEach(() => {

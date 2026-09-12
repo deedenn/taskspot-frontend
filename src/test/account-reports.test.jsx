@@ -11,7 +11,7 @@ beforeEach(() => {
   window.matchMedia = vi.fn().mockImplementation((query) => ({ matches: false, media: query, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} }));
   const computed = window.getComputedStyle;
   vi.spyOn(window, "getComputedStyle").mockImplementation((element) => computed(element));
-  global.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
+  globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.resetAllMocks(); });
 it("forgot password sends email and displays a non-enumerating response", async () => {
