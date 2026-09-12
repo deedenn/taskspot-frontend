@@ -3,15 +3,15 @@ import dayjs from "dayjs";
 import { Link, useLocation } from "react-router-dom";
 import "./WorkspaceTasks.css";
 
-const statuses = { open: ["Открыта", "blue"], in_progress: ["В работе", "gold"], review: ["Проверка", "purple"], done: ["Проверка", "purple"], closed: ["Закрыта", "default"] };
-export function PersonAvatar({ user, name }) {
+const statuses = { open: ["Открыта", "blue"], in_progress: ["В работе", "gold"], review: ["На проверке", "purple"], done: ["На проверке", "purple"], closed: ["Закрыта", "default"] };
+export function PersonAvatar({ user, name, size = 32 }) {
   const label = name || [user?.name, user?.lastName].filter(Boolean).join(" ");
-  return <Avatar src={user?.avatarUrl} alt={label} size={32}>{label?.split(" ").map((part) => part[0]).slice(0, 2).join("") || "?"}</Avatar>;
+  return <Avatar src={user?.avatarUrl} alt={label} size={size}>{label?.split(" ").map((part) => part[0]).slice(0, 2).join("") || "?"}</Avatar>;
 }
-export function WorkspaceTasks({ tasks = [], pagination, onPage, loading = false, showAssignee = false }) {
+export function WorkspaceTasks({ tasks = [], pagination, onPage, loading = false, showAssignee = false, compact = false, emptyDescription = "Задач не найдено" }) {
   const location = useLocation();
-  return <div className="workspace-tasks">
-    <List loading={loading} dataSource={tasks} locale={{ emptyText: <Empty description="Задач не найдено" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+  return <div className={compact ? "workspace-tasks workspace-tasks--compact" : "workspace-tasks"}>
+    <List loading={loading} dataSource={tasks} locale={{ emptyText: <Empty description={emptyDescription} image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
       renderItem={(task) => <List.Item className="workspace-tasks__row">
         <div className="workspace-tasks__title">
           <Link to={"/app/tasks/" + task._id} state={{ returnTo: location.pathname + location.search }}>{task.description}</Link>

@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { ConfigProvider, DatePicker, Calendar } from "antd";
 import ruRU from "antd/locale/ru_RU";
 import dayjs from "dayjs";
@@ -12,6 +12,11 @@ import { apiFetch } from "../api.js";
 vi.mock("../api.js", () => ({ apiFetch: vi.fn() }));
 afterEach(cleanup);
 beforeEach(() => vi.clearAllMocks());
+
+function LocationState() {
+  const location = useLocation();
+  return <output data-testid="location">{location.search}</output>;
+}
 
 test("Russian date picker and calendar start their week on Monday", async () => {
   expect(dayjs().startOf("week").day()).toBe(1);
@@ -47,7 +52,44 @@ test("assignee control shows avatar, tasks and state counts without email", asyn
   render(<MemoryRouter><AssigneeControl /></MemoryRouter>);
   expect(await screen.findByText("Иван Иванов")).toBeInTheDocument();
   expect(screen.getByAltText("Иван Иванов")).toHaveAttribute("src", "/avatar.png");
-  expect(screen.getByText("Открыто: 1")).toBeInTheDocument();
+  expect(screen.getByText("Участник · всего 1 · активно 1")).toBeInTheDocument();
+  expect(screen.getByText("Открыто")).toBeInTheDocument();
+  expect(screen.queryByText("Подготовить договор")).not.toBeInTheDocument();
+  const toggle = screen.getByRole("button", { name: "Раскрыть задачи: Иван Иванов" });
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute("aria-expanded", "true");
   expect(screen.getByText("Подготовить договор")).toHaveAttribute("href", "/app/tasks/t");
   expect(screen.getByText("10.09.2026")).toBeInTheDocument();
+});
+
+test("assignee control expands exact assignee and can reset url filters", async () => {
+  apiFetch.mockResolvedValue({ projects: [{ _id: "p", name: "Продажи" }], people: [{ value: "u", label: "Иван Иванов" }],
+    pagination: { page: 1, limit: 10, total: 1 },
+    groups: [{ key: "u", name: "Иван Иванов", user: { name: "Иван", lastName: "Иванов" },
+      total: 2, open: 1, inProgress: 1, review: 0, closed: 0,
+      tasks: [{ _id: "t", description: "Сверить акт", status: "in_progress", dueDate: null, project: { name: "Продажи" } }] }]
+  });
+  render(<MemoryRouter initialEntries={["/app/control/assignees?projectId=p&assignee=u&page=3"]}>
+    <AssigneeControl />
+    <LocationState />
+  </MemoryRouter>);
+  expect(await screen.findByRole("button", { name: "Свернуть задачи: Иван Иванов" })).toHaveAttribute("aria-expanded", "true");
+  expect(screen.getByText("Сверить акт")).toBeInTheDocument();
+  expect(apiFetch.mock.calls[0][0]).toContain("projectId=p");
+  expect(apiFetch.mock.calls[0][0]).toContain("assignee=u");
+  fireEvent.click(screen.getByRole("button", { name: "Сбросить фильтры" }));
+  await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent(""));
+});
+
+test("assignee control distinguishes empty workspace and filtered no-results", async () => {
+  apiFetch.mockResolvedValue({ projects: [], people: [], pagination: { page: 1, limit: 10, total: 0 }, groups: [] });
+  const empty = render(<MemoryRouter><AssigneeControl /></MemoryRouter>);
+  expect(await screen.findByText("Задач пока нет")).toBeInTheDocument();
+  empty.unmount();
+  vi.clearAllMocks();
+
+  apiFetch.mockResolvedValue({ projects: [{ _id: "p", name: "Продажи" }], people: [], pagination: { page: 1, limit: 10, total: 0 }, groups: [] });
+  render(<MemoryRouter initialEntries={["/app/control/assignees?projectId=p"]}><AssigneeControl /></MemoryRouter>);
+  expect(await screen.findByText("По выбранным фильтрам задач нет")).toBeInTheDocument();
 });
