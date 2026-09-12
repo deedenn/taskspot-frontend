@@ -759,6 +759,10 @@
 }
 
 @media (max-width: 720px) {
+  .dashboard__mobile-task-tags .dashboard__status-control--interactive {
+    min-height: 44px;
+  }
+
   .dashboard__head {
     flex-direction: column;
     align-items: stretch;

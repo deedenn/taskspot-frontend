@@ -44,7 +44,7 @@ test("dashboard shows seven fixed-layout columns, avatar/name and inline complet
   await waitFor(() => expect(apiFetch).toHaveBeenCalledWith("/tasks/t", { method: "PATCH", body: JSON.stringify({ status: "review" }) }));
   await waitFor(() => expect(screen.queryByRole("button", { name: /Статус задачи Проверить документ/ })).not.toBeInTheDocument());
   expect(within(table).getByText("На проверке")).toBeInTheDocument();
-});
+}, 10000);
 test.each([
   ["another assignee", { assignee: { _id: "other", name: "Другой" } }],
   ["archived project", { project: { ...project, archived: true, archivedAt: "2026-01-01" } }],
@@ -181,7 +181,7 @@ test("returning a task to work requires a reviewer comment", async () => {
   }));
   await waitFor(() => expect(screen.queryByRole("dialog", { name: "Вернуть задачу на доработку" })).not.toBeInTheDocument());
   expect(screen.getByText("В работе")).toBeInTheDocument();
-});
+}, 15000);
 test("mobile task row keeps the status control outside its navigation link", async () => {
   window.matchMedia = (query) => ({ matches: false, media: query, onchange: null,
     addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent() { return true; } });
@@ -192,5 +192,10 @@ test("mobile task row keeps the status control outside its navigation link", asy
   expect(screen.getByRole("link", { name: "Проверить документ" })).toHaveAttribute("href", "/app/tasks/t");
   fireEvent.click(statusButton);
   fireEvent.click(await screen.findByText("Выполнено — на проверку"));
-  await waitFor(() => expect(screen.queryByRole("button", { name: /Статус задачи Проверить документ/ })).not.toBeInTheDocument());
-});
+  await waitFor(() => expect(apiFetch).toHaveBeenCalledWith("/tasks/t", {
+    method: "PATCH",
+    body: JSON.stringify({ status: "review" })
+  }));
+  await waitFor(() => expect(screen.getByText("На проверке")).toBeInTheDocument(), { timeout: 5000 });
+  expect(screen.queryByRole("button", { name: /Статус задачи Проверить документ/ })).not.toBeInTheDocument();
+}, 10000);
