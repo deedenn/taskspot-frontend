@@ -110,6 +110,36 @@ test("dashboard uses compact role and quick filter selects", async () => {
   fireEvent.click(await screen.findByText("На проверке · 1"));
   await screen.findByRole("heading", { name: "Задачи на проверке" });
 });
+test("dashboard applies overdue and project filters from the overview link", async () => {
+  const secondProject = { ...project, _id: "p2", name: "Маркетинг" };
+  const overdueTask = { ...baseTask, _id: "overdue", description: "Просроченная задача", dueDate: "2020-01-01" };
+  const futureTask = {
+    ...baseTask,
+    _id: "future",
+    description: "Будущая задача",
+    project: secondProject,
+    dueDate: "2999-01-01"
+  };
+
+  apiFetch.mockImplementation(async (path) => {
+    if (path === "/dashboard") {
+      return { all: [overdueTask, futureTask], assigned: [overdueTask, futureTask], initiated: [], observing: [] };
+    }
+    if (path === "/projects") return { projects: [project, secondProject] };
+    return {};
+  });
+
+  render(
+    <MemoryRouter initialEntries={["/app/dashboard?focus=overdue&project=p"]}>
+      <Dashboard currentUser={user} />
+    </MemoryRouter>
+  );
+
+  expect(await screen.findByText("Просроченная задача")).toBeInTheDocument();
+  await waitFor(() => expect(screen.queryByText("Будущая задача")).not.toBeInTheDocument());
+  expect(screen.getByRole("combobox", { name: "Быстрый фильтр задач" }).closest(".ant-select")).toHaveTextContent("Просрочено");
+  expect(screen.getByRole("combobox", { name: "Проект задач" }).closest(".ant-select")).toHaveTextContent("Продажи");
+});
 test("mobile filters open in a drawer and expose hidden project with accessible controls", async () => {
   window.matchMedia = (query) => ({ matches: false, media: query, onchange: null,
     addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent() { return true; } });

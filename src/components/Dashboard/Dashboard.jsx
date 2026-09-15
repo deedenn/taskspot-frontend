@@ -446,16 +446,19 @@ function TaskMobileList({ tasks, categoryMap, currentRoute, ...statusProps }) {
 export function Dashboard({ currentUser }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const initialSearchParams = new URLSearchParams(location.search);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [hideClosed, setHideClosed] = useState(true);
-  const [projectFilter, setProjectFilter] = useState();
+  const [projectFilter, setProjectFilter] = useState(() => initialSearchParams.get("project") || undefined);
   const [categoryFilter, setCategoryFilter] = useState([]);
   const [changingStatus, setChangingStatus] = useState(null);
   const [returnTask, setReturnTask] = useState(null);
   const statusLock = useRef(false);
-  const [quickFilter, setQuickFilter] = useState("active");
+  const [quickFilter, setQuickFilter] = useState(() =>
+    initialSearchParams.get("focus") === "overdue" ? "overdue" : "active"
+  );
   const [activeRoleTab, setActiveRoleTab] = useState("all");
   const [quickProjectId, setQuickProjectId] = useState();
   const [quickDescription, setQuickDescription] = useState("");
@@ -509,6 +512,16 @@ export function Dashboard({ currentUser }) {
     () => projects.filter((project) => !isProjectArchived(project)),
     [projects]
   );
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.get("focus") !== "overdue") return;
+
+    setQuickFilter("overdue");
+    setActiveRoleTab("all");
+    setHideClosed(true);
+    setProjectFilter(searchParams.get("project") || undefined);
+  }, [location.search]);
 
   async function loadDashboard(options) {
     try {
