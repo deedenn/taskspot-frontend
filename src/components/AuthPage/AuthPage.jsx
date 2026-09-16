@@ -1,21 +1,47 @@
 import { LockOutlined, MailOutlined, UserOutlined } from "@ant-design/icons";
 import { Alert, Button, Card, Form, Input, Space, Typography } from "antd";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { apiFetch } from "../../api.js";
 import { BrandLogo } from "../BrandLogo/BrandLogo.jsx";
 import "./AuthPage.css";
 
+const CHECK_MAIL_STORAGE_KEY = "taskspot_registration_check_mail";
+
+function readCheckMailState() {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(CHECK_MAIL_STORAGE_KEY) || "null");
+    return typeof parsed?.email === "string" && parsed.email.includes("@") ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCheckMailState(state) {
+  if (!state?.email) {
+    sessionStorage.removeItem(CHECK_MAIL_STORAGE_KEY);
+    return;
+  }
+
+  sessionStorage.setItem(CHECK_MAIL_STORAGE_KEY, JSON.stringify({
+    email: state.email,
+    status: state.status || "",
+    source: state.source || "register"
+  }));
+}
+
 export function AuthPage({ mode, auth }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [form] = Form.useForm();
+  const headingRef = useRef(null);
   const [challenge, setChallenge] = useState(null);
   const [error, setError] = useState("");
   const [inviteInfo, setInviteInfo] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [registrationEmail, setRegistrationEmail] = useState("");
-  const [registrationEmailStatus, setRegistrationEmailStatus] = useState("");
+  const [registrationEmail, setRegistrationEmail] = useState(() => readCheckMailState()?.email || "");
+  const [registrationEmailStatus, setRegistrationEmailStatus] = useState(() => readCheckMailState()?.status || "");
+  const [checkMailSource, setCheckMailSource] = useState(() => readCheckMailState()?.source || "register");
   const [resending, setResending] = useState(false);
   const [resendMessage, setResendMessage] = useState("");
   const isRegister = mode === "register";
@@ -63,11 +89,38 @@ export function AuthPage({ mode, auth }) {
     };
   }, [form, invitationToken, isRegister]);
 
+  useEffect(() => {
+    if (registrationEmail) {
+      window.setTimeout(() => headingRef.current?.focus(), 0);
+    }
+  }, [registrationEmail]);
+
   if (auth.user) {
     return <Navigate to={auth.user.isSuperAdmin ? "/app/admin" : returnTo || "/app/dashboard"} replace />;
   }
 
+  function enterCheckMail({ email, status = "", source = "register" }) {
+    const nextEmail = email?.trim().toLowerCase();
+    if (!nextEmail) return;
+
+    setRegistrationEmail(nextEmail);
+    setRegistrationEmailStatus(status);
+    setCheckMailSource(source);
+    setChallenge(null);
+    writeCheckMailState({ email: nextEmail, status, source });
+  }
+
+  function leaveCheckMail() {
+    setRegistrationEmail("");
+    setRegistrationEmailStatus("");
+    setCheckMailSource("register");
+    setResendMessage("");
+    setError("");
+    writeCheckMailState(null);
+  }
+
   async function handleFinish(values) {
+    if (submitting) return;
     setSubmitting(true);
     setError("");
     setResendMessage("");
@@ -80,8 +133,11 @@ export function AuthPage({ mode, auth }) {
         });
 
         if (data.requiresEmailVerification) {
-          setRegistrationEmail(data.email || values.email);
-          setRegistrationEmailStatus(data.emailDeliveryStatus || "");
+          enterCheckMail({
+            email: data.email || values.email,
+            status: data.emailDeliveryStatus || "",
+            source: "register"
+          });
           return;
         }
       }
@@ -94,6 +150,15 @@ export function AuthPage({ mode, auth }) {
       }
       navigate(signedInUser?.isSuperAdmin ? "/app/admin" : returnTo || "/app/dashboard", { replace: true });
     } catch (requestError) {
+      if (requestError.data?.requiresEmailVerification) {
+        enterCheckMail({
+          email: requestError.data.email || values.email,
+          status: requestError.data.emailDeliveryStatus || "",
+          source: isRegister ? "register" : "login"
+        });
+        return;
+      }
+
       setError(requestError.message);
     } finally {
       setSubmitting(false);
@@ -101,6 +166,7 @@ export function AuthPage({ mode, auth }) {
   }
 
   async function resendVerification() {
+    if (resending || !registrationEmail) return;
     setResending(true);
     setError("");
     setResendMessage("");
@@ -111,6 +177,11 @@ export function AuthPage({ mode, auth }) {
         body: JSON.stringify({ email: registrationEmail })
       });
       setRegistrationEmailStatus(data.emailDeliveryStatus || "pending");
+      writeCheckMailState({
+        email: registrationEmail,
+        status: data.emailDeliveryStatus || "pending",
+        source: checkMailSource
+      });
       setResendMessage(
         data.emailDeliveryStatus === "failed" || data.emailDeliveryStatus === "skipped"
           ? "Не удалось отправить письмо. Попробуйте ещё раз или обратитесь в поддержку."
@@ -130,11 +201,15 @@ export function AuthPage({ mode, auth }) {
       </Link>
       <Card className="auth-page__card">
         {registrationEmail ? (
-          <>
-            <Typography.Title level={1}>Подтвердите email</Typography.Title>
+          <div className="auth-page__check-mail">
+            <Typography.Title level={1} tabIndex={-1} ref={headingRef}>Подтвердите email</Typography.Title>
             <Typography.Paragraph>
-              Ссылка подтверждения будет отправлена на <strong>{registrationEmail}</strong>. Перейдите по ссылке из письма,
-              чтобы начать работу в Taskspot.
+              Мы отправили ссылку подтверждения на <strong>{registrationEmail}</strong>. Перейдите по ней, чтобы открыть
+              Taskspot и начать работу на Free-тарифе.
+            </Typography.Paragraph>
+            <Typography.Paragraph type="secondary">
+              После подтверждения мы автоматически создадим проект «Проект». В нём можно сразу добавить первую задачу,
+              изменить название или создать ещё один проект.
             </Typography.Paragraph>
             <Alert
               className="auth-page__alert"
@@ -148,20 +223,30 @@ export function AuthPage({ mode, auth }) {
               description={
                 ["failed", "skipped"].includes(registrationEmailStatus)
                   ? "Попробуйте отправить ссылку повторно. Если ошибка повторится, обратитесь в поддержку."
-                  : "Если письма нет во входящих, проверьте папку спам или отправьте ссылку повторно."
+                  : checkMailSource === "login"
+                    ? "Этот аккаунт уже зарегистрирован, но email ещё не подтверждён. Можно отправить новую ссылку."
+                    : "Если письма нет во входящих, проверьте папку спам или отправьте ссылку повторно."
               }
             />
-            {resendMessage && <Alert className="auth-page__alert" type="success" message={resendMessage} showIcon />}
+            <div aria-live="polite">
+              {resendMessage && <Alert className="auth-page__alert" type="success" message={resendMessage} showIcon />}
+            </div>
             {error && <Alert className="auth-page__alert" type="error" message={error} showIcon />}
             <Space className="auth-page__actions" direction="vertical" size={12}>
               <Button type="primary" block loading={resending} onClick={resendVerification}>
                 Отправить письмо повторно
               </Button>
-              <Button block onClick={() => navigate("/login")}>
+              <Button block onClick={leaveCheckMail}>
+                Изменить email
+              </Button>
+              <Button block onClick={() => { leaveCheckMail(); navigate("/login"); }}>
                 Перейти ко входу
               </Button>
             </Space>
-          </>
+            <Typography.Paragraph className="auth-page__plan-note" type="secondary">
+              Free назначится автоматически. Изменить тариф можно после подтверждения в разделе «Тарифы».
+            </Typography.Paragraph>
+          </div>
         ) : (
           <>
             <Typography.Title level={1}>
@@ -198,14 +283,14 @@ export function AuthPage({ mode, auth }) {
                     label="Имя"
                     rules={[{ required: true, message: "Укажите имя" }]}
                   >
-                    <Input prefix={<UserOutlined />} placeholder="Анна" />
+                    <Input prefix={<UserOutlined />} placeholder="Анна" autoComplete="given-name" />
                   </Form.Item>
                   <Form.Item
                     name="lastName"
                     label="Фамилия"
                     rules={[{ required: true, message: "Укажите фамилию" }]}
                   >
-                    <Input prefix={<UserOutlined />} placeholder="Смирнова" />
+                    <Input prefix={<UserOutlined />} placeholder="Смирнова" autoComplete="family-name" />
                   </Form.Item>
                 </>
               )}
@@ -218,18 +303,18 @@ export function AuthPage({ mode, auth }) {
                   { type: "email", message: "Введите корректный email" }
                 ]}
               >
-                <Input prefix={<MailOutlined />} placeholder="you@company.com" disabled={Boolean(inviteInfo)} />
+                <Input prefix={<MailOutlined />} placeholder="you@company.com" autoComplete="email" disabled={Boolean(inviteInfo)} />
               </Form.Item>
               <Form.Item
                 name="password"
                 label="Пароль"
                 rules={passwordRules}
               >
-                <Input.Password prefix={<LockOutlined />} placeholder="Пароль" />
+                <Input.Password prefix={<LockOutlined />} placeholder="Пароль" autoComplete={isRegister ? "new-password" : "current-password"} />
               </Form.Item>
               </>}
               <Button type="primary" htmlType="submit" block loading={submitting}>
-                {isRegister ? "Зарегистрироваться" : "Войти"}
+                {isRegister ? "Создать аккаунт" : "Войти"}
               </Button>
             </Form>
 

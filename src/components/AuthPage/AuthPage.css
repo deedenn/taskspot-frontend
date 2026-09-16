@@ -51,6 +51,19 @@
   width: 100%;
 }
 
+.auth-page__check-mail {
+  outline: none;
+}
+
+.auth-page__check-mail h1[tabindex="-1"]:focus {
+  outline: none;
+}
+
+.auth-page__plan-note {
+  margin-top: 18px;
+  text-align: center;
+}
+
 @media (max-width: 560px) {
   .auth-page {
     align-content: start;
@@ -78,5 +91,9 @@
 
   .auth-page__card h1.ant-typography {
     font-size: 26px;
+  }
+
+  .auth-page__actions .ant-btn {
+    min-height: 44px;
   }
 }

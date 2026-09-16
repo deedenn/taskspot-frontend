@@ -59,6 +59,22 @@
   text-align: left;
 }
 
+.verify-email__actions,
+.verify-email__resend-form {
+  width: 100%;
+}
+
+.verify-email__actions a {
+  display: inline-flex;
+  justify-content: center;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.verify-email__secondary {
+  margin-top: 12px;
+}
+
 @media (max-width: 560px) {
   .verify-email {
     align-content: start;
@@ -86,5 +102,16 @@
 
   .verify-email__state h1.ant-typography {
     font-size: 26px;
+  }
+
+  .verify-email__actions .ant-btn,
+  .verify-email__actions a,
+  .verify-email__resend-form .ant-btn,
+  .verify-email__secondary {
+    min-height: 44px;
+  }
+
+  .verify-email__actions a {
+    align-items: center;
   }
 }
