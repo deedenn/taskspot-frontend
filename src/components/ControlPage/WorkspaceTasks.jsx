@@ -1,6 +1,6 @@
 import { Avatar, Empty, List, Pagination, Space, Tag, Typography } from "antd";
-import dayjs from "dayjs";
 import { Link, useLocation } from "react-router-dom";
+import { formatTaskDeadline } from "../../utils/taskDeadline.js";
 import "./WorkspaceTasks.css";
 
 const statuses = { open: ["Открыта", "blue"], in_progress: ["В работе", "gold"], review: ["На проверке", "purple"], done: ["На проверке", "purple"], closed: ["Закрыта", "default"] };
@@ -21,7 +21,7 @@ export function WorkspaceTasks({ tasks = [], pagination, onPage, loading = false
           <PersonAvatar user={task.assignee} />
           <span>{task.assignee ? [task.assignee.name, task.assignee.lastName].filter(Boolean).join(" ") : task.assigneeEmail || "Без ответственного"}</span>
         </Space>}
-        <span className="workspace-tasks__date">{task.dueDate ? dayjs(task.dueDate).format("DD.MM.YYYY") : "Без срока"}</span>
+        <span className="workspace-tasks__date">{formatTaskDeadline(task)}</span>
         <Tag color={statuses[task.status]?.[1]}>{statuses[task.status]?.[0] || task.status}</Tag>
       </List.Item>} />
     {pagination && pagination.total > pagination.limit && <Pagination size="small" current={pagination.page} pageSize={pagination.limit}

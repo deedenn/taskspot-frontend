@@ -87,6 +87,14 @@ const emailStatusLabels = {
 };
 
 const MAX_PROJECT_AVATAR_SIZE = 5 * 1024 * 1024;
+const CATEGORY_COLOR_PRESETS = [
+  "#2563eb", "#0891b2", "#059669", "#65a30d", "#ca8a04",
+  "#ea580c", "#dc2626", "#db2777", "#9333ea", "#475569"
+];
+
+function categoryColorValue(value) {
+  return typeof value === "string" ? value : value?.toHexString();
+}
 
 function formatInvitationEmailError(error) {
   if (!error) {
@@ -127,6 +135,9 @@ export function Projects({ user }) {
   const [editProjectForm] = Form.useForm();
   const [memberForm] = Form.useForm();
   const [categoryForm] = Form.useForm();
+  const [categoryEditForm] = Form.useForm();
+  const [categoryToEdit, setCategoryToEdit] = useState(null);
+  const [updatingCategory, setUpdatingCategory] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState(null);
   const [deletingCategory, setDeletingCategory] = useState(false);
   const [categoryDeleteError, setCategoryDeleteError] = useState("");
@@ -172,6 +183,7 @@ export function Projects({ user }) {
   const canManageActiveProject = isAdmin && !activeProjectArchived;
   const activeProjectCreatorId = userId(activeProject?.createdBy) || userId(activeProject?.members?.find((member) => member.role === "admin")?.user);
   const canManageActiveProjectAvatar = Boolean(activeProject && !activeProjectArchived && activeProjectCreatorId === user?._id);
+  const canEditActiveProjectCategories = canManageActiveProjectAvatar;
 
   async function loadProjects() {
     setLoading(true);
@@ -442,7 +454,7 @@ export function Projects({ user }) {
 
   async function addCategory(values) {
     try {
-      const color = typeof values.color === "string" ? values.color : values.color?.toHexString();
+      const color = categoryColorValue(values.color);
       const data = await apiFetch(`/projects/${activeProject._id}/categories`, {
         method: "POST",
         body: JSON.stringify({ ...values, color })
@@ -452,6 +464,38 @@ export function Projects({ user }) {
       message.success("Категория создана");
     } catch (error) {
       message.error(error.message);
+    }
+  }
+
+  function openCategoryEditor(category) {
+    const id = category?._id || category?.id;
+    if (!id || !canEditActiveProjectCategories) return;
+    setCategoryToEdit({ id: String(id), name: category.name, projectId: activeProject._id });
+    categoryEditForm.setFieldsValue({ name: category.name, color: category.color || "#2563eb" });
+  }
+
+  function closeCategoryEditor() {
+    if (updatingCategory) return;
+    setCategoryToEdit(null);
+    categoryEditForm.resetFields();
+  }
+
+  async function updateCategory(values) {
+    if (!categoryToEdit || updatingCategory) return;
+    setUpdatingCategory(true);
+    try {
+      const data = await apiFetch(`/projects/${categoryToEdit.projectId}/categories/${encodeURIComponent(categoryToEdit.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name: values.name.trim(), color: categoryColorValue(values.color) })
+      });
+      updateProject(data.project);
+      setCategoryToEdit(null);
+      categoryEditForm.resetFields();
+      message.success("Категория обновлена");
+    } catch (error) {
+      message.error(error.message);
+    } finally {
+      setUpdatingCategory(false);
     }
   }
 
@@ -968,12 +1012,12 @@ export function Projects({ user }) {
               <div className="projects__section-head">
                 <Typography.Text strong>Создать категорию</Typography.Text>
               </div>
-              <Form form={categoryForm} layout="vertical" onFinish={addCategory} className="projects__category-form">
+              <Form name="category-create" form={categoryForm} layout="vertical" onFinish={addCategory} className="projects__category-form">
                 <Form.Item name="name" label="Название категории" rules={[{ required: true, message: "Название обязательно" }]}>
                   <Input placeholder="Например: Срочно" />
                 </Form.Item>
                 <Form.Item name="color" label="Цвет" initialValue="#2563eb">
-                  <ColorPicker />
+                  <ColorPicker showText presets={[{ label: "Палитра", colors: CATEGORY_COLOR_PRESETS }]} />
                 </Form.Item>
                 <Button type="primary" icon={<PlusOutlined />} htmlType="submit">
                   Добавить
@@ -986,6 +1030,9 @@ export function Projects({ user }) {
               <Typography.Text strong>Список категорий</Typography.Text>
               <Tag>{activeProject.categories.length}</Tag>
             </div>
+            <Typography.Text type="secondary" className="projects__category-hint">
+              Название и цвет категории может менять только создатель проекта.
+            </Typography.Text>
             {activeProject.categories.length ? (
               <div className="projects__category-list">
                 {activeProject.categories.map((category) => (
@@ -994,19 +1041,34 @@ export function Projects({ user }) {
                     color={category.color}
                   >
                     <span>{category.name}</span>
-                    {canManageActiveProject && (
-                      <button
-                        type="button"
-                        className="projects__category-remove"
-                        aria-label={`Удалить категорию ${category.name}`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          confirmRemoveCategory(category);
-                        }}
-                      >
-                        <CloseOutlined />
-                      </button>
-                    )}
+                    <span className="projects__category-actions">
+                      {canEditActiveProjectCategories && (
+                        <button
+                          type="button"
+                          className="projects__category-action projects__category-edit"
+                          aria-label={`Редактировать категорию ${category.name}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openCategoryEditor(category);
+                          }}
+                        >
+                          <EditOutlined />
+                        </button>
+                      )}
+                      {canManageActiveProject && (
+                        <button
+                          type="button"
+                          className="projects__category-action projects__category-remove"
+                          aria-label={`Удалить категорию ${category.name}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            confirmRemoveCategory(category);
+                          }}
+                        >
+                          <CloseOutlined />
+                        </button>
+                      )}
+                    </span>
                   </Tag>
                 ))}
               </div>
@@ -1086,6 +1148,37 @@ export function Projects({ user }) {
 
       {projectId ? renderProjectSettings() : renderProjectsList()}
 
+      <Modal
+        title="Редактировать категорию"
+        open={Boolean(categoryToEdit)}
+        onCancel={closeCategoryEditor}
+        onOk={() => categoryEditForm.submit()}
+        okText="Сохранить"
+        cancelText="Отмена"
+        confirmLoading={updatingCategory}
+        cancelButtonProps={{ disabled: updatingCategory }}
+        closable={!updatingCategory}
+        maskClosable={!updatingCategory}
+      >
+        <Typography.Paragraph type="secondary">
+          Изменения сразу отобразятся во всех задачах с этой категорией.
+        </Typography.Paragraph>
+        <Form name="category-edit" form={categoryEditForm} layout="vertical" onFinish={updateCategory}>
+          <Form.Item
+            name="name"
+            label="Название категории"
+            rules={[
+              { required: true, whitespace: true, message: "Название обязательно" },
+              { max: 80, message: "Не более 80 символов" }
+            ]}
+          >
+            <Input autoFocus placeholder="Название категории" />
+          </Form.Item>
+          <Form.Item name="color" label="Цвет" rules={[{ required: true, message: "Выберите цвет" }]}>
+            <ColorPicker showText presets={[{ label: "Палитра", colors: CATEGORY_COLOR_PRESETS }]} />
+          </Form.Item>
+        </Form>
+      </Modal>
       <Modal title="Удалить категорию?" open={Boolean(categoryToDelete)}
         onCancel={() => { if (!deletingCategory) setCategoryToDelete(null); }}
         onOk={removeCategory} confirmLoading={deletingCategory} okText="Удалить" cancelText="Отмена"

@@ -1,9 +1,9 @@
 import { Alert, Card, Empty, List, Space, Tag, Typography, message } from "antd";
-import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { apiFetch } from "../../api.js";
 import { fullName } from "../../utils/users.js";
+import { formatTaskDeadline, isTaskDeadlinePast } from "../../utils/taskDeadline.js";
 import { PageState } from "../PageState/PageState.jsx";
 import "./OverdueTasks.css";
 
@@ -41,7 +41,7 @@ function isOverdue(task) {
   return (
     task.dueDate &&
     !["review", "done", "closed"].includes(task.status) &&
-    dayjs(task.dueDate).startOf("day").isBefore(dayjs().startOf("day"))
+    isTaskDeadlinePast(task)
   );
 }
 
@@ -126,7 +126,7 @@ export function OverdueTasks() {
                       }
                       description={
                         <span className="overdue-tasks__date">
-                          Срок: {dayjs(task.dueDate).format("DD.MM.YYYY")} · Ответственный: {task.assignee ? fullName(task.assignee) : task.assigneeEmail || "не назначен"}
+                          Срок: {formatTaskDeadline(task)} · Ответственный: {task.assignee ? fullName(task.assignee) : task.assigneeEmail || "не назначен"}
                         </span>
                       }
                     />

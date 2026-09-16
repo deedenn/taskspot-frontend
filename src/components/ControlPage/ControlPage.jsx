@@ -1,10 +1,10 @@
 import { AlertOutlined, CheckCircleOutlined, ClockCircleOutlined, DownOutlined, TeamOutlined, UpOutlined } from "@ant-design/icons";
 import { Tabs, Card, Empty, List, Space, Statistic, Tag, Typography, message } from "antd";
-import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { apiFetch } from "../../api.js";
 import { fullName } from "../../utils/users.js";
+import { formatTaskDeadline } from "../../utils/taskDeadline.js";
 import { PageState } from "../PageState/PageState.jsx";
 import "./ControlPage.css";
 import { PeriodReport } from "./PeriodReport.jsx";
@@ -36,7 +36,7 @@ function TaskList({ tasks, empty, currentRoute }) {
                   <Tag color={color}>{label}</Tag>
                 </Space>
               }
-              description={`${task.project?.name || "Проект"} · срок ${task.dueDate ? dayjs(task.dueDate).format("DD.MM.YYYY") : "Без срока"} · ${task.assignee ? fullName(task.assignee) : task.assigneeEmail || "без ответственного"}`}
+              description={`${task.project?.name || "Проект"} · срок ${formatTaskDeadline(task)} · ${task.assignee ? fullName(task.assignee) : task.assigneeEmail || "без ответственного"}`}
             />
           </List.Item>
         );

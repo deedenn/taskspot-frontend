@@ -19,6 +19,18 @@
   justify-content: flex-end;
 }
 
+.dashboard__export-button {
+  border-color: #cbd8ed;
+  color: var(--brand-blue-700);
+  background: #f8fbff;
+}
+
+.dashboard__export-button:hover:not(:disabled) {
+  border-color: var(--brand-blue-600) !important;
+  color: var(--brand-blue-700) !important;
+  background: var(--brand-blue-100) !important;
+}
+
 .dashboard__grid {
   display: block;
 }

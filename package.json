@@ -18,10 +18,11 @@
     "@vitejs/plugin-react": "^4.3.4",
     "antd": "^5.23.1",
     "dayjs": "^1.11.13",
-    "vite": "^6.0.7",
+    "pdfmake": "^0.2.23",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router-dom": "^7.1.1"
+    "react-router-dom": "^7.1.1",
+    "vite": "^6.0.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",

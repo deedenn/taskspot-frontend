@@ -1,11 +1,12 @@
 import { CheckCircleOutlined, CommentOutlined, DeleteOutlined, EyeInvisibleOutlined, EyeOutlined, PaperClipOutlined, PlusOutlined, RollbackOutlined } from "@ant-design/icons";
-import { Alert, App as AntApp, Button, Card, DatePicker, Drawer, Empty, Form, Grid, Input, List, Pagination, Select, Space, Spin, Switch, Tag, Tooltip, Typography, Upload } from "antd";
-import dayjs from "dayjs";
+import { Alert, App as AntApp, Button, Card, Drawer, Empty, Form, Grid, Input, List, Pagination, Select, Space, Spin, Switch, Tag, Tooltip, Typography, Upload } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { apiFetch, isLimitError, limitErrorText } from "../../api.js";
-import { fullName, userOptionLabel } from "../../utils/users.js";
+import { fullName, projectAssigneeOptions, projectMemberOptions } from "../../utils/users.js";
+import { formatTaskDeadline, isTaskDeadlinePast, isTaskDeadlineSoon, taskDeadlinePayload } from "../../utils/taskDeadline.js";
 import { PageState } from "../PageState/PageState.jsx";
+import { TaskDeadlineField } from "./TaskDeadlineField.jsx";
 import { readTaskListState, updateTaskListParams } from "./taskListState.js";
 import "./TaskWorkspace.css";
 
@@ -46,9 +47,7 @@ function idOf(value) {
 
 function isDueSoon(task) {
   if (!task?.dueDate || task.status === "closed") return false;
-
-  const daysLeft = dayjs(task.dueDate).startOf("day").diff(dayjs().startOf("day"), "day");
-  return daysLeft <= 1;
+  return isTaskDeadlinePast(task) || isTaskDeadlineSoon(task);
 }
 
 function isUrgentActive(task) {
@@ -90,25 +89,13 @@ export function TaskWorkspace({ project, currentUser }) {
   const currentRoute = `${location.pathname}${location.search}`;
 
   const memberOptions = useMemo(
-    () =>
-      project.members.map((member) => ({
-        value: idOf(member.user),
-        label: userOptionLabel(member.user)
-      })),
-    [project.members]
+    () => projectMemberOptions(project),
+    [project]
   );
 
   const assigneeOptions = useMemo(
-    () => [
-      ...memberOptions,
-      ...(project.invitations || [])
-        .filter((invitation) => invitation.status === "pending")
-        .map((invitation) => ({
-          value: `pending:${invitation.email}`,
-          label: `${invitation.email} · ожидает регистрации`
-        }))
-    ],
-    [memberOptions, project.invitations]
+    () => projectAssigneeOptions(project),
+    [project]
   );
 
   const categoryOptions = useMemo(
@@ -194,12 +181,14 @@ export function TaskWorkspace({ project, currentUser }) {
   async function createTask(values) {
     setCreatingTask(true);
     try {
+      const deadline = taskDeadlinePayload(values.dueDate, values.dueDateHasTime);
       const data = await apiFetch("/tasks", {
         method: "POST",
         body: JSON.stringify({
           ...values,
           projectId: project._id,
-          dueDate: values.dueDate ? values.dueDate.toISOString() : undefined,
+          dueDate: deadline.dueDate || undefined,
+          dueDateHasTime: deadline.dueDateHasTime,
           checklist: (values.checklistText || "")
             .split("\n")
             .map((text) => ({ text: text.trim() }))
@@ -477,12 +466,7 @@ export function TaskWorkspace({ project, currentUser }) {
           >
             <Input.TextArea rows={4} />
           </Form.Item>
-          <Form.Item
-            name="dueDate"
-            label="Срок выполнения"
-          >
-            <DatePicker className="tasks__full-width" />
-          </Form.Item>
+          <TaskDeadlineField form={form} className="tasks__deadline-field" />
           <Form.Item name="priority" label="Приоритет">
             <Select options={priorityOptions} />
           </Form.Item>
@@ -588,7 +572,7 @@ function TaskCard({ task, currentUser, categoryMap, currentRoute, onStatusChange
           <Tag color={priorityColor}>{priorityLabel}</Tag>
         </Space>
         <span className={isDueSoon(task) ? "tasks__due-date tasks__due-date--soon" : "tasks__due-date"}>
-          Срок: {task.dueDate ? dayjs(task.dueDate).format("DD.MM.YYYY") : "Без срока"}
+          Срок: {formatTaskDeadline(task)}
           {isDueSoon(task) && <Tag color="red">срок близко</Tag>}
         </span>
       </div>
@@ -601,7 +585,7 @@ function TaskCard({ task, currentUser, categoryMap, currentRoute, onStatusChange
         <span>Инициатор: {fullName(task.creator)}</span>
         <span>
           Ответственный: {assigneeLabel}
-          {task.assigneeEmail && <Tag className="tasks__pending-tag">ожидает регистрации</Tag>}
+          {task.assigneeEmail && <Tag className="tasks__pending-tag">ожидает активации</Tag>}
         </span>
         <span>Наблюдатели: {task.observers?.map((observer) => fullName(observer)).join(", ") || "нет"}</span>
       </div>

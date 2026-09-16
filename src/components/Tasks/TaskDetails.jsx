@@ -12,12 +12,14 @@ import {
   RetweetOutlined,
   RollbackOutlined
 } from "@ant-design/icons";
-import { Alert, Button, Card, Checkbox, DatePicker, Empty, Form, Input, List, Modal, Select, Space, Spin, Tag, Timeline, Typography, Upload, message } from "antd";
+import { Alert, Button, Card, Checkbox, Empty, Form, Input, List, Modal, Select, Space, Spin, Tag, Timeline, Typography, Upload, message } from "antd";
 import dayjs from "dayjs";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "../../api.js";
-import { fullName, userOptionLabel } from "../../utils/users.js";
+import { fullName, projectAssigneeOptions, projectMemberOptions, taskAssigneeValue } from "../../utils/users.js";
+import { formatTaskDeadline, taskDeadlinePayload } from "../../utils/taskDeadline.js";
+import { TaskDeadlineField } from "./TaskDeadlineField.jsx";
 import { PageState } from "../PageState/PageState.jsx";
 import "./TaskDetails.css";
 
@@ -105,9 +107,10 @@ function normalizeIdList(value = []) {
 }
 
 function serializeDetails(values) {
+  const deadline = taskDeadlinePayload(values.dueDate, values.dueDateHasTime);
   return JSON.stringify({
     description: values.description?.trim() || "",
-    dueDate: values.dueDate ? dayjs(values.dueDate).toISOString() : null,
+    ...deadline,
     assignee: values.assignee || "",
     observers: normalizeIdList(values.observers || []),
     categories: normalizeIdList(values.categories || [])
@@ -158,7 +161,8 @@ export function TaskDetails({ currentUser }) {
     const nextValues = {
       description: task.description,
       dueDate: task.dueDate ? dayjs(task.dueDate) : null,
-      assignee: idOf(task.assignee) || "",
+      dueDateHasTime: Boolean(task.dueDateHasTime),
+      assignee: taskAssigneeValue(task),
       observers: (task.observers || []).map(idOf),
       categories: (task.categories || []).map(idOf)
     };
@@ -261,11 +265,12 @@ export function TaskDetails({ currentUser }) {
     setSaving(true);
     setDetailsSaveStatus("saving");
     try {
+      const deadline = taskDeadlinePayload(values.dueDate, values.dueDateHasTime);
       const data = await apiFetch(`/tasks/${task._id}`, {
         method: "PATCH",
         body: JSON.stringify({
           description: values.description.trim(),
-          dueDate: values.dueDate ? values.dueDate.toISOString() : null,
+          ...deadline,
           assignee: values.assignee || "",
           observers: values.observers || [],
           categories: values.categories || []
@@ -479,13 +484,9 @@ export function TaskDetails({ currentUser }) {
   const canEditChecklist = !projectArchived && (isCreator || isAssignee || isProjectAdmin);
   const canChangePriority = !projectArchived && isCreator && task.status !== "closed";
   const assigneeLabel = task.assignee ? fullName(task.assignee) : task.assigneeEmail || "не назначен";
-  const dueDateLabel = task.dueDate ? dayjs(task.dueDate).format("DD.MM.YYYY") : "Без срока";
-  const memberOptions = (task.project?.members || [])
-    .map((member) => ({
-      value: idOf(member.user),
-      label: userOptionLabel(member.user)
-    }))
-    .filter((option) => option.value);
+  const dueDateLabel = formatTaskDeadline(task);
+  const memberOptions = projectMemberOptions(task.project);
+  const assigneeOptions = projectAssigneeOptions(task.project);
   const categoryOptions = (task.project?.categories || []).map((category) => ({
     value: idOf(category),
     label: category.name
@@ -532,7 +533,7 @@ export function TaskDetails({ currentUser }) {
           <Card>
             <Typography.Text type="secondary">Ответственный</Typography.Text>
             <strong>{assigneeLabel}</strong>
-            <span>{task.assignee?.email || (task.assigneeEmail ? "ожидает регистрации" : "")}</span>
+            <span>{task.assignee?.email || (task.assigneeEmail ? "ожидает активации" : "")}</span>
           </Card>
           <Card>
             <Typography.Text type="secondary">Наблюдатели</Typography.Text>
@@ -575,11 +576,15 @@ export function TaskDetails({ currentUser }) {
                 <Input.TextArea rows={3} onBlur={flushDetailsSave} />
               </Form.Item>
               <div className="task-details__editor-grid">
-                <Form.Item name="dueDate" label="Срок выполнения">
-                  <DatePicker className="task-details__full-width" allowClear />
-                </Form.Item>
+                <TaskDeadlineField form={detailsForm} className="task-details__deadline-field" />
                 <Form.Item name="assignee" label="Ответственный">
-                  <Select allowClear options={memberOptions} placeholder="Без ответственного" />
+                  <Select
+                    allowClear
+                    showSearch
+                    optionFilterProp="label"
+                    options={assigneeOptions}
+                    placeholder="Без ответственного"
+                  />
                 </Form.Item>
                 <Form.Item name="observers" label="Наблюдатели">
                   <Select mode="multiple" options={memberOptions} placeholder="Выберите наблюдателей" />

@@ -1,0 +1,31 @@
+.task-deadline-field {
+  min-width: 0;
+}
+
+.task-deadline-field .ant-form-item {
+  margin-bottom: 7px;
+}
+
+.task-deadline-field__picker {
+  width: 100%;
+}
+
+.task-deadline-field__time-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 26px;
+  margin-bottom: 18px;
+  color: var(--text-muted);
+}
+
+.task-deadline-field__time-row .ant-typography {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+@media (max-width: 560px) {
+  .task-deadline-field__time-row {
+    align-items: flex-start;
+  }
+}

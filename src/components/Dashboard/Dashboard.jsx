@@ -5,6 +5,7 @@ import {
   ClearOutlined,
   ClockCircleOutlined,
   DeleteOutlined,
+  DownloadOutlined,
   DownOutlined,
   EyeOutlined,
   FilterOutlined,
@@ -24,7 +25,6 @@ import {
   Avatar,
   Button,
   Card,
-  DatePicker,
   Dropdown,
   Drawer,
   Empty,
@@ -47,8 +47,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { apiFetch, isLimitError, limitErrorText } from "../../api.js";
 import { useApiResource } from "../../hooks/useApiResource.js";
-import { fullName, userOptionLabel } from "../../utils/users.js";
+import { fullName, projectAssigneeOptions, projectMemberOptions } from "../../utils/users.js";
+import { formatTaskDeadline, isTaskDeadlinePast, isTaskDeadlineSoon, taskDeadlinePayload } from "../../utils/taskDeadline.js";
+import { downloadTaskPdf } from "../../utils/taskPdf.js";
 import { PageState } from "../PageState/PageState.jsx";
+import { TaskDeadlineField } from "../Tasks/TaskDeadlineField.jsx";
 import "./Dashboard.css";
 
 const EMPTY_DASHBOARD_DATA = { all: [], initiated: [], assigned: [], observing: [], notifications: [] };
@@ -105,15 +108,12 @@ function isActionable(task) {
 
 function isOverdue(task) {
   if (!task?.dueDate || !isActionable(task)) return false;
-
-  return dayjs(task.dueDate).startOf("day").isBefore(dayjs().startOf("day"), "day");
+  return isTaskDeadlinePast(task);
 }
 
 function isDueSoon(task) {
   if (!task?.dueDate || !isActionable(task)) return false;
-
-  const daysLeft = dayjs(task.dueDate).startOf("day").diff(dayjs().startOf("day"), "day");
-  return daysLeft >= 0 && daysLeft <= 1;
+  return isTaskDeadlineSoon(task);
 }
 
 function isDeadlineAlert(task) {
@@ -331,7 +331,7 @@ function TaskTable({ tasks, categoryMap, currentRoute, ...statusProps }) {
       sorter: (first, second) => formatDateValue(first.dueDate) - formatDateValue(second.dueDate),
       render: (dueDate, task) => (
         <span className={isDeadlineAlert(task) ? "dashboard__due-date dashboard__due-date--soon" : "dashboard__due-date"}>
-          {dueDate ? dayjs(dueDate).format("DD.MM.YYYY") : "Без срока"}
+          {formatTaskDeadline(task)}
           {isOverdue(task) && <Tag color="red">просрочено</Tag>}
           {!isOverdue(task) && isDueSoon(task) && <Tag color="red">скоро</Tag>}
         </span>
@@ -423,7 +423,7 @@ function TaskMobileList({ tasks, categoryMap, currentRoute, ...statusProps }) {
               <span>
                 <Typography.Text type="secondary">Срок</Typography.Text>
                 <strong className={isDeadlineAlert(task) ? "dashboard__mobile-task-date dashboard__mobile-task-date--alert" : "dashboard__mobile-task-date"}>
-                  {task.dueDate ? dayjs(task.dueDate).format("DD.MM.YYYY") : "Без срока"}
+                  {formatTaskDeadline(task)}
                 </strong>
               </span>
               <span>
@@ -465,6 +465,7 @@ export function Dashboard({ currentUser }) {
   const [quickCreating, setQuickCreating] = useState(false);
   const [pendingAttachmentFiles, setPendingAttachmentFiles] = useState([]);
   const [creatingTask, setCreatingTask] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [creatingFirstProject, setCreatingFirstProject] = useState(false);
   const [form] = Form.useForm();
   const [firstProjectForm] = Form.useForm();
@@ -561,25 +562,13 @@ export function Dashboard({ currentUser }) {
   }, [activeProjects, defaultQuickProjectId, projectFilter]);
 
   const memberOptions = useMemo(
-    () =>
-      selectedProject?.members.map((member) => ({
-        value: idOf(member.user),
-        label: userOptionLabel(member.user)
-      })) || [],
+    () => projectMemberOptions(selectedProject),
     [selectedProject]
   );
 
   const assigneeOptions = useMemo(
-    () => [
-      ...memberOptions,
-      ...((selectedProject?.invitations || [])
-        .filter((invitation) => invitation.status === "pending")
-        .map((invitation) => ({
-          value: `pending:${invitation.email}`,
-          label: `${invitation.email} · ожидает регистрации`
-        })))
-    ],
-    [memberOptions, selectedProject]
+    () => projectAssigneeOptions(selectedProject),
+    [selectedProject]
   );
 
   const categoryOptions = useMemo(
@@ -889,11 +878,13 @@ export function Dashboard({ currentUser }) {
   async function createTask(values) {
     setCreatingTask(true);
     try {
+      const deadline = taskDeadlinePayload(values.dueDate, values.dueDateHasTime);
       const data = await apiFetch("/tasks", {
         method: "POST",
         body: JSON.stringify({
           ...values,
-          dueDate: values.dueDate ? values.dueDate.toISOString() : undefined,
+          dueDate: deadline.dueDate || undefined,
+          dueDateHasTime: deadline.dueDateHasTime,
           checklist: (values.checklistText || "")
             .split("\n")
             .map((text) => ({ text: text.trim() }))
@@ -933,6 +924,24 @@ export function Dashboard({ currentUser }) {
       }
     } finally {
       setCreatingTask(false);
+    }
+  }
+
+  async function exportTasksToPdf() {
+    if (!activeTasks.length || exportingPdf) return;
+    setExportingPdf(true);
+    try {
+      const quickLabel = quickFilterItems.find((item) => item.key === quickFilter)?.label;
+      const categoryLabel = selectedCategories.length
+        ? `Категории: ${selectedCategories.map((category) => category.name).join(", ")}`
+        : null;
+      const scope = [activeView.title, selectedProjectName, categoryLabel, quickLabel].filter(Boolean).join(" · ");
+      await downloadTaskPdf(activeTasks, { scope });
+      message.success("PDF с задачами сформирован");
+    } catch (error) {
+      message.error(error.message || "Не удалось сформировать PDF");
+    } finally {
+      setExportingPdf(false);
     }
   }
 
@@ -1014,6 +1023,19 @@ export function Dashboard({ currentUser }) {
           <Typography.Paragraph>Единый рабочий список по проектам, срокам и ролям.</Typography.Paragraph>
         </div>
         <Space wrap>
+          {!needsProjectSetup && (
+            <Tooltip title={activeTasks.length ? "Выгрузить текущий список с учётом фильтров" : "По выбранным фильтрам задач нет"}>
+              <Button
+                className="dashboard__export-button"
+                icon={<DownloadOutlined />}
+                disabled={!activeTasks.length}
+                loading={exportingPdf}
+                onClick={exportTasksToPdf}
+              >
+                Задачи в PDF
+              </Button>
+            </Tooltip>
+          )}
           {needsProjectSetup ? (
             <Button
               type="primary"
@@ -1436,12 +1458,7 @@ export function Dashboard({ currentUser }) {
             >
               <Input.TextArea rows={4} />
             </Form.Item>
-            <Form.Item
-              name="dueDate"
-              label="Срок выполнения"
-            >
-              <DatePicker className="dashboard__full-width" />
-            </Form.Item>
+            <TaskDeadlineField form={form} className="dashboard__deadline-field" />
             <Form.Item name="priority" label="Приоритет" initialValue="medium">
               <Select options={priorityOptions} />
             </Form.Item>
