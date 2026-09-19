@@ -18,6 +18,9 @@ test("landing shell exposes the primary content without JavaScript", () => {
     assert.match(shell, new RegExp(plan.name));
     assert.match(shell, new RegExp(plan.price.replace(" ", "\\s")));
   }
+  assert.match(shell, /5 вложений/);
+  assert.match(shell, /10 активных проектов/);
+  assert.match(shell, /100 вложений/);
 });
 
 test("landing plugin injects a styled shell and preserves the application entry", () => {

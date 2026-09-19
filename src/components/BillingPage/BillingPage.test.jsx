@@ -7,8 +7,8 @@ import { BillingPage } from "./BillingPage.jsx";
 vi.mock("../../api.js", () => ({ apiFetch: vi.fn() }));
 
 const plans = [
-  { key: "free", name: "Бесплатный", price: "0 ₽", monthlyPrice: 0, limits: { users: 3, projects: 2, activeTasks: 50, attachments: 20, templates: 3, recurringTasks: 0, historyDays: 30 } },
-  { key: "team", name: "Команда", price: "990 ₽/мес", monthlyPrice: 990, limits: { users: 20, projects: 50, activeTasks: 1000, attachments: 500, templates: 50, recurringTasks: 100, historyDays: 365 } },
+  { key: "free", name: "Бесплатный", price: "0 ₽", monthlyPrice: 0, limits: { users: 3, projects: 2, activeTasks: 50, attachments: 5, templates: 3, recurringTasks: 0, historyDays: 30 } },
+  { key: "team", name: "Команда", price: "990 ₽/мес", monthlyPrice: 990, limits: { users: 20, projects: 10, activeTasks: 1000, attachments: 100, templates: 50, recurringTasks: 100, historyDays: 365 } },
   { key: "business", name: "Бизнес", price: "2490 ₽/мес", monthlyPrice: 2490, limits: { users: 100, projects: 200, activeTasks: 10000, attachments: 5000, templates: 200, recurringTasks: 1000, historyDays: 0 } }
 ];
 
@@ -65,6 +65,10 @@ test("test payment creates an order and confirms the subscription", async () => 
   render(<BillingPage />);
   await screen.findByText("Тестовая компания");
   const teamCard = screen.getByRole("heading", { name: "Команда" }).closest(".ant-card");
+  const freeCard = screen.getByRole("heading", { name: "Бесплатный", level: 3 }).closest(".ant-card");
+  expect(within(freeCard).getByText("Вложения: 5")).toBeInTheDocument();
+  expect(within(teamCard).getByText("Активные проекты: 10")).toBeInTheDocument();
+  expect(within(teamCard).getByText("Вложения: 100")).toBeInTheDocument();
   fireEvent.click(within(teamCard).getByRole("button", { name: /Оплатить/ }));
 
   let dialog = await screen.findByRole("dialog");

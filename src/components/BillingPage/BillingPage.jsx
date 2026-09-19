@@ -362,6 +362,7 @@ export function BillingPage() {
                   <li><CheckOutlined /> Доп. участники: {plan.limits.users}</li>
                   <li><CheckOutlined /> Активные проекты: {plan.limits.projects}</li>
                   <li><CheckOutlined /> Активные задачи: {plan.limits.activeTasks}</li>
+                  <li><CheckOutlined /> Вложения: {plan.limits.attachments}</li>
                   <li><CheckOutlined /> Шаблоны: {plan.limits.templates}</li>
                   <li><CheckOutlined /> История: {plan.limits.historyDays || "без ограничений"} дней</li>
                 </ul>
