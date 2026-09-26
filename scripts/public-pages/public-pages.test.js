@@ -70,7 +70,7 @@ test("every static document contains complete content, a bitmap, metadata and va
 });
 
 test("all internal page links, fragment links and download targets resolve", () => {
-  const appLinks = new Set(["/", "/login", "/register", "/#pricing"]);
+  const appLinks = new Set(["/", "/login", "/register", "/#pricing", "/legal/terms", "/legal/privacy"]);
   for (const page of publicPages) {
     const html = renderPublicPage(page.path);
     for (const [, href] of html.matchAll(/href="([^"]+)"/g)) {

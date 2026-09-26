@@ -8,6 +8,7 @@ const AssigneeControl = lazy(() => import("./components/ControlPage/AssigneeCont
 const TaskSearchPage = lazy(() => import("./components/ControlPage/TaskSearchPage.jsx").then((module) => ({ default: module.TaskSearchPage })));
 const PublicPage = lazy(() => import("./components/PublicPages/PublicPage.jsx"));
 const LandingPage = lazy(() => import("./components/LandingPage/LandingPage.jsx").then((module) => ({ default: module.LandingPage })));
+const LegalPage = lazy(() => import("./components/LegalPages/LegalPage.jsx").then((module) => ({ default: module.LegalPage })));
 const AuthPage = lazy(() => import("./components/AuthPage/AuthPage.jsx").then((module) => ({ default: module.AuthPage })));
 const PasswordRecovery = lazy(() => import("./components/AuthPage/PasswordRecovery.jsx").then((module) => ({ default: module.PasswordRecovery })));
 const VerifyEmail = lazy(() => import("./components/VerifyEmail/VerifyEmail.jsx").then((module) => ({ default: module.VerifyEmail })));
@@ -135,6 +136,7 @@ export function App() {
           <Route path="/" element={<Suspense fallback={<RouteLoader />}><LandingPage user={user} /></Suspense>} />
           <Route path="/solutions/*" element={<Suspense fallback={<RouteLoader />}><PublicPage /></Suspense>} />
           <Route path="/resources/*" element={<Suspense fallback={<RouteLoader />}><PublicPage /></Suspense>} />
+          <Route path="/legal/:document" element={<Suspense fallback={<RouteLoader />}><LegalPage /></Suspense>} />
           <Route path="/login" element={<Suspense fallback={<RouteLoader />}><AuthPage mode="login" auth={auth} /></Suspense>} />
           <Route path="/register" element={<Suspense fallback={<RouteLoader />}><AuthPage mode="register" auth={auth} /></Suspense>} />
           <Route path="/forgot-password" element={<Suspense fallback={<RouteLoader />}><PasswordRecovery auth={auth} /></Suspense>} />

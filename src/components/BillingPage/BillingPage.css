@@ -236,6 +236,17 @@
   letter-spacing: 0.18em;
 }
 
+.billing-page__qr-image {
+  display: block;
+  width: 132px;
+  height: 132px;
+  padding: 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  background: #fff;
+  object-fit: contain;
+}
+
 @media (max-width: 900px) {
   .billing-page__plans,
   .billing-page__usage,
@@ -253,6 +264,11 @@
 
   .billing-page__checkout {
     grid-template-columns: 92px minmax(0, 1fr);
+  }
+
+  .billing-page__qr-image {
+    width: 92px;
+    height: 92px;
   }
 
   .billing-page__history-row {

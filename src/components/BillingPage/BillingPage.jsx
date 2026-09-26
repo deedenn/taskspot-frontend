@@ -7,7 +7,7 @@ import {
   SafetyCertificateOutlined
 } from "@ant-design/icons";
 import { Alert, Button, Card, Form, Modal, Progress, Select, Space, Steps, Tag, Typography, message } from "antd";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../../api.js";
 import { PageState } from "../PageState/PageState.jsx";
 import "./BillingPage.css";
@@ -85,8 +85,8 @@ export function BillingPage() {
   const [paymentSaving, setPaymentSaving] = useState(false);
   const periodMonths = Form.useWatch("periodMonths", paymentForm) || 1;
 
-  async function loadBilling() {
-    setLoading(true);
+  const loadBilling = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     setError("");
     try {
       setData(await apiFetch("/organizations"));
@@ -94,13 +94,13 @@ export function BillingPage() {
       setError(requestError.message);
       message.error(requestError.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    loadBilling();
-  }, []);
+    void loadBilling();
+  }, [loadBilling]);
 
   useEffect(() => {
     if (!organizationId && data.organizations.length) {
@@ -111,6 +111,11 @@ export function BillingPage() {
   const active = data.organizations.find((item) => item.organization._id === organizationId) || data.organizations[0];
   const openOrder = active?.activePaymentOrder;
   const scheduledPeriod = active?.subscription?.scheduledPeriod;
+  const testMode = data.billing?.testMode ?? true;
+  const billingReady = data.billing?.ready ?? true;
+  const activeProviderName = data.billing?.activeProvider?.name || "Тестовая оплата";
+  const activeOrganizationId = active?.organization._id;
+  const paymentTerminal = paymentOrder && ["expired", "cancelled", "failed", "refunded"].includes(paymentOrder.status);
   function openPayment(plan) {
     setSelectedPlan(plan);
     setPaymentOrder(null);
@@ -127,13 +132,46 @@ export function BillingPage() {
     setPaymentOpen(true);
   }
 
-  function closePayment() {
+  const closePayment = useCallback(() => {
     setPaymentOpen(false);
     setSelectedPlan(null);
     setPaymentOrder(null);
     setPaymentIdempotencyKey("");
     paymentForm.resetFields();
-  }
+  }, [paymentForm]);
+
+  useEffect(() => {
+    if (!paymentOpen || !paymentOrder?._id || paymentOrder.payment?.provider === "mock" || !activeOrganizationId) {
+      return undefined;
+    }
+    if (["paid", "expired", "cancelled", "failed", "refunded"].includes(paymentOrder.status)) return undefined;
+
+    let stopped = false;
+    let inFlight = false;
+    const refresh = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const result = await apiFetch(`/organizations/${activeOrganizationId}/payment-orders/${paymentOrder._id}`);
+        if (stopped) return;
+        setPaymentOrder(result.paymentOrder);
+        if (result.paymentOrder.status === "paid") {
+          message.success("Оплата подтверждена банком, тариф обновлён");
+          closePayment();
+          await loadBilling({ silent: true });
+        }
+      } catch (requestError) {
+        if (!stopped) console.error("Payment status refresh failed", requestError);
+      } finally {
+        inFlight = false;
+      }
+    };
+    const interval = window.setInterval(refresh, 3000);
+    return () => {
+      stopped = true;
+      window.clearInterval(interval);
+    };
+  }, [activeOrganizationId, closePayment, loadBilling, paymentOpen, paymentOrder?._id, paymentOrder?.payment?.provider, paymentOrder?.status]);
 
   async function createPaymentOrder() {
     if (!active || !selectedPlan) return;
@@ -155,7 +193,7 @@ export function BillingPage() {
         })
       });
       setPaymentOrder(result.paymentOrder);
-      message.success("Тестовый платёж подготовлен");
+      message.success(result.testMode ? "Тестовый платёж подготовлен" : "QR-код для оплаты создан");
     } catch (requestError) {
       message.error(requestError.message);
     } finally {
@@ -204,7 +242,7 @@ export function BillingPage() {
         <div>
           <Typography.Title level={1}>Тарифы и оплата</Typography.Title>
           <Typography.Paragraph>
-            Выберите тариф, создайте тестовый платёж и подтвердите его — подписка обновится так же, как после банковского webhook.
+            Выберите тариф и срок. После оплаты через СБП подписка обновится автоматически.
           </Typography.Paragraph>
         </div>
         {data.organizations.length > 1 && (
@@ -217,14 +255,23 @@ export function BillingPage() {
         )}
       </div>
 
-      <Alert
-        className="billing-page__test-banner"
-        type="warning"
-        showIcon
-        icon={<SafetyCertificateOutlined />}
-        message="Тестовый режим оплаты"
-        description="Деньги не списываются. Кнопка «Я оплатил» имитирует подтверждённый платёж банка и запускает реальную логику подписки."
-      />
+      {testMode ? (
+        <Alert
+          className="billing-page__test-banner"
+          type="warning"
+          showIcon
+          icon={<SafetyCertificateOutlined />}
+          message="Тестовый режим оплаты"
+          description="Деньги не списываются. Кнопка «Я оплатил» имитирует подтверждённый платёж банка и запускает реальную логику подписки."
+        />
+      ) : (
+        <Alert
+          type={billingReady ? "success" : "error"}
+          showIcon
+          message={billingReady ? "Безопасная оплата через СБП" : "Оплата временно недоступна"}
+          description={data.billing?.note}
+        />
+      )}
 
       {error && <PageState type="error" description={error} onAction={loadBilling} />}
 
@@ -265,7 +312,7 @@ export function BillingPage() {
                 <span className="billing-page__payment-icon"><CreditCardOutlined /></span>
                 <div>
                   <Typography.Title level={3}>Оплата</Typography.Title>
-                  <Typography.Text type="secondary">Провайдер: тестовый контур</Typography.Text>
+                  <Typography.Text type="secondary">Провайдер: {activeProviderName}</Typography.Text>
                 </div>
               </Space>
               {openOrder ? (
@@ -335,6 +382,11 @@ export function BillingPage() {
                     <div className="billing-page__history-result">
                       <Typography.Text strong>{formatKopecks(order.amountKopecks)}</Typography.Text>
                       <Tag color={status.color}>{status.label}</Tag>
+                      {order.fiscalization?.receiptUrl && (
+                        <Typography.Link href={order.fiscalization.receiptUrl} target="_blank" rel="noreferrer">
+                          Кассовый чек
+                        </Typography.Link>
+                      )}
                     </div>
                   </div>
                 );
@@ -368,7 +420,7 @@ export function BillingPage() {
                 </ul>
                 <Button
                   type={plan.key === "team" ? "primary" : "default"}
-                  disabled={disabled}
+                  disabled={disabled || !billingReady}
                   icon={<CreditCardOutlined />}
                   onClick={() => openPayment(plan)}
                 >
@@ -390,9 +442,16 @@ export function BillingPage() {
         title={selectedPlan ? `Оплата тарифа «${selectedPlan.name}»` : "Оплата тарифа"}
         open={paymentOpen}
         onCancel={closePayment}
-        footer={paymentOrder ? [
+        footer={paymentOrder ? testMode ? [
           <Button key="cancel-payment" danger disabled={paymentSaving} onClick={() => cancelPayment()}>Отменить платёж</Button>,
           <Button key="confirm-payment" type="primary" loading={paymentSaving} onClick={confirmPayment}>Я оплатил</Button>
+        ] : [
+          <Button key="close-payment" onClick={closePayment}>Закрыть</Button>,
+          paymentOrder.payment?.paymentUrl && !paymentTerminal ? (
+            <Button key="open-bank" type="primary" href={paymentOrder.payment.paymentUrl} target="_blank" rel="noreferrer">
+              Открыть приложение банка
+            </Button>
+          ) : null
         ] : [
           <Button key="close" onClick={closePayment}>Отмена</Button>,
           <Button key="create" type="primary" loading={paymentSaving} onClick={createPaymentOrder}>Создать платёж</Button>
@@ -429,23 +488,49 @@ export function BillingPage() {
           </Form>
         ) : (
           <div className="billing-page__checkout">
-            <div className="billing-page__mock-qr" aria-label="Тестовый платёж без банковского QR">
-              <SafetyCertificateOutlined />
-              <span>TEST</span>
-            </div>
+            {paymentOrder.payment?.provider === "mock" ? (
+              <div className="billing-page__mock-qr" aria-label="Тестовый платёж без банковского QR">
+                <SafetyCertificateOutlined />
+                <span>TEST</span>
+              </div>
+            ) : paymentOrder.payment?.qrImage ? (
+              <img className="billing-page__qr-image" src={paymentOrder.payment.qrImage} alt="QR-код для оплаты через СБП" />
+            ) : (
+              <div className="billing-page__mock-qr" aria-label="QR-код создаётся">
+                <ClockCircleOutlined />
+              </div>
+            )}
             <div className="billing-page__checkout-details">
-              <Tag color="gold">Банк пока не подключён</Tag>
+              <Tag color={paymentOrder.payment?.provider === "mock" ? "gold" : "blue"}>
+                {paymentOrder.payment?.provider === "mock" ? "Тестовый контур" : "СБП · Банк Точка"}
+              </Tag>
               <Typography.Title level={3}>{formatKopecks(paymentOrder.amountKopecks)}</Typography.Title>
               <Typography.Text strong>{paymentOrder.planName} · {paymentOrder.periodMonths} мес.</Typography.Text>
               <Typography.Text type="secondary">{transitionLabel(paymentOrder.transitionType)}</Typography.Text>
               <Typography.Text type="secondary">Заказ действует до {formatDate(paymentOrder.expiresAt, true)}</Typography.Text>
             </div>
-            <Alert
-              type="warning"
-              showIcon
-              message="Подтвердите тестовую оплату"
-              description="Нажимая «Я оплатил», вы имитируете успешный webhook банка. Это действие действительно активирует или продлевает тариф."
-            />
+            {paymentOrder.payment?.provider === "mock" ? (
+              <Alert
+                type="warning"
+                showIcon
+                message="Подтвердите тестовую оплату"
+                description="Нажимая «Я оплатил», вы имитируете успешный webhook банка. Это действие действительно активирует или продлевает тариф."
+              />
+            ) : paymentTerminal ? (
+              <Alert
+                type={paymentOrder.status === "expired" ? "warning" : "error"}
+                showIcon
+                message={paymentOrder.status === "expired" ? "Время оплаты истекло" : "Платёж не завершён"}
+                description="Закройте окно и создайте новый платёж. Если деньги уже списались, не повторяйте оплату и обратитесь в поддержку."
+              />
+            ) : (
+              <Alert
+                type="info"
+                showIcon
+                message="Отсканируйте QR-код в приложении банка"
+                description="Окно можно оставить открытым: Taskspot автоматически получит подтверждение банка и активирует тариф."
+              />
+            )}
           </div>
         )}
       </Modal>

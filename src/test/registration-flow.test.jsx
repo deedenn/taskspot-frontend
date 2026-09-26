@@ -24,6 +24,17 @@ describe("registration and email verification flow", () => {
 
   afterEach(() => cleanup());
 
+  it("requires a separate acceptance before registration", async () => {
+    render(<MemoryRouter initialEntries={["/register"]}><AuthPage mode="register" auth={{ user: null, signIn: vi.fn() }} /></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText("Имя"), { target: { value: "Анна" } });
+    fireEvent.change(screen.getByLabelText("Фамилия"), { target: { value: "Смирнова" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "new@example.com" } });
+    fireEvent.change(screen.getByLabelText("Пароль"), { target: { value: "password123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Создать аккаунт" }));
+    expect(await screen.findByText("Примите пользовательское соглашение")).toBeInTheDocument();
+    expect(apiFetch).not.toHaveBeenCalled();
+  });
+
   it("keeps the check-mail step and resends the verification link", async () => {
     apiFetch
       .mockResolvedValueOnce({
@@ -42,6 +53,7 @@ describe("registration and email verification flow", () => {
     fireEvent.change(screen.getByLabelText("Фамилия"), { target: { value: "Смирнова" } });
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "new@example.com" } });
     fireEvent.change(screen.getByLabelText("Пароль"), { target: { value: "password123" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: /Я принимаю пользовательское соглашение/i }));
     fireEvent.click(screen.getByRole("button", { name: "Создать аккаунт" }));
 
     expect(await screen.findByRole("heading", { name: "Подтвердите email" })).toBeInTheDocument();

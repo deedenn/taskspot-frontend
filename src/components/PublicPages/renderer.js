@@ -94,7 +94,7 @@ ${page.example ? `<section class="public-pages__example"><h2>${escapeHtml(page.e
 ${download ? `<section class="public-pages__download"><h2>Файл шаблона</h2><p>${escapeHtml(download.filename)}. Без регистрации и отправки email.</p>${downloadLink}</section>` : ""}</article></div>
 <section class="public-pages__section public-pages__related"><h2>По теме</h2>${renderCards(page.related)}</section>`}
 <section class="public-pages__cta"><div><h2>Перенесите первое поручение в Taskspot</h2><p>Опишите результат, назначьте ответственного и договоритесь о приёмке.</p></div><a class="public-pages__button" href="/register">Создать аккаунт</a></section>
-</main><footer class="public-pages__footer"><p>Taskspot. Поручения и проверка результата.</p><nav aria-label="Дополнительная навигация">${pageLink(parent.path, parentPath === "/solutions/" ? "Все решения" : "Все материалы")}${pageLink(parentPath === "/solutions/" ? "/resources/" : "/solutions/", parentPath === "/solutions/" ? "Статьи и шаблоны" : "Решения для команд")}</nav></footer></div>`;
+</main><footer class="public-pages__footer"><p>Taskspot. Поручения и проверка результата.</p><nav aria-label="Дополнительная навигация">${pageLink(parent.path, parentPath === "/solutions/" ? "Все решения" : "Все материалы")}${pageLink(parentPath === "/solutions/" ? "/resources/" : "/solutions/", parentPath === "/solutions/" ? "Статьи и шаблоны" : "Решения для команд")}${pageLink("/legal/terms", "Пользовательское соглашение")}${pageLink("/legal/privacy", "Персональные данные")}</nav></footer></div>`;
 }
 
 export function renderPublicDocument(pathname, cssHref = "/assets/public-pages.css") {

@@ -95,6 +95,8 @@
   overflow-x: hidden;
 }
 
+.app-layout__legal { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px; }
+
 .app-layout__drawer .ant-drawer-body {
   padding: 0;
 }

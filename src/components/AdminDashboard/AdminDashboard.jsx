@@ -1,16 +1,17 @@
 import {
+  AlertOutlined,
   BarChartOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
-  CrownOutlined,
-  FolderOpenOutlined,
+  HeartOutlined,
+  MailOutlined,
   PayCircleOutlined,
-  ProjectOutlined,
   StopOutlined,
   RiseOutlined,
+  TeamOutlined,
+  ThunderboltOutlined,
   UnlockOutlined,
-  UserAddOutlined,
-  UserOutlined
+  UserAddOutlined
 } from "@ant-design/icons";
 import { Tabs, Button, Card, DatePicker, Empty, Form, Input, Modal, Popconfirm, Progress, Segmented, Select, Space, Statistic, Table, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
@@ -63,8 +64,23 @@ function MetricCard({ icon, title, value, hint, tone = "blue", suffix }) {
   );
 }
 
+function Trend({ value }) {
+  const tone = value > 0 ? "positive" : value < 0 ? "negative" : "neutral";
+  return <span className={`admin-dashboard__trend admin-dashboard__trend--${tone}`}>
+    {value > 0 ? "+" : ""}{value}% к прошлому периоду
+  </span>;
+}
+
+function GrowthMetric({ label, metric }) {
+  return <span>
+    <strong>{metric?.current || 0}</strong>
+    {label}
+    <Trend value={metric?.change || 0} />
+  </span>;
+}
+
 export function AdminDashboard({ currentUser, auth }) {
-  return <Tabs destroyInactiveTabPane items={[
+  return <Tabs destroyOnHidden items={[
     { key: "overview", label: "Управление сервисом", children: <ServiceOverview currentUser={currentUser} /> },
     { key: "product", label: "Развитие продукта", children: <ProductAnalytics /> },
     { key: "security", label: "Безопасность", children: <AdminSecurity auth={auth} /> }
@@ -210,6 +226,11 @@ function ServiceOverview({ currentUser }) {
       title: "Компаний",
       dataIndex: "organizations",
       key: "organizations"
+    },
+    {
+      title: "Активных",
+      dataIndex: "activeOrganizations",
+      key: "activeOrganizations"
     },
     {
       title: "Потенциальная MRR",
@@ -558,135 +579,112 @@ function ServiceOverview({ currentUser }) {
         />
       )}
 
+      {data && <div className={`admin-dashboard__pulse admin-dashboard__pulse--${data.operations.status}`}>
+        <div className="admin-dashboard__pulse-copy">
+          <span className="admin-dashboard__eyebrow">Состояние сервиса</span>
+          <strong><i />{data.operations.status === "healthy" ? "Все ключевые контуры работают" : "Есть показатели, требующие внимания"}</strong>
+          <small>
+            Аналитика посещений {data.engagement.coverageStart ? `с ${dayjs(data.engagement.coverageStart).format("DD.MM.YYYY")}` : "только начинает накапливаться"}
+          </small>
+        </div>
+        <div className="admin-dashboard__pulse-numbers" aria-label="Активная аудитория">
+          <span><small>DAU · сегодня</small><strong>{data.engagement.dau}</strong></span>
+          <span><small>WAU · 7 дней</small><strong>{data.engagement.wau}</strong></span>
+          <span><small>MAU · 30 дней</small><strong>{data.engagement.mau}</strong></span>
+          <span><small>Липкость DAU / MAU</small><strong>{data.engagement.dauMau}%</strong></span>
+        </div>
+      </div>}
+
       <div className="admin-dashboard__metrics">
         <MetricCard
-          icon={<UserOutlined />}
-          title="Пользователей"
-          value={data?.users.total || 0}
-          hint={`${data?.users.active || 0} активных · ${data?.users.inactive || 0} неактивных`}
+          icon={<HeartOutlined />}
+          title="Активная аудитория"
+          value={data?.engagement.mau || 0}
+          hint={`${data?.engagement.wau || 0} за 7 дней · ${data?.users.total || 0} всего`}
         />
         <MetricCard
           icon={<UserAddOutlined />}
-          title="Новых пользователей"
-          value={data?.users.newInPeriod || 0}
-          hint={`За ${periodDays} дней · активация ${data?.users.activationRate || 0}%`}
+          title={`Новых за ${periodDays} дней`}
+          value={data?.growth.newUsers.current || 0}
+          hint={data ? <Trend value={data.growth.newUsers.change} /> : "Загрузка…"}
           tone="green"
         />
         <MetricCard
           icon={<PayCircleOutlined />}
-          title="Получено денег"
-          value={formatMoney(data?.revenue.received || 0)}
-          hint="Подтверждённые оплаты за всё время, без возвратов"
+          title="Выручка за период"
+          value={formatMoney(data?.revenue.receivedInPeriod || 0)}
+          hint={`Средний чек ${formatMoney(data?.revenue.averageCheck || 0)}`}
           tone="gold"
         />
         <MetricCard
           icon={<RiseOutlined />}
-          title="Потенциальная MRR"
+          title="Текущий MRR"
           value={formatMoney(data?.revenue.estimatedMonthly || 0)}
-          hint={`ARR ${formatMoney(data?.revenue.estimatedAnnual || 0)} · paid ${data?.revenue.paidConversionRate || 0}%`}
-          tone="purple"
-        />
-        <MetricCard
-          icon={<FolderOpenOutlined />}
-          title="Проектов"
-          value={data?.projects.total || 0}
-          hint={`${data?.projects.newInPeriod || 0} новых за период`}
-        />
-        <MetricCard
-          icon={<CheckCircleOutlined />}
-          title="Задач"
-          value={data?.tasks.total || 0}
-          hint={`${data?.tasks.active || 0} активных · ${data?.tasks.closed || 0} закрытых`}
-          tone="green"
-        />
-        <MetricCard
-          icon={<ClockCircleOutlined />}
-          title="На проверке"
-          value={data?.tasks.review || 0}
-          hint={`${data?.tasks.overdue || 0} просроченных задач`}
-          tone="purple"
-        />
-        <MetricCard
-          icon={<ProjectOutlined />}
-          title="Компаний"
-          value={data?.organizations.total || 0}
-          hint={`${data?.organizations.paid || 0} платных компаний · ${data?.organizations.manualPlans || 0} ручных тарифов`}
-          tone="gold"
-        />
-        <MetricCard
-          icon={<PayCircleOutlined />}
-          title="Заявок на тариф"
-          value={data?.billing.pendingRequests || 0}
-          hint={`${data?.billing.approvedInPeriod || 0} подключено за период`}
+          hint={`${data?.organizations.paid || 0} платных компаний · конверсия ${data?.revenue.paidConversionRate || 0}%`}
           tone="purple"
         />
       </div>
 
-      <div className="admin-dashboard__growth">
-        <Card
-          className="admin-dashboard__growth-card"
-          title={
-            <Space>
-              <BarChartOutlined />
-              Здоровье продукта
-            </Space>
-          }
-          loading={loading}
-        >
-          {data ? (
+      <div className="admin-dashboard__health-grid">
+        <Card className="admin-dashboard__health-card" title={<Space><TeamOutlined />Вовлечённость</Space>} loading={loading}>
+          {data ? <>
+            <div className="admin-dashboard__health-kpis">
+              <span><small>Активных компаний</small><strong>{data.engagement.activeOrganizations}</strong></span>
+              <span><small>Командных компаний</small><strong>{data.engagement.collaborativeOrganizations}</strong></span>
+              <span><small>WAU / MAU</small><strong>{data.engagement.wauMau}%</strong></span>
+            </div>
             <div className="admin-dashboard__progress-grid">
-              <div>
-                <Typography.Text strong>Активация пользователей</Typography.Text>
-                <Progress percent={data.users.activationRate} />
-              </div>
-              <div>
-                <Typography.Text strong>Компании на платных тарифах</Typography.Text>
-                <Progress percent={data.revenue.paidConversionRate} strokeColor="#722ed1" />
-              </div>
-              <div>
-                <Typography.Text strong>Закрытие задач</Typography.Text>
-                <Progress percent={data.tasks.completionRate} strokeColor="#16a34a" />
-              </div>
+              <div><Typography.Text>Регулярность использования</Typography.Text><Progress percent={data.engagement.wauMau} strokeColor="#2563eb" /></div>
+              <div><Typography.Text>Компании с командой</Typography.Text><Progress percent={data.engagement.collaborationRate} strokeColor="#0f766e" /></div>
             </div>
-          ) : (
-            <Empty description="Нет данных" />
-          )}
+          </> : <Empty description="Нет данных" />}
         </Card>
 
-        <Card
-          className="admin-dashboard__growth-card"
-          title={
-            <Space>
-              <CrownOutlined />
-              Рост за период
-            </Space>
-          }
-          loading={loading}
-        >
-          {data ? (
-            <div className="admin-dashboard__growth-list">
-              <span>
-                <strong>{data.growth.newUsers}</strong>
-                новых пользователей
-              </span>
-              <span>
-                <strong>{data.growth.newProjects}</strong>
-                новых проектов
-              </span>
-              <span>
-                <strong>{data.growth.createdTasks}</strong>
-                созданных задач
-              </span>
-              <span>
-                <strong>{data.growth.completedTasks}</strong>
-                закрытых задач
-              </span>
+        <Card className="admin-dashboard__health-card" title={<Space><ThunderboltOutlined />Рабочий поток</Space>} loading={loading}>
+          {data ? <>
+            <div className="admin-dashboard__health-kpis">
+              <span><small>Активных задач</small><strong>{data.tasks.active}</strong></span>
+              <span><small>На проверке</small><strong>{data.tasks.review}</strong></span>
+              <span className={data.tasks.overdue ? "is-warning" : ""}><small>Просрочено</small><strong>{data.tasks.overdue}</strong></span>
             </div>
-          ) : (
-            <Empty description="Нет данных" />
-          )}
+            <div className="admin-dashboard__progress-grid">
+              <div><Typography.Text>Доля закрытых задач</Typography.Text><Progress percent={data.tasks.completionRate} strokeColor="#16a34a" /></div>
+            </div>
+          </> : <Empty description="Нет данных" />}
+        </Card>
+
+        <Card className="admin-dashboard__health-card" title={<Space><PayCircleOutlined />Монетизация</Space>} loading={loading}>
+          {data ? <>
+            <div className="admin-dashboard__health-kpis">
+              <span><small>Успешных оплат</small><strong>{data.billing.paidPaymentOrdersInPeriod}</strong></span>
+              <span><small>Неуспешных попыток</small><strong>{data.billing.failedPaymentOrdersInPeriod}</strong></span>
+              <span><small>Ожидают оплаты</small><strong>{data.billing.pendingPaymentOrders}</strong></span>
+            </div>
+            <div className="admin-dashboard__progress-grid">
+              <div><Typography.Text>Конверсия завершённых попыток</Typography.Text><Progress percent={data.revenue.paymentConversionRate} strokeColor="#7c3aed" /></div>
+            </div>
+          </> : <Empty description="Нет данных" />}
+        </Card>
+
+        <Card className="admin-dashboard__health-card" title={<Space><AlertOutlined />Операционные сигналы</Space>} loading={loading}>
+          {data ? <div className="admin-dashboard__signal-list">
+            <span className={data.operations.serverErrors24h ? "is-error" : "is-ok"}><ThunderboltOutlined />API за 24 ч: {data.operations.requests24h} запросов · {data.operations.serverErrorRate}% 5xx · среднее {data.operations.averageResponseMs} мс</span>
+            <span className={data.operations.billingReady ? "is-ok" : "is-error"}><PayCircleOutlined />СБП {data.operations.billingReady ? "готова" : "не настроена"}</span>
+            <span className={data.operations.fiscalizationFailed ? "is-error" : data.operations.fiscalizationPending ? "is-warning" : "is-ok"}><CheckCircleOutlined />Чеки: {data.operations.fiscalizationFailed} ошибок · {data.operations.fiscalizationPending} в очереди</span>
+            <span className={data.operations.emailFailed ? "is-error" : "is-ok"}><MailOutlined />Почта: {data.operations.emailFailed} ошибок · {data.operations.emailQueued} в очереди</span>
+            <span className={data.organizations.expiredPaid ? "is-warning" : "is-ok"}><ClockCircleOutlined />Истекло платных тарифов: {data.organizations.expiredPaid}</span>
+          </div> : <Empty description="Нет данных" />}
         </Card>
       </div>
+
+      <Card className="admin-dashboard__growth-card" title={<Space><BarChartOutlined />Динамика к предыдущим {periodDays} дням</Space>} loading={loading}>
+        {data ? <div className="admin-dashboard__growth-list">
+          <GrowthMetric label="новых пользователей" metric={data.growth.newUsers} />
+          <GrowthMetric label="новых проектов" metric={data.growth.newProjects} />
+          <GrowthMetric label="созданных задач" metric={data.growth.createdTasks} />
+          <GrowthMetric label="закрытых задач" metric={data.growth.completedTasks} />
+        </div> : <Empty description="Нет данных" />}
+      </Card>
 
       <div className="admin-dashboard__tables">
         <Card title="Тарифы и деньги" loading={loading}>

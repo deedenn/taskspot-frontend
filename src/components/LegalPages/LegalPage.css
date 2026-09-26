@@ -1,0 +1,128 @@
+.legal-page {
+  min-height: 100vh;
+  color: #102235;
+  background: #f8fafc;
+  font-family: "Avenir Next", "Segoe UI", Arial, sans-serif;
+}
+.legal-page__header,
+.legal-page__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  max-width: 1180px;
+  margin: auto;
+  padding: 24px 28px;
+}
+.legal-page__header {
+  border-bottom: 1px solid #dce5ec;
+}
+.legal-page__header .brand-logo {
+  width: 145px;
+}
+.legal-page__header nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.legal-page a {
+  color: #1857b7;
+}
+.legal-page__header a,
+.legal-page__footer a {
+  text-decoration: none;
+}
+.legal-page__header nav a[aria-current="page"] {
+  color: #102235;
+  font-weight: 700;
+}
+.legal-page__main {
+  max-width: 1180px;
+  margin: auto;
+  padding: 30px 28px 80px;
+}
+.legal-page__intro {
+  padding: 34px 0 42px;
+  border-bottom: 2px solid #102235;
+}
+.legal-page__intro span {
+  color: #4d6479;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.legal-page__intro h1 {
+  max-width: 800px;
+  margin: 14px 0;
+  font-size: clamp(34px, 5vw, 56px);
+  line-height: 1.1;
+}
+.legal-page__intro p {
+  max-width: 720px;
+  font-size: 19px;
+  line-height: 1.55;
+}
+.legal-page__intro small {
+  color: #577087;
+}
+.legal-page__layout {
+  display: grid;
+  grid-template-columns: 245px minmax(0, 1fr);
+  gap: 54px;
+}
+.legal-page__contents {
+  position: sticky;
+  top: 20px;
+  align-self: start;
+  display: grid;
+  gap: 12px;
+  padding-top: 42px;
+}
+.legal-page__contents strong {
+  margin-bottom: 5px;
+}
+.legal-page__contents a {
+  color: #49627a;
+  font-size: 14px;
+  text-decoration: none;
+}
+.legal-page article {
+  min-width: 0;
+  max-width: 760px;
+}
+.legal-page article section {
+  padding: 35px 0;
+  border-bottom: 1px solid #dce5ec;
+  scroll-margin-top: 20px;
+}
+.legal-page article h2 {
+  margin: 0 0 20px;
+  font-size: 25px;
+  line-height: 1.25;
+}
+.legal-page article p {
+  margin: 0 0 17px;
+  font-size: 16px;
+  line-height: 1.7;
+}
+.legal-page article p:last-child {
+  margin-bottom: 0;
+}
+.legal-page__footer {
+  border-top: 1px solid #dce5ec;
+  font-size: 14px;
+}
+@media (max-width: 760px) {
+  .legal-page__layout {
+    display: block;
+  }
+  .legal-page__contents {
+    position: static;
+    padding: 28px 0 8px;
+  }
+  .legal-page__header,
+  .legal-page__footer {
+    flex-wrap: wrap;
+  }
+}

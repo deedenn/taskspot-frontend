@@ -326,6 +326,7 @@ export function AppLayout({ auth }) {
         </Header>
         <Content className="app-layout__content">
           <Outlet />
+          <footer className="app-layout__legal"><Link to="/legal/terms">Пользовательское соглашение</Link><Link to="/legal/privacy">Персональные данные</Link></footer>
         </Content>
       </Layout>
       <Drawer

@@ -12,7 +12,7 @@ const plans = [
   { key: "business", name: "Бизнес", price: "2490 ₽/мес", monthlyPrice: 2490, limits: { users: 100, projects: 200, activeTasks: 10000, attachments: 5000, templates: 200, recurringTasks: 1000, historyDays: 0 } }
 ];
 
-function billingPayload(plan = plans[0]) {
+function billingPayload(plan = plans[0], billing = undefined) {
   return {
     organizations: [{
       organization: { _id: "organization-1", name: "Тестовая компания", plan: plan.key },
@@ -23,7 +23,8 @@ function billingPayload(plan = plans[0]) {
       activePaymentOrder: null,
       paymentOrders: []
     }],
-    plans
+    plans,
+    billing
   };
 }
 
@@ -37,6 +38,50 @@ beforeEach(() => {
     removeEventListener() {}
   }));
   globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
+});
+
+test("real SBP payment shows the bank QR and has no manual confirmation", async () => {
+  const realBilling = {
+    testMode: false,
+    ready: true,
+    activeProvider: { key: "tochka_sbp", name: "СБП банка Точка", ready: true },
+    note: "Оплата проходит через СБП банка Точка."
+  };
+  const order = {
+    _id: "payment-order-real",
+    status: "awaiting_payment",
+    targetPlan: "team",
+    planName: "Команда",
+    periodMonths: 1,
+    transitionType: "activate",
+    amountKopecks: 99000,
+    expiresAt: "2026-09-09T18:00:00.000Z",
+    payment: {
+      provider: "tochka_sbp",
+      status: "pending",
+      paymentUrl: "https://qr.nspk.ru/payment",
+      qrImage: "data:image/png;base64,aW1hZ2U="
+    }
+  };
+  apiFetch
+    .mockResolvedValueOnce(billingPayload(plans[0], realBilling))
+    .mockResolvedValueOnce({ paymentOrder: order, testMode: false });
+
+  render(<BillingPage />);
+  await screen.findByText("Безопасная оплата через СБП");
+  const teamCard = screen.getByRole("heading", { name: "Команда" }).closest(".ant-card");
+  fireEvent.click(within(teamCard).getByRole("button", { name: /Оплатить/ }));
+  let dialog = await screen.findByRole("dialog");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Создать платёж" }));
+
+  await waitFor(() => expect(apiFetch).toHaveBeenCalledWith(
+    "/organizations/organization-1/payment-orders",
+    expect.objectContaining({ method: "POST" })
+  ));
+  dialog = await screen.findByRole("dialog");
+  expect(await within(dialog).findByAltText("QR-код для оплаты через СБП")).toHaveAttribute("src", order.payment.qrImage);
+  expect(within(dialog).getByRole("link", { name: "Открыть приложение банка" })).toHaveAttribute("href", order.payment.paymentUrl);
+  expect(within(dialog).queryByRole("button", { name: "Я оплатил" })).not.toBeInTheDocument();
 });
 
 afterEach(() => {

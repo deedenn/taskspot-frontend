@@ -1,10 +1,12 @@
 import { LockOutlined, MailOutlined, UserOutlined } from "@ant-design/icons";
-import { Alert, Button, Card, Form, Input, Space, Typography } from "antd";
+import { Alert, Button, Card, Checkbox, Form, Input, Space, Typography } from "antd";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { apiFetch } from "../../api.js";
 import { BrandLogo } from "../BrandLogo/BrandLogo.jsx";
 import "./AuthPage.css";
+
+const TERMS_VERSION = "2026-09-20";
 
 const CHECK_MAIL_STORAGE_KEY = "taskspot_registration_check_mail";
 
@@ -129,7 +131,7 @@ export function AuthPage({ mode, auth }) {
       if (isRegister) {
         const data = await apiFetch("/auth/register", {
           method: "POST",
-          body: JSON.stringify(values)
+          body: JSON.stringify({ ...values, termsAccepted: true, termsVersion: TERMS_VERSION })
         });
 
         if (data.requiresEmailVerification) {
@@ -313,6 +315,20 @@ export function AuthPage({ mode, auth }) {
                 <Input.Password prefix={<LockOutlined />} placeholder="Пароль" autoComplete={isRegister ? "new-password" : "current-password"} />
               </Form.Item>
               </>}
+              {isRegister && (
+                <>
+                  <Form.Item
+                    name="termsAccepted"
+                    valuePropName="checked"
+                    rules={[{ validator: (_, accepted) => accepted ? Promise.resolve() : Promise.reject(new Error("Примите пользовательское соглашение")) }]}
+                  >
+                    <Checkbox>Я принимаю <Link to="/legal/terms" target="_blank">пользовательское соглашение</Link></Checkbox>
+                  </Form.Item>
+                  <Typography.Paragraph className="auth-page__legal-note" type="secondary">
+                    Как мы обрабатываем данные, описано в <Link to="/legal/privacy" target="_blank">политике конфиденциальности</Link>.
+                  </Typography.Paragraph>
+                </>
+              )}
               <Button type="primary" htmlType="submit" block loading={submitting}>
                 {isRegister ? "Создать аккаунт" : "Войти"}
               </Button>

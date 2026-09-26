@@ -503,6 +503,12 @@ export function LandingPage({ user }) {
             <a href="/resources/delegation/">Делегирование</a>
             <a href="/resources/task-register/">Реестр поручений</a>
           </div>
+          <div>
+            <strong>Правовая информация</strong>
+            <Link to="/legal/terms">Пользовательское соглашение</Link>
+            <Link to="/legal/privacy">Персональные данные</Link>
+            <a href="mailto:help@taskspot.ru">Связаться с нами</a>
+          </div>
         </nav>
         <div className="landing__footer-bottom">
           <span>© {new Date().getFullYear()} Taskspot</span>
