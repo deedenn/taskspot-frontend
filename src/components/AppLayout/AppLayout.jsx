@@ -86,15 +86,21 @@ export function AppLayout({ auth }) {
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.lg;
   const isSuperAdmin = Boolean(auth.user?.isSuperAdmin);
+  const homePath = auth.user?.mustChangePassword ? "/app/profile" : isSuperAdmin ? "/app/admin" : "/app/dashboard";
   const activeMenuKey = selectedMenuKey(location.pathname);
   const currentRoute = `${location.pathname}${location.search}`;
 
   const navItems = isSuperAdmin
     ? [
-        {
+        ...(!auth.user?.mustChangePassword ? [{
           key: "/app/admin",
           icon: <CrownOutlined />,
           label: <Link to="/app/admin">Админ-панель</Link>
+        }] : []),
+        {
+          key: "/app/profile",
+          icon: <UserOutlined />,
+          label: <Link to="/app/profile">Профиль</Link>
         }
       ]
     : [
@@ -278,7 +284,7 @@ export function AppLayout({ auth }) {
     <Layout className="app-layout">
       {!isMobile && (
         <Sider width={252} collapsible collapsed={collapsed} trigger={null} className="app-layout__sider">
-          <Link to={isSuperAdmin ? "/app/admin" : "/app/dashboard"} className="app-layout__brand">
+          <Link to={homePath} className="app-layout__brand">
             <BrandLogo compact={collapsed} variant="light" />
           </Link>
           <Menu theme="dark" mode="inline" selectedKeys={[activeMenuKey]} defaultOpenKeys={["control-group"]} items={navItems} />
@@ -294,7 +300,7 @@ export function AppLayout({ auth }) {
                   icon={<MenuOutlined />}
                   onClick={() => setMobileMenuOpen(true)}
                 />
-                <Link to={isSuperAdmin ? "/app/admin" : "/app/dashboard"} className="app-layout__mobile-brand">
+                <Link to={homePath} className="app-layout__mobile-brand">
                   <BrandLogo />
                 </Link>
               </>

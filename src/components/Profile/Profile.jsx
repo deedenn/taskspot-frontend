@@ -1,5 +1,5 @@
 import { CameraOutlined, DeleteOutlined, LockOutlined, SaveOutlined, UserOutlined } from "@ant-design/icons";
-import { Avatar, Button, Card, Form, Input, Space, Typography, message } from "antd";
+import { Alert, Avatar, Button, Card, Form, Input, Space, Typography, message } from "antd";
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "../../api.js";
 import { fullName } from "../../utils/users.js";
@@ -39,6 +39,7 @@ export function Profile({ auth }) {
   const [profileForm] = Form.useForm();
   const [passwordForm] = Form.useForm();
   const [avatarFailed, setAvatarFailed] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
   const fileInputRef = useRef(null);
   const avatarUrl = Form.useWatch("avatarUrl", profileForm);
 
@@ -48,9 +49,9 @@ export function Profile({ auth }) {
       lastName: auth.user?.lastName || "",
       email: auth.user?.email,
       phone: auth.user?.phone || "",
-	    avatarUrl: auth.user?.avatarUrl || ""
-	  });
-	  setAvatarFailed(false);
+      avatarUrl: auth.user?.avatarUrl || ""
+    });
+    setAvatarFailed(false);
   }, [auth.user, profileForm]);
 
   async function saveProfile(values) {
@@ -101,6 +102,7 @@ export function Profile({ auth }) {
   }
 
   async function changePassword(values) {
+    setPasswordSaving(true);
     try {
       await apiFetch("/auth/password", {
         method: "PATCH",
@@ -114,15 +116,23 @@ export function Profile({ auth }) {
       message.success("Пароль изменён");
     } catch (error) {
       message.error(error.message);
+    } finally {
+      setPasswordSaving(false);
     }
   }
+
+  const isSuperAdmin = Boolean(auth.user?.isSuperAdmin);
 
   return (
     <section className="profile">
       <div className="profile__head">
         <div>
           <Typography.Title level={1}>Профиль</Typography.Title>
-          <Typography.Paragraph>Контактные данные, аватар и пароль пользователя.</Typography.Paragraph>
+          <Typography.Paragraph>
+            {isSuperAdmin
+              ? "Данные администратора и безопасность доступа к сервису."
+              : "Контактные данные, аватар и пароль пользователя."}
+          </Typography.Paragraph>
         </div>
       </div>
 
@@ -196,6 +206,7 @@ export function Profile({ auth }) {
         </Card>
 
         <Card
+          className="profile__security-card"
           title={
             <Space>
               <LockOutlined />
@@ -203,27 +214,43 @@ export function Profile({ auth }) {
             </Space>
           }
         >
+          {isSuperAdmin && (
+            <Alert
+              className="profile__security-alert"
+              type={auth.user?.mustChangePassword ? "warning" : "info"}
+              showIcon
+              message={auth.user?.mustChangePassword ? "Замените временный пароль" : "Защищённая смена пароля"}
+              description={
+                auth.user?.mustChangePassword
+                  ? "До установки постоянного пароля админ-панель недоступна. После смены потребуется войти заново и подтвердить вход кодом из почты."
+                  : "После смены пароля все активные сессии будут завершены. Новый вход потребуется подтвердить кодом из почты."
+              }
+            />
+          )}
           <Form form={passwordForm} layout="vertical" onFinish={changePassword}>
             <Form.Item
               name="currentPassword"
               label="Текущий пароль"
               rules={[{ required: true, message: "Введите текущий пароль" }]}
             >
-              <Input.Password />
+              <Input.Password autoComplete="current-password" />
             </Form.Item>
             <Form.Item
               name="newPassword"
               label="Новый пароль"
               rules={[
                 { required: true, message: "Введите новый пароль" },
-                { min: 8, message: "Минимум 8 символов" },
+                { min: isSuperAdmin ? 12 : 8, message: isSuperAdmin ? "Минимум 12 символов" : "Минимум 8 символов" },
                 {
-                  pattern: /^(?=.*[A-Za-zА-Яа-яЁё])(?=.*\d).+$/,
-                  message: "Добавьте буквы и цифры"
+                  pattern: isSuperAdmin
+                    ? /^(?=.*[A-Za-zА-Яа-яЁё])(?=.*\d)(?=.*[^A-Za-zА-Яа-яЁё\d\s]).+$/
+                    : /^(?=.*[A-Za-zА-Яа-яЁё])(?=.*\d).+$/,
+                  message: isSuperAdmin ? "Добавьте буквы, цифры и специальный символ" : "Добавьте буквы и цифры"
                 }
               ]}
+              extra={isSuperAdmin ? "Минимум 12 символов, буквы, цифры и специальный символ" : undefined}
             >
-              <Input.Password />
+              <Input.Password autoComplete="new-password" />
             </Form.Item>
             <Form.Item
               name="confirmPassword"
@@ -241,9 +268,14 @@ export function Profile({ auth }) {
                 })
               ]}
             >
-              <Input.Password />
+              <Input.Password autoComplete="new-password" />
             </Form.Item>
-            <Button htmlType="submit" icon={<LockOutlined />}>
+            <Button
+              type={auth.user?.mustChangePassword ? "primary" : "default"}
+              htmlType="submit"
+              icon={<LockOutlined />}
+              loading={passwordSaving}
+            >
               Изменить пароль
             </Button>
           </Form>

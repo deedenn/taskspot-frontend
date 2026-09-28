@@ -62,6 +62,10 @@ function RequireSuperAdmin({ user, children }) {
     return <Navigate to="/app/dashboard" replace />;
   }
 
+  if (user.mustChangePassword) {
+    return <Navigate to="/app/profile" replace />;
+  }
+
   return children;
 }
 
@@ -146,7 +150,7 @@ export function App() {
             path="/app"
             element={<RequireAuth user={user}><AppLayout auth={auth} /></RequireAuth>}
           >
-            <Route index element={<Navigate to={user?.isSuperAdmin ? "/app/admin" : "/app/dashboard"} replace />} />
+            <Route index element={<Navigate to={user?.mustChangePassword ? "/app/profile" : user?.isSuperAdmin ? "/app/admin" : "/app/dashboard"} replace />} />
             <Route path="onboarding" element={<Navigate to="/app/dashboard" replace />} />
             <Route path="dashboard" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><Dashboard currentUser={user} /></Suspense></RequireRegularUser>} />
             <Route path="control" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><ControlPage /></Suspense></RequireRegularUser>} />
@@ -162,7 +166,7 @@ export function App() {
             <Route path="projects/:projectId" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><Projects user={user} /></Suspense></RequireRegularUser>} />
             <Route path="projects/:projectId/tasks" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><ProjectTasks currentUser={user} /></Suspense></RequireRegularUser>} />
             <Route path="tasks/:taskId" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><TaskDetails currentUser={user} /></Suspense></RequireRegularUser>} />
-            <Route path="profile" element={<RequireRegularUser user={user}><Suspense fallback={<RouteLoader />}><Profile auth={auth} /></Suspense></RequireRegularUser>} />
+            <Route path="profile" element={<Suspense fallback={<RouteLoader />}><Profile auth={auth} /></Suspense>} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
