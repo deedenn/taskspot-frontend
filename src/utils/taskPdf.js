@@ -7,7 +7,8 @@ const STATUS_LABELS = {
   in_progress: "В работе",
   review: "На проверке",
   done: "На проверке",
-  closed: "Закрыта"
+  closed: "Закрыта",
+  cancelled: "Отменена"
 };
 
 function text(value, fallback) {

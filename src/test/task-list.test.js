@@ -18,12 +18,15 @@ describe("project task list navigation", () => {
     expect(params.get("page")).toBe("3");
   });
 
-  it("does not allow the closed status and hide-closed switch to contradict each other", () => {
+  it("does not allow terminal statuses and hide-closed switch to contradict each other", () => {
     let params = updateTaskListParams(new URLSearchParams("page=4"), { status: "closed" });
     expect(readTaskListState(params).hideClosed).toBe(false);
     params = updateTaskListParams(params, { hideClosed: true });
     expect(readTaskListState(params).statusFilter).toBeUndefined();
     expect(readTaskListState(params).page).toBe(1);
+    params = updateTaskListParams(new URLSearchParams("page=4"), { status: "cancelled" });
+    expect(readTaskListState(params).hideClosed).toBe(false);
+    expect(readTaskListState(params).statusFilter).toBe("cancelled");
   });
 
   it("preserves filters when changing page and handles malformed URL values", () => {

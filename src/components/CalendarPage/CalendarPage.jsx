@@ -13,7 +13,8 @@ const statusLabels = {
   in_progress: ["В работе", "gold"],
   review: ["Проверка", "purple"],
   done: ["Проверка", "purple"],
-  closed: ["Закрыта", "default"]
+  closed: ["Закрыта", "default"],
+  cancelled: ["Отменена", "error"]
 };
 
 const priorityLabels = {
@@ -88,7 +89,7 @@ export function CalendarPage() {
     const dayTasks = tasksByDate.get(value.format("YYYY-MM-DD")) || [];
     if (!dayTasks.length) return null;
 
-    const urgentCount = dayTasks.filter((task) => task.priority === "urgent" && !["review", "done", "closed"].includes(task.status)).length;
+    const urgentCount = dayTasks.filter((task) => task.priority === "urgent" && !["review", "done", "closed", "cancelled"].includes(task.status)).length;
 
     return (
       <ul className="calendar-page__badges">

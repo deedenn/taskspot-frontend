@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { formatTaskDeadline } from "../../utils/taskDeadline.js";
 import "./WorkspaceTasks.css";
 
-const statuses = { open: ["Открыта", "blue"], in_progress: ["В работе", "gold"], review: ["На проверке", "purple"], done: ["На проверке", "purple"], closed: ["Закрыта", "default"] };
+const statuses = { open: ["Открыта", "blue"], in_progress: ["В работе", "gold"], review: ["На проверке", "purple"], done: ["На проверке", "purple"], closed: ["Закрыта", "default"], cancelled: ["Отменена", "error"] };
 export function PersonAvatar({ user, name, size = 32 }) {
   const label = name || [user?.name, user?.lastName].filter(Boolean).join(" ");
   return <Avatar src={user?.avatarUrl} alt={label} size={size}>{label?.split(" ").map((part) => part[0]).slice(0, 2).join("") || "?"}</Avatar>;

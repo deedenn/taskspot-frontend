@@ -93,4 +93,20 @@ describe("project task list requests", () => {
     expect(screen.queryByRole("link", { name: "Задача review" })).toBeNull();
     expect(screen.getByTestId("location")).toHaveTextContent("status=review");
   });
+
+  it("requires confirmation before project admin cancels a task", async () => {
+    apiFetch.mockImplementation((_path, options) => {
+      if (options?.method === "PATCH") return Promise.resolve({ task: task("cancel", "cancelled") });
+      return Promise.resolve(result([task("cancel")]));
+    });
+    openList();
+    await screen.findByRole("link", { name: "Задача cancel" });
+    fireEvent.click(screen.getByRole("button", { name: /Отменить$/ }));
+    expect(await screen.findByText("Вы действительно хотите перевести задачу в список отмененных?")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Перевести в отменённые" }));
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledWith("/tasks/cancel", {
+      method: "PATCH",
+      body: JSON.stringify({ status: "cancelled", confirmed: true })
+    }));
+  });
 });

@@ -17,6 +17,7 @@ import {
   ProjectOutlined,
   RollbackOutlined,
   SafetyCertificateOutlined,
+  StopOutlined,
   SyncOutlined,
   TeamOutlined,
   UpOutlined
@@ -61,7 +62,8 @@ const statusLabels = {
   in_progress: ["В работе", "gold"],
   review: ["На проверке", "purple"],
   done: ["На проверке", "purple"],
-  closed: ["Закрыта", "default"]
+  closed: ["Закрыта", "default"],
+  cancelled: ["Отменена", "error"]
 };
 
 const priorityOptions = [
@@ -85,7 +87,8 @@ const statusOrder = {
   in_progress: 2,
   review: 3,
   done: 4,
-  closed: 5
+  closed: 5,
+  cancelled: 6
 };
 
 const priorityOrder = {
@@ -103,7 +106,7 @@ const statItems = [
 ];
 
 function isActionable(task) {
-  return !["review", "done", "closed"].includes(task?.status);
+  return !["review", "done", "closed", "cancelled"].includes(task?.status);
 }
 
 function isOverdue(task) {
@@ -121,7 +124,7 @@ function isDeadlineAlert(task) {
 }
 
 function isUrgentActive(task) {
-  return task?.priority === "urgent" && !["review", "done", "closed"].includes(task.status);
+  return task?.priority === "urgent" && !["review", "done", "closed", "cancelled"].includes(task.status);
 }
 
 function idOf(value) {
@@ -189,10 +192,15 @@ function TaskCategories({ task, categoryMap }) {
   );
 }
 
-function TaskStatusControl({ task, currentUser, changingStatus, onStatusChange }) {
+function TaskStatusControl({ task, currentUser, changingStatus, onStatusChange, projectById }) {
   const isAssignee = idOf(task.assignee) === idOf(currentUser) && Boolean(currentUser);
-  const isReviewer = idOf(task.creator) === idOf(currentUser) && Boolean(currentUser);
-  const isArchived = isProjectArchived(task.project);
+  const isCreator = idOf(task.creator) === idOf(currentUser) && Boolean(currentUser);
+  const taskProject = projectById?.get(idOf(task.project)) || task.project;
+  const isAdmin = taskProject?.members?.some(
+    (member) => idOf(member.user) === idOf(currentUser) && member.role === "admin"
+  );
+  const isManager = isAdmin || isCreator;
+  const isArchived = isProjectArchived(taskProject) || isProjectArchived(task.project);
   const isChanging = changingStatus === task._id;
   const [label] = statusLabels[task.status] || [task.status];
   const statusIcons = {
@@ -200,20 +208,30 @@ function TaskStatusControl({ task, currentUser, changingStatus, onStatusChange }
     in_progress: <SyncOutlined />,
     review: <EyeOutlined />,
     done: <EyeOutlined />,
-    closed: <CheckCircleOutlined />
+    closed: <CheckCircleOutlined />,
+    cancelled: <StopOutlined />
   };
   const actions = [];
+  const addAction = (action) => {
+    if (!actions.some((item) => item.key === action.key)) actions.push(action);
+  };
 
-  if (!isArchived && isAssignee && ["open", "in_progress"].includes(task.status)) {
+  if (!isArchived && (isAssignee || isManager) && ["open", "in_progress"].includes(task.status)) {
     if (task.status === "open") {
-      actions.push({ key: "in_progress", icon: <PlayCircleOutlined />, label: "Взять в работу" });
+      addAction({ key: "in_progress", icon: <PlayCircleOutlined />, label: "Перевести в работу" });
+    } else if (isManager) {
+      addAction({ key: "open", icon: <ClockCircleOutlined />, label: "Вернуть в открытые" });
     }
-    actions.push({ key: "review", icon: <CheckOutlined />, label: "Выполнено — на проверку" });
+    addAction({ key: "review", icon: <CheckOutlined />, label: "Выполнено — на проверку" });
   }
 
-  if (!isArchived && isReviewer && ["review", "done"].includes(task.status)) {
-    actions.push({ key: "closed", icon: <SafetyCertificateOutlined />, label: "Принять и закрыть" });
-    actions.push({ key: "return", icon: <RollbackOutlined />, label: "Вернуть на доработку" });
+  if (!isArchived && isManager && ["review", "done"].includes(task.status)) {
+    addAction({ key: "closed", icon: <SafetyCertificateOutlined />, label: "Принять и закрыть" });
+    addAction({ key: "return", icon: <RollbackOutlined />, label: "Вернуть на доработку" });
+  }
+
+  if (!isArchived && isAdmin && task.status !== "cancelled") {
+    addAction({ key: "cancelled", icon: <StopOutlined />, label: "Отменить задачу", danger: true });
   }
 
   const content = (
@@ -455,6 +473,7 @@ export function Dashboard({ currentUser }) {
   const [categoryFilter, setCategoryFilter] = useState([]);
   const [changingStatus, setChangingStatus] = useState(null);
   const [returnTask, setReturnTask] = useState(null);
+  const [cancelTask, setCancelTask] = useState(null);
   const statusLock = useRef(false);
   const [quickFilter, setQuickFilter] = useState(() =>
     initialSearchParams.get("focus") === "overdue" ? "overdue" : "active"
@@ -490,6 +509,7 @@ export function Dashboard({ currentUser }) {
     [rawDashboardData, currentUser?._id]
   );
   const projects = useMemo(() => dashboardResource.data?.projects || [], [dashboardResource.data?.projects]);
+  const projectById = useMemo(() => new Map(projects.map((project) => [idOf(project), project])), [projects]);
   const error = dashboardResource.error;
   const loading = dashboardResource.loading;
 
@@ -608,7 +628,7 @@ export function Dashboard({ currentUser }) {
 
   const applyTaskFilters = useCallback((tasks) => {
     return tasks.filter((task) => {
-      const matchesClosed = !hideClosed || task.status !== "closed";
+      const matchesClosed = !hideClosed || !["closed", "cancelled"].includes(task.status);
       const matchesProject = !projectFilter || idOf(task.project) === projectFilter;
       const taskCategories = new Set((task.categories || []).map((categoryId) => idOf(categoryId)));
       const matchesCategories =
@@ -616,7 +636,7 @@ export function Dashboard({ currentUser }) {
       const today = dayjs().startOf("day");
       const matchesQuick =
         quickFilter === "active"
-          ? task.status !== "closed"
+          ? !["closed", "cancelled"].includes(task.status)
           : quickFilter === "today"
             ? task.dueDate && dayjs(task.dueDate).isSame(today, "day")
             : quickFilter === "overdue"
@@ -624,8 +644,10 @@ export function Dashboard({ currentUser }) {
               : quickFilter === "review"
                 ? ["review", "done"].includes(task.status)
                 : quickFilter === "unassigned"
-                  ? !task.assignee && !task.assigneeEmail && task.status !== "closed"
-                  : true;
+                  ? !task.assignee && !task.assigneeEmail && !["closed", "cancelled"].includes(task.status)
+                  : quickFilter === "cancelled"
+                    ? task.status === "cancelled"
+                    : true;
 
       return matchesClosed && matchesProject && matchesCategories && matchesQuick;
     });
@@ -677,6 +699,7 @@ export function Dashboard({ currentUser }) {
   const quickFilterItems = [
     { key: "active", label: "Активные" },
     ...(!hideClosed ? [{ key: "all", label: "Все состояния" }] : []),
+    ...(!hideClosed ? [{ key: "cancelled", label: "Отменённые" }] : []),
     { key: "today", label: "Сегодня" },
     { key: "overdue", label: "Просрочено" },
     { key: "review", label: "На проверке", count: reviewTasksForUserCount },
@@ -707,6 +730,8 @@ export function Dashboard({ currentUser }) {
           ? "Задача отправлена на проверку"
           : status === "closed"
             ? "Задача принята и закрыта"
+            : status === "cancelled"
+              ? "Задача перемещена в отменённые"
             : extra.comment
               ? "Задача возвращена на доработку"
               : "Статус обновлён"
@@ -728,7 +753,18 @@ export function Dashboard({ currentUser }) {
       return;
     }
 
+    if (action === "cancelled") {
+      setCancelTask(task);
+      return;
+    }
+
     changeTaskStatus(task, action);
+  }
+
+  async function cancelSelectedTask() {
+    if (!cancelTask) return;
+    const updated = await changeTaskStatus(cancelTask, "cancelled", { confirmed: true });
+    if (updated) setCancelTask(null);
   }
 
   async function returnTaskToWork(values) {
@@ -756,7 +792,7 @@ export function Dashboard({ currentUser }) {
       setQuickFilter("all");
     }
 
-    if (value && quickFilter === "all") {
+    if (value && ["all", "cancelled"].includes(quickFilter)) {
       setQuickFilter("active");
     }
   }
@@ -1248,7 +1284,7 @@ export function Dashboard({ currentUser }) {
                             handleHideClosedChange(true);
                           }}
                         >
-                          Закрытые показаны
+                          Завершённые показаны
                         </Tag>
                       )}
                     </div>
@@ -1274,9 +1310,9 @@ export function Dashboard({ currentUser }) {
                         />
                       </label>
                       <div className="dashboard__details-switch">
-                        <span>Закрытые задачи</span>
+                        <span>Завершённые и отменённые</span>
                         <Switch
-                          aria-label="Показывать закрытые задачи"
+                          aria-label="Показывать завершённые и отменённые задачи"
                           checked={!hideClosed}
                           checkedChildren="Показаны"
                           unCheckedChildren="Скрыты"
@@ -1324,9 +1360,9 @@ export function Dashboard({ currentUser }) {
                 </Button>
               </div>
               {isMobileTaskList ? (
-                <TaskMobileList tasks={activeTasks} categoryMap={categoryMap} currentRoute={currentRoute} currentUser={currentUser} changingStatus={changingStatus} onStatusChange={handleTaskStatusAction} />
+                <TaskMobileList tasks={activeTasks} categoryMap={categoryMap} currentRoute={currentRoute} currentUser={currentUser} changingStatus={changingStatus} onStatusChange={handleTaskStatusAction} projectById={projectById} />
               ) : (
-                <TaskTable tasks={activeTasks} categoryMap={categoryMap} currentRoute={currentRoute} currentUser={currentUser} changingStatus={changingStatus} onStatusChange={handleTaskStatusAction} />
+                <TaskTable tasks={activeTasks} categoryMap={categoryMap} currentRoute={currentRoute} currentUser={currentUser} changingStatus={changingStatus} onStatusChange={handleTaskStatusAction} projectById={projectById} />
               )}
             </Card>
           </div>
@@ -1378,9 +1414,9 @@ export function Dashboard({ currentUser }) {
             />
           </div>
           <div className="dashboard__drawer-switch">
-            <Typography.Text strong>Закрытые задачи</Typography.Text>
+            <Typography.Text strong>Завершённые и отменённые</Typography.Text>
             <Switch
-              aria-label="Показывать закрытые задачи"
+              aria-label="Показывать завершённые и отменённые задачи"
               checked={!hideClosed}
               checkedChildren="Показаны"
               unCheckedChildren="Скрыты"
@@ -1389,6 +1425,23 @@ export function Dashboard({ currentUser }) {
           </div>
         </div>
       </Drawer>
+
+      <Modal
+        title="Отменить задачу?"
+        open={Boolean(cancelTask)}
+        okText="Перевести в отменённые"
+        cancelText="Не отменять"
+        okButtonProps={{ danger: true, disabled: Boolean(changingStatus) }}
+        cancelButtonProps={{ disabled: Boolean(changingStatus) }}
+        confirmLoading={Boolean(cancelTask && changingStatus === cancelTask._id)}
+        onOk={cancelSelectedTask}
+        onCancel={() => setCancelTask(null)}
+      >
+        <Typography.Paragraph>
+          Вы действительно хотите перевести задачу в список отмененных?
+        </Typography.Paragraph>
+        <Typography.Text type="secondary">Задача перестанет учитываться как активная.</Typography.Text>
+      </Modal>
 
       <Modal
         title="Вернуть задачу на доработку"

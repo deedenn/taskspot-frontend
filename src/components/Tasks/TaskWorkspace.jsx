@@ -1,4 +1,4 @@
-import { CheckCircleOutlined, CommentOutlined, DeleteOutlined, EyeInvisibleOutlined, EyeOutlined, PaperClipOutlined, PlusOutlined, RollbackOutlined } from "@ant-design/icons";
+import { CheckCircleOutlined, CommentOutlined, DeleteOutlined, EyeInvisibleOutlined, EyeOutlined, PaperClipOutlined, PlusOutlined, RollbackOutlined, StopOutlined } from "@ant-design/icons";
 import { Alert, App as AntApp, Button, Card, Drawer, Empty, Form, Grid, Input, List, Pagination, Select, Space, Spin, Switch, Tag, Tooltip, Typography, Upload } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -14,7 +14,8 @@ const statusOptions = [
   { value: "open", label: "Открыта" },
   { value: "in_progress", label: "В работе" },
   { value: "review", label: "Проверка" },
-  { value: "closed", label: "Закрыта" }
+  { value: "closed", label: "Закрыта" },
+  { value: "cancelled", label: "Отменена" }
 ];
 
 const statusColor = {
@@ -22,7 +23,8 @@ const statusColor = {
   in_progress: "gold",
   review: "purple",
   done: "purple",
-  closed: "default"
+  closed: "default",
+  cancelled: "error"
 };
 
 const priorityOptions = [
@@ -46,12 +48,12 @@ function idOf(value) {
 }
 
 function isDueSoon(task) {
-  if (!task?.dueDate || task.status === "closed") return false;
+  if (!task?.dueDate || ["closed", "cancelled"].includes(task.status)) return false;
   return isTaskDeadlinePast(task) || isTaskDeadlineSoon(task);
 }
 
 function isUrgentActive(task) {
-  return task?.priority === "urgent" && !["review", "done", "closed"].includes(task.status);
+  return task?.priority === "urgent" && !["review", "done", "closed", "cancelled"].includes(task.status);
 }
 
 function normalizedStatus(status) {
@@ -265,10 +267,13 @@ export function TaskWorkspace({ project, currentUser }) {
     const nextStatusLabel = statusOptions.find((item) => item.value === status)?.label || status;
     const confirmed = await new Promise((resolve) => {
       modal.confirm({
-        title: "Изменить статус задачи?",
-        content: `Новый статус: ${nextStatusLabel}. Изменение попадёт в историю задачи.`,
-        okText: "Изменить",
-        cancelText: "Отмена",
+        title: status === "cancelled" ? "Отменить задачу?" : "Изменить статус задачи?",
+        content: status === "cancelled"
+          ? "Вы действительно хотите перевести задачу в список отмененных?"
+          : `Новый статус: ${nextStatusLabel}. Изменение попадёт в историю задачи.`,
+        okText: status === "cancelled" ? "Перевести в отменённые" : "Изменить",
+        okButtonProps: status === "cancelled" ? { danger: true } : undefined,
+        cancelText: status === "cancelled" ? "Не отменять" : "Отмена",
         onOk: () => resolve(true),
         onCancel: () => resolve(false)
       });
@@ -279,7 +284,7 @@ export function TaskWorkspace({ project, currentUser }) {
     try {
       await apiFetch(`/tasks/${task._id}`, {
         method: "PATCH",
-        body: JSON.stringify({ status })
+        body: JSON.stringify({ status, ...(status === "cancelled" ? { confirmed: true } : {}) })
       });
       await reloadTasksRef.current?.();
       message.success("Статус обновлён");
@@ -352,19 +357,19 @@ export function TaskWorkspace({ project, currentUser }) {
       extra={
         <Space wrap>
           {isCompactControls ? (
-            <Tooltip title={hideClosed ? "Закрытые скрыты" : "Закрытые показаны"}>
+            <Tooltip title={hideClosed ? "Завершённые скрыты" : "Завершённые показаны"}>
               <Button
                 className="tasks__filter-button"
                 type={hideClosed ? "primary" : "default"}
                 icon={hideClosed ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-                aria-label={hideClosed ? "Показать закрытые задачи" : "Скрыть закрытые задачи"}
+                aria-label={hideClosed ? "Показать завершённые и отменённые задачи" : "Скрыть завершённые и отменённые задачи"}
                 onClick={() => changeList({ hideClosed: !hideClosed })}
               />
             </Tooltip>
           ) : (
             <Space className="tasks__filter" size={8}>
-              <Typography.Text>Скрыть закрытые</Typography.Text>
-              <Switch aria-label="Скрыть закрытые" checked={hideClosed} onChange={(value) => changeList({ hideClosed: value })} />
+              <Typography.Text>Скрыть завершённые</Typography.Text>
+              <Switch aria-label="Скрыть завершённые и отменённые" checked={hideClosed} onChange={(value) => changeList({ hideClosed: value })} />
             </Space>
           )}
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setDrawerOpen(true)} disabled={projectArchived}>
@@ -422,6 +427,7 @@ export function TaskWorkspace({ project, currentUser }) {
                   currentUser={currentUser}
                   categoryMap={categoryMap}
                   currentRoute={currentRoute}
+                  project={project}
                   onStatusChange={changeStatus}
                   onReturnToWork={returnTaskToWork}
                   onComment={addComment}
@@ -547,15 +553,25 @@ export function TaskWorkspace({ project, currentUser }) {
   );
 }
 
-function TaskCard({ task, currentUser, categoryMap, currentRoute, onStatusChange, onReturnToWork, onComment, readOnly = false }) {
+function TaskCard({ task, project, currentUser, categoryMap, currentRoute, onStatusChange, onReturnToWork, onComment, readOnly = false }) {
   const [commentForm] = Form.useForm();
   const status = statusOptions.find((item) => item.value === normalizedStatus(task.status));
   const assigneeLabel = task.assignee ? fullName(task.assignee) : task.assigneeEmail || "не назначен";
   const [priorityLabel, priorityColor] = priorityLabels[task.priority] || priorityLabels.medium;
   const isCreator = idOf(task.creator) === currentUser?._id;
   const isAssignee = idOf(task.assignee) === currentUser?._id;
-  const canSendToReview = !readOnly && isAssignee && !["review", "done", "closed"].includes(task.status);
-  const canReview = !readOnly && isCreator && ["review", "done"].includes(task.status);
+  const isProjectAdmin = project?.members?.some(
+    (member) => idOf(member.user) === currentUser?._id && member.role === "admin"
+  );
+  const isManager = isCreator || isProjectAdmin;
+  const canSendToReview = !readOnly && (isAssignee || isManager) && !["review", "done", "closed", "cancelled"].includes(task.status);
+  const canReview = !readOnly && isManager && ["review", "done"].includes(task.status);
+  const canCancel = !readOnly && isProjectAdmin && task.status !== "cancelled";
+  const managerOptions = task.status === "open"
+    ? [{ value: "in_progress", label: "В работу" }]
+    : task.status === "in_progress"
+      ? [{ value: "open", label: "В открытые" }]
+      : [];
   const className = [
     "tasks__card",
     isDueSoon(task) ? "tasks__card--due" : "",
@@ -600,6 +616,15 @@ function TaskCard({ task, currentUser, categoryMap, currentRoute, onStatusChange
         })}
       </Space>
       <div className="tasks__controls">
+        {isManager && managerOptions.length > 0 && (
+          <Select
+            aria-label="Изменить статус задачи"
+            placeholder="Изменить статус"
+            value={undefined}
+            options={managerOptions}
+            onChange={(nextStatus) => onStatusChange(task, nextStatus)}
+          />
+        )}
         {canSendToReview && (
           <Button
             type="primary"
@@ -626,7 +651,12 @@ function TaskCard({ task, currentUser, categoryMap, currentRoute, onStatusChange
             </Button>
           </>
         )}
-        {!canSendToReview && !canReview && (
+        {canCancel && (
+          <Button danger icon={<StopOutlined />} onClick={() => onStatusChange(task, "cancelled")}>
+            Отменить
+          </Button>
+        )}
+        {!canSendToReview && !canReview && !canCancel && (
           <Tag color={statusColor[task.status]}>{status?.label || task.status}</Tag>
         )}
       </div>

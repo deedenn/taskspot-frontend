@@ -10,7 +10,8 @@ import {
   PaperClipOutlined,
   PlusOutlined,
   RetweetOutlined,
-  RollbackOutlined
+  RollbackOutlined,
+  StopOutlined
 } from "@ant-design/icons";
 import { Alert, Button, Card, Checkbox, Empty, Form, Input, List, Modal, Select, Space, Spin, Tag, Timeline, Typography, Upload, message } from "antd";
 import dayjs from "dayjs";
@@ -28,7 +29,8 @@ const statusLabels = {
   in_progress: ["В работе", "gold"],
   review: ["Проверка", "purple"],
   done: ["Проверка", "purple"],
-  closed: ["Закрыта", "default"]
+  closed: ["Закрыта", "default"],
+  cancelled: ["Отменена", "error"]
 };
 
 const priorityLabels = {
@@ -52,7 +54,7 @@ function idOf(value) {
 }
 
 function isUrgentActive(task) {
-  return task?.priority === "urgent" && !["review", "done", "closed"].includes(task.status);
+  return task?.priority === "urgent" && !["review", "done", "closed", "cancelled"].includes(task.status);
 }
 
 function isProjectArchived(project) {
@@ -183,14 +185,17 @@ export function TaskDetails({ currentUser }) {
   );
 
   async function updateStatus(status, extra = {}, requireConfirm = false) {
-    if (requireConfirm) {
+    if (requireConfirm || status === "cancelled") {
       const nextStatus = statusLabels[status]?.[0] || status;
       const confirmed = await new Promise((resolve) => {
         Modal.confirm({
-          title: "Изменить статус задачи?",
-          content: `Новый статус: ${nextStatus}. Изменение попадёт в историю задачи.`,
-          okText: "Изменить",
-          cancelText: "Отмена",
+          title: status === "cancelled" ? "Отменить задачу?" : "Изменить статус задачи?",
+          content: status === "cancelled"
+            ? "Вы действительно хотите перевести задачу в список отмененных?"
+            : `Новый статус: ${nextStatus}. Изменение попадёт в историю задачи.`,
+          okText: status === "cancelled" ? "Перевести в отменённые" : "Изменить",
+          okButtonProps: status === "cancelled" ? { danger: true } : undefined,
+          cancelText: status === "cancelled" ? "Не отменять" : "Отмена",
           onOk: () => resolve(true),
           onCancel: () => resolve(false)
         });
@@ -203,7 +208,7 @@ export function TaskDetails({ currentUser }) {
     try {
       const data = await apiFetch(`/tasks/${taskId}`, {
         method: "PATCH",
-        body: JSON.stringify({ status, ...extra })
+        body: JSON.stringify({ status, ...(status === "cancelled" ? { confirmed: true } : {}), ...extra })
       });
       setTask(data.task);
       setReturnModalOpen(false);
@@ -478,11 +483,18 @@ export function TaskDetails({ currentUser }) {
   );
   const projectArchived = isProjectArchived(task.project);
   const canManageAttachments = !projectArchived && (isCreator || isAssignee || isProjectAdmin);
-  const canSendToReview = !projectArchived && isAssignee && !["review", "done", "closed"].includes(task.status);
-  const canReview = !projectArchived && isCreator && ["review", "done"].includes(task.status);
-  const canEditDetails = !projectArchived && (isCreator || isProjectAdmin) && task.status !== "closed";
+  const isManager = isCreator || isProjectAdmin;
+  const canSendToReview = !projectArchived && (isAssignee || isManager) && !["review", "done", "closed", "cancelled"].includes(task.status);
+  const canReview = !projectArchived && isManager && ["review", "done"].includes(task.status);
+  const canCancel = !projectArchived && isProjectAdmin && task.status !== "cancelled";
+  const canEditDetails = !projectArchived && isManager && !["closed", "cancelled"].includes(task.status);
   const canEditChecklist = !projectArchived && (isCreator || isAssignee || isProjectAdmin);
-  const canChangePriority = !projectArchived && isCreator && task.status !== "closed";
+  const canChangePriority = !projectArchived && isManager && !["closed", "cancelled"].includes(task.status);
+  const managerStatusOptions = task.status === "open"
+    ? [{ value: "in_progress", label: "В работу" }]
+    : task.status === "in_progress"
+      ? [{ value: "open", label: "В открытые" }]
+      : [];
   const assigneeLabel = task.assignee ? fullName(task.assignee) : task.assigneeEmail || "не назначен";
   const dueDateLabel = formatTaskDeadline(task);
   const memberOptions = projectMemberOptions(task.project);
@@ -668,6 +680,16 @@ export function TaskDetails({ currentUser }) {
         )}
 
         <Space wrap className="task-details__actions">
+          {isManager && managerStatusOptions.length > 0 && (
+            <Select
+              aria-label="Изменить статус задачи"
+              placeholder="Изменить статус"
+              value={undefined}
+              options={managerStatusOptions}
+              disabled={saving}
+              onChange={(nextStatus) => updateStatus(nextStatus, {}, true)}
+            />
+          )}
           {canReview && (
             <>
               <Button
@@ -687,9 +709,24 @@ export function TaskDetails({ currentUser }) {
               </Button>
             </>
           )}
+          {canCancel && (
+            <Button
+              danger
+              icon={<StopOutlined />}
+              loading={saving}
+              onClick={() => updateStatus("cancelled")}
+            >
+              Отменить задачу
+            </Button>
+          )}
           {task.status === "closed" && (
             <Tag icon={<CloseCircleOutlined />} color="default">
               Задача закрыта
+            </Tag>
+          )}
+          {task.status === "cancelled" && (
+            <Tag icon={<StopOutlined />} color="error">
+              Задача отменена
             </Tag>
           )}
         </Space>

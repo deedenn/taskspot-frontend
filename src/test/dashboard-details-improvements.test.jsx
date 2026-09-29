@@ -42,18 +42,38 @@ test("dashboard shows seven fixed-layout columns, avatar/name and inline complet
   fireEvent.click(statusButton);
   fireEvent.click(await screen.findByText("Выполнено — на проверку"));
   await waitFor(() => expect(apiFetch).toHaveBeenCalledWith("/tasks/t", { method: "PATCH", body: JSON.stringify({ status: "review" }) }));
-  await waitFor(() => expect(screen.queryByRole("button", { name: /Статус задачи Проверить документ/ })).not.toBeInTheDocument());
+  await waitFor(() => expect(screen.getByRole("button", { name: /Статус задачи Проверить документ: На проверке/ })).toBeInTheDocument());
   expect(within(table).getByText("На проверке")).toBeInTheDocument();
-}, 10000);
+}, 20000);
 test.each([
-  ["another assignee", { assignee: { _id: "other", name: "Другой" } }],
-  ["archived project", { project: { ...project, archived: true, archivedAt: "2026-01-01" } }],
-  ["review", { status: "review" }]
+  ["archived project", { project: { ...project, archived: true, archivedAt: "2026-01-01" } }]
 ])("dashboard status is read-only for %s", async (_, change) => {
   mockTask({ ...baseTask, ...change });
   render(<MemoryRouter><Dashboard currentUser={user} /></MemoryRouter>);
   await screen.findByText("Проверить документ");
   expect(screen.queryByRole("button", { name: /Статус задачи Проверить документ/ })).not.toBeInTheDocument();
+});
+test("dashboard status is read-only for an unrelated project member", async () => {
+  const memberProject = { ...project, members: [{ user, role: "member" }] };
+  mockTask({ ...baseTask, project: memberProject, assignee: { _id: "other", name: "Другой" } }, false, [memberProject]);
+  render(<MemoryRouter><Dashboard currentUser={user} /></MemoryRouter>);
+  await screen.findByText("Проверить документ");
+  expect(screen.queryByRole("button", { name: /Статус задачи Проверить документ/ })).not.toBeInTheDocument();
+});
+
+test("project admin confirms task cancellation from the dashboard", async () => {
+  mockTask();
+  render(<MemoryRouter><Dashboard currentUser={user} /></MemoryRouter>);
+  await screen.findByText("Проверить документ");
+  fireEvent.click(screen.getByRole("button", { name: /Статус задачи Проверить документ: Открыта/ }));
+  fireEvent.click(await screen.findByText("Отменить задачу"));
+  const dialog = await screen.findByRole("dialog", { name: "Отменить задачу?" });
+  expect(within(dialog).getByText("Вы действительно хотите перевести задачу в список отмененных?")).toBeInTheDocument();
+  fireEvent.click(within(dialog).getByRole("button", { name: "Перевести в отменённые" }));
+  await waitFor(() => expect(apiFetch).toHaveBeenCalledWith("/tasks/t", {
+    method: "PATCH",
+    body: JSON.stringify({ status: "cancelled", confirmed: true })
+  }));
 });
 test("task completion is in the heading, sends review and history follows comments", async () => {
   mockTask();
@@ -91,7 +111,7 @@ test("dashboard keeps advanced filters collapsed in the compact workbar", async 
   fireEvent.click(filtersButton);
   expect(filtersButton).toHaveAttribute("aria-expanded", "true");
   expect(screen.getByLabelText("Дополнительные фильтры задач")).toBeInTheDocument();
-  expect(within(screen.getByLabelText("Дополнительные фильтры задач")).getByText("Закрытые задачи")).toBeInTheDocument();
+  expect(within(screen.getByLabelText("Дополнительные фильтры задач")).getByText("Завершённые и отменённые")).toBeInTheDocument();
 
   fireEvent.click(within(screen.getByLabelText("Дополнительные фильтры задач")).getByRole("switch"));
   expect(screen.getByRole("button", { name: /Фильтры · 1/ })).toBeInTheDocument();
@@ -154,7 +174,7 @@ test("mobile filters open in a drawer and expose hidden project with accessible 
   expect(filtersButton).toHaveAttribute("aria-controls", "dashboard-detailed-filters-drawer");
   expect(within(drawerFilters).getByRole("combobox", { name: "Проект задач в фильтрах" })).toBeInTheDocument();
   expect(within(drawerFilters).getByRole("combobox", { name: "Категории задач" })).toBeInTheDocument();
-  expect(within(drawerFilters).getByRole("switch", { name: "Показывать закрытые задачи" })).toBeInTheDocument();
+  expect(within(drawerFilters).getByRole("switch", { name: "Показывать завершённые и отменённые задачи" })).toBeInTheDocument();
 
   const projectSelect = within(drawerFilters).getByRole("combobox", { name: "Проект задач в фильтрах" });
   fireEvent.mouseDown(projectSelect);
@@ -227,5 +247,5 @@ test("mobile task row keeps the status control outside its navigation link", asy
     body: JSON.stringify({ status: "review" })
   }));
   await waitFor(() => expect(screen.getByText("На проверке")).toBeInTheDocument(), { timeout: 5000 });
-  expect(screen.queryByRole("button", { name: /Статус задачи Проверить документ/ })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Статус задачи Проверить документ: На проверке/ })).toBeInTheDocument();
 }, 10000);

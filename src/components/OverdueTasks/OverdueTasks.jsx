@@ -12,7 +12,8 @@ const statusLabels = {
   in_progress: ["В работе", "gold"],
   review: ["Проверка", "purple"],
   done: ["Проверка", "purple"],
-  closed: ["Закрыта", "default"]
+  closed: ["Закрыта", "default"],
+  cancelled: ["Отменена", "error"]
 };
 
 const priorityLabels = {
@@ -40,7 +41,7 @@ function uniqueVisibleTasks(data) {
 function isOverdue(task) {
   return (
     task.dueDate &&
-    !["review", "done", "closed"].includes(task.status) &&
+    !["review", "done", "closed", "cancelled"].includes(task.status) &&
     isTaskDeadlinePast(task)
   );
 }

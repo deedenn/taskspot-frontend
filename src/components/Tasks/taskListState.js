@@ -2,7 +2,7 @@ export function readTaskListState(params) {
   const positiveInteger = (value, fallback) => /^[1-9]\d*$/.test(value) && Number.isSafeInteger(Number(value))
     ? Number(value) : fallback;
   const sorts = ["updatedAt:desc", "createdAt:desc", "dueDate:asc", "description:asc"];
-  const statuses = ["open", "in_progress", "review", "closed"];
+  const statuses = ["open", "in_progress", "review", "closed", "cancelled"];
   const status = statuses.includes(params.get("status")) ? params.get("status") : undefined;
   const limit = positiveInteger(params.get("limit"), 25);
   return {
@@ -12,7 +12,7 @@ export function readTaskListState(params) {
     sort: sorts.includes(params.get("sort")) ? params.get("sort") : "updatedAt:desc",
     statusFilter: status,
     categoryFilter: params.get("category") || undefined,
-    hideClosed: status !== "closed" && params.get("hideClosed") !== "false"
+    hideClosed: !["closed", "cancelled"].includes(status) && params.get("hideClosed") !== "false"
   };
 }
 
@@ -23,7 +23,7 @@ export function updateTaskListParams(params, changes, { resetPage = true } = {})
     if (value === undefined || value === "") next.delete(key);
     else next.set(key, String(value));
   }
-  if (changes.status === "closed") next.set("hideClosed", "false");
-  if (changes.hideClosed === true && next.get("status") === "closed") next.delete("status");
+  if (["closed", "cancelled"].includes(changes.status)) next.set("hideClosed", "false");
+  if (changes.hideClosed === true && ["closed", "cancelled"].includes(next.get("status"))) next.delete("status");
   return next;
 }

@@ -55,7 +55,8 @@ function AssigneeMetrics({ group }) {
     ["Открыто", group.open, "open"],
     ["В работе", group.inProgress, "progress"],
     ["На проверке", group.review, "review"],
-    ["Закрыто", group.closed, "closed"]
+    ["Закрыто", group.closed, "closed"],
+    ["Отменено", group.cancelled || 0, "closed"]
   ];
 
   return <span className="assignee-control__metrics" aria-label={`Метрики ${group.name}`}>
@@ -67,8 +68,8 @@ function AssigneeMetrics({ group }) {
 }
 
 function WorkloadStrip({ group }) {
-  const active = group.total - group.closed;
-  return <span className="assignee-control__rail" aria-label={`Нагрузка: открыто ${group.open}, в работе ${group.inProgress}, на проверке ${group.review}, закрыто ${group.closed}`}>
+  const active = group.total - group.closed - (group.cancelled || 0);
+  return <span className="assignee-control__rail" aria-label={`Нагрузка: открыто ${group.open}, в работе ${group.inProgress}, на проверке ${group.review}, закрыто ${group.closed}, отменено ${group.cancelled || 0}`}>
     <span className="assignee-control__rail-caption">Активно {active}</span>
     <span className="assignee-control__strip" aria-hidden="true">
       <span className="assignee-control__strip-open" style={{ width: workloadPercent(group.open, group.total) }} />
@@ -114,7 +115,7 @@ export function AssigneeControl() {
     const currentPage = groups.reduce((summary, group) => ({
       people: summary.people + 1,
       tasks: summary.tasks + group.total,
-      active: summary.active + group.total - group.closed
+      active: summary.active + group.total - group.closed - (group.cancelled || 0)
     }), { people: 0, tasks: 0, active: 0 });
     return { ...currentPage, people: data?.pagination?.total || currentPage.people };
   }, [data?.groups, data?.pagination?.total]);
@@ -178,7 +179,7 @@ export function AssigneeControl() {
       {data.groups.map((group) => {
         const isOpen = expanded.has(group.key);
         const contentId = `assignee-control-${group.key}`;
-        const active = group.total - group.closed;
+        const active = group.total - group.closed - (group.cancelled || 0);
         const isUnassigned = group.key === "unassigned";
         return <section className={isUnassigned ? "assignee-control__person assignee-control__person--unassigned" : "assignee-control__person"} key={group.key}>
           <button

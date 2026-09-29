@@ -14,7 +14,8 @@ const statusLabels = {
   in_progress: ["В работе", "gold"],
   review: ["Проверка", "purple"],
   done: ["Проверка", "purple"],
-  closed: ["Закрыта", "default"]
+  closed: ["Закрыта", "default"],
+  cancelled: ["Отменена", "error"]
 };
 
 function TaskList({ tasks, empty, currentRoute }) {
@@ -67,6 +68,7 @@ function buildProjectWorkload(data) {
       overdue: project.overdue || 0,
       review: project.review || 0,
       closed: project.closed || 0,
+      cancelled: project.cancelled || 0,
       assignees: []
     });
   });
@@ -80,6 +82,7 @@ function buildProjectWorkload(data) {
       overdue: 0,
       review: 0,
       closed: 0,
+      cancelled: 0,
       assignees: []
     };
 
@@ -154,6 +157,7 @@ function ProjectWorkload({ projects, expandedProjects, onToggle }) {
                 <ProjectMetric label="Просрочены" value={project.overdue} tone="danger" to={projectOverdueLink(project.key)} />
                 <ProjectMetric label="Проверка" value={project.review} tone="review" />
                 <ProjectMetric label="Закрыты" value={project.closed} tone="closed" />
+                <ProjectMetric label="Отменены" value={project.cancelled} tone="closed" />
               </span>
             </div>
 
@@ -179,6 +183,7 @@ function ProjectWorkload({ projects, expandedProjects, onToggle }) {
                         <span className="control-page__assignee-overdue">Просрочены <strong>{assignee.overdue}</strong></span>
                         <span>Проверка <strong>{assignee.review}</strong></span>
                         <span>Закрыты <strong>{assignee.closed}</strong></span>
+                        <span>Отменены <strong>{assignee.cancelled || 0}</strong></span>
                       </span>
                     </div>
                   ))
