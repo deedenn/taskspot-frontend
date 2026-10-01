@@ -6,7 +6,9 @@ import { apiFetch } from "../../api.js";
 import { PersonAvatar, WorkspaceTasks } from "./WorkspaceTasks.jsx";
 
 function AssigneeTasks({ group, projectId }) {
-  const [data, setData] = useState({ tasks: group.tasks, pagination: { page: 1, limit: 10, total: group.total } });
+  const visibleTotal = group.taskTotal ?? Math.max(0, group.total - (group.closed || 0));
+  const visibleTasks = useMemo(() => (group.tasks || []).filter((task) => task.status !== "closed"), [group.tasks]);
+  const [data, setData] = useState({ tasks: visibleTasks, pagination: { page: 1, limit: 10, total: visibleTotal } });
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -14,24 +16,24 @@ function AssigneeTasks({ group, projectId }) {
 
   useEffect(() => {
     setPage(1);
-    setData({ tasks: group.tasks, pagination: { page: 1, limit: 10, total: group.total } });
+    setData({ tasks: visibleTasks, pagination: { page: 1, limit: 10, total: visibleTotal } });
     setBusy(false);
     setError("");
-  }, [group.key, group.tasks, group.total, projectId]);
+  }, [group.key, group.tasks, visibleTasks, visibleTotal, projectId]);
 
   useEffect(() => {
-    if (page === 1) { setData({ tasks: group.tasks, pagination: { page: 1, limit: 10, total: group.total } }); setBusy(false); setError(""); return; }
+    if (page === 1) { setData({ tasks: visibleTasks, pagination: { page: 1, limit: 10, total: visibleTotal } }); setBusy(false); setError(""); return; }
     let live = true;
     const controller = new AbortController();
-    const query = new URLSearchParams({ assignee: group.key, page: String(page), limit: "10" });
+    const query = new URLSearchParams({ assignee: group.key, page: String(page), limit: "10", excludeClosed: "true" });
     if (projectId) query.set("projectId", projectId);
     setBusy(true); setError("");
     apiFetch("/workspace/tasks?" + query, { signal: controller.signal })
-      .then((result) => { if (live) setData(result); })
+      .then((result) => { if (live) setData({ ...result, tasks: (result.tasks || []).filter((task) => task.status !== "closed") }); })
       .catch((error) => { if (live) setError(error.message); })
       .finally(() => { if (live) setBusy(false); });
     return () => { live = false; controller.abort(); };
-  }, [page, group, projectId, revision]);
+  }, [page, group.key, projectId, revision, visibleTasks, visibleTotal]);
   return <>
     {error && <Alert type="error" showIcon message={error} action={<Button onClick={() => setRevision((value) => value + 1)}>Повторить</Button>} />}
     {!error && <WorkspaceTasks compact tasks={data.tasks} pagination={data.pagination} onPage={setPage} loading={busy} emptyDescription="У этого ответственного нет задач в текущем фильтре" />}

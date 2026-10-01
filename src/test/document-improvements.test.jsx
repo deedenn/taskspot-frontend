@@ -63,6 +63,23 @@ test("assignee control shows avatar, tasks and state counts without email", asyn
   expect(screen.getByText("10.09.2026")).toBeInTheDocument();
 });
 
+test("assignee control hides closed tasks from the expanded list", async () => {
+  apiFetch.mockResolvedValue({ projects: [], people: [{ value: "u", label: "Иван Иванов" }],
+    pagination: { page: 1, limit: 10, total: 1 },
+    groups: [{ key: "u", name: "Иван Иванов", user: { name: "Иван", lastName: "Иванов" },
+      total: 2, taskTotal: 1, open: 1, inProgress: 0, review: 0, closed: 1,
+      tasks: [
+        { _id: "active", description: "Текущая задача", status: "open", project: { name: "Продажи" } },
+        { _id: "closed", description: "Закрытая задача", status: "closed", project: { name: "Продажи" } }
+      ] }]
+  });
+  render(<MemoryRouter><AssigneeControl /></MemoryRouter>);
+  fireEvent.click(await screen.findByRole("button", { name: "Раскрыть задачи: Иван Иванов" }));
+  expect(screen.getByText("Текущая задача")).toBeInTheDocument();
+  expect(screen.queryByText("Закрытая задача")).not.toBeInTheDocument();
+  expect(screen.getByText("Закрыто")).toBeInTheDocument();
+});
+
 test("assignee control expands exact assignee and can reset url filters", async () => {
   apiFetch.mockResolvedValue({ projects: [{ _id: "p", name: "Продажи" }], people: [{ value: "u", label: "Иван Иванов" }],
     pagination: { page: 1, limit: 10, total: 1 },
