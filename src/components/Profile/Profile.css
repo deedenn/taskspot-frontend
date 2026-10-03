@@ -28,6 +28,55 @@
   margin-bottom: 18px;
 }
 
+.profile__notifications-card.ant-card {
+  grid-column: 1 / -1;
+  border-color: #dbe7f2;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.045);
+}
+
+.profile__notifications-card .ant-card-head {
+  background: linear-gradient(135deg, #f8fbff, #ffffff);
+}
+
+.profile__notification-list {
+  overflow: hidden;
+  border: 1px solid #e6edf5;
+  border-radius: 12px;
+  background: #fbfdff;
+}
+
+.profile__notification-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 72px;
+  padding: 14px 16px;
+}
+
+.profile__notification-row + .profile__notification-row {
+  border-top: 1px solid #e6edf5;
+}
+
+.profile__notification-row strong,
+.profile__notification-row span {
+  display: block;
+}
+
+.profile__notification-row strong {
+  margin-bottom: 3px;
+  color: #172033;
+}
+
+.profile__notification-row span {
+  color: #6b778c;
+  line-height: 1.45;
+}
+
+.profile__notification-save {
+  margin-top: 16px;
+}
+
 .profile__avatar {
   display: flex;
   align-items: center;
@@ -112,6 +161,12 @@
 
   .profile__avatar {
     align-items: flex-start;
+  }
+
+  .profile__notification-row {
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px;
   }
 
   .profile .ant-btn:not(.profile__avatar-remove) {

@@ -61,6 +61,7 @@ function paymentStatus(status) {
   return {
     awaiting_payment: { color: "gold", label: "Ожидает оплаты" },
     paid: { color: "green", label: "Оплачен" },
+    partially_refunded: { color: "orange", label: "Частичный возврат" },
     expired: { color: "default", label: "Истёк" },
     cancelled: { color: "default", label: "Отменён" },
     failed: { color: "red", label: "Ошибка" },
@@ -110,6 +111,7 @@ export function BillingPage() {
 
   const active = data.organizations.find((item) => item.organization._id === organizationId) || data.organizations[0];
   const openOrder = active?.activePaymentOrder;
+  const canManageBilling = active?.canManageBilling !== false;
   const scheduledPeriod = active?.subscription?.scheduledPeriod;
   const testMode = data.billing?.testMode ?? true;
   const billingReady = data.billing?.ready ?? true;
@@ -193,7 +195,8 @@ export function BillingPage() {
         })
       });
       setPaymentOrder(result.paymentOrder);
-      message.success(result.testMode ? "Тестовый платёж подготовлен" : "QR-код для оплаты создан");
+      if (result.paymentOrder.payment?.status === "creation_unknown") message.warning(result.message);
+      else message.success(result.message || (result.testMode ? "Тестовый платёж подготовлен" : "QR-код для оплаты создан"));
     } catch (requestError) {
       message.error(requestError.message);
     } finally {
@@ -275,6 +278,15 @@ export function BillingPage() {
 
       {error && <PageState type="error" description={error} onAction={loadBilling} />}
 
+      {active && !canManageBilling && (
+        <Alert
+          type="info"
+          showIcon
+          message="Просмотр тарифа"
+          description="Оплачивать тариф и просматривать историю платежей могут только владелец и администраторы компании."
+        />
+      )}
+
       {active && (
         <div className="billing-page__current-grid">
           <Card loading={loading} className="billing-page__current-card">
@@ -306,7 +318,7 @@ export function BillingPage() {
             </Space>
           </Card>
 
-          <Card loading={loading} className="billing-page__request-card">
+          {canManageBilling && <Card loading={loading} className="billing-page__request-card">
             <Space direction="vertical" size={12}>
               <Space align="center">
                 <span className="billing-page__payment-icon"><CreditCardOutlined /></span>
@@ -325,7 +337,9 @@ export function BillingPage() {
                   <Typography.Text type="secondary">Платёж доступен до {formatDate(openOrder.expiresAt, true)}</Typography.Text>
                   <Space wrap>
                     <Button type="primary" onClick={() => continuePayment(openOrder)}>Продолжить оплату</Button>
-                    <Button danger loading={paymentSaving} onClick={() => cancelPayment(openOrder)}>Отменить</Button>
+                    {openOrder.payment?.provider === "mock" && (
+                      <Button danger loading={paymentSaving} onClick={() => cancelPayment(openOrder)}>Отменить</Button>
+                    )}
                   </Space>
                 </div>
               ) : (
@@ -337,7 +351,7 @@ export function BillingPage() {
                 </>
               )}
             </Space>
-          </Card>
+          </Card>}
         </div>
       )}
 
@@ -365,7 +379,7 @@ export function BillingPage() {
         </Card>
       )}
 
-      {active && (
+      {active && canManageBilling && (
         <Card loading={loading} title="История платежей">
           {active.paymentOrders?.length ? (
             <div className="billing-page__history">
@@ -401,7 +415,7 @@ export function BillingPage() {
       <div className="billing-page__plans">
         {data.plans.map((plan) => {
           const isCurrent = active?.plan.key === plan.key;
-          const disabled = plan.key === "free" || Boolean(openOrder) || Boolean(scheduledPeriod);
+          const disabled = !canManageBilling || plan.key === "free" || Boolean(openOrder) || Boolean(scheduledPeriod);
           return (
             <Card key={plan.key} loading={loading} className={isCurrent ? "billing-page__plan billing-page__plan--active" : "billing-page__plan"}>
               <Space direction="vertical" size={12}>
@@ -426,7 +440,9 @@ export function BillingPage() {
                 >
                   {plan.key === "free"
                     ? isCurrent ? "Подключён" : "Включится после окончания"
-                    : openOrder
+                    : !canManageBilling
+                      ? "Только для администратора"
+                      : openOrder
                       ? "Сначала завершите платёж"
                       : scheduledPeriod
                         ? "Следующий период уже запланирован"
@@ -522,6 +538,13 @@ export function BillingPage() {
                 showIcon
                 message={paymentOrder.status === "expired" ? "Время оплаты истекло" : "Платёж не завершён"}
                 description="Закройте окно и создайте новый платёж. Если деньги уже списались, не повторяйте оплату и обратитесь в поддержку."
+              />
+            ) : paymentOrder.payment?.status === "creation_unknown" ? (
+              <Alert
+                type="warning"
+                showIcon
+                message="Банк не подтвердил создание QR"
+                description="Повторный QR не создаётся автоматически, чтобы исключить двойную оплату. Этот заказ закроется по истечении срока; затем можно будет создать новый. Если оплата всё же поступит, webhook восстановит заказ по его номеру."
               />
             ) : (
               <Alert

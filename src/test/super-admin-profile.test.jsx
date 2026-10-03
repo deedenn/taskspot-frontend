@@ -53,3 +53,28 @@ it("forces a super administrator with a temporary password to set a permanent on
   );
   expect(auth.signOut).toHaveBeenCalledOnce();
 });
+
+it("allows a regular user to disable selected task emails", async () => {
+  const auth = {
+    user: {
+      _id: "user",
+      name: "Анна",
+      lastName: "Соколова",
+      email: "anna@example.test",
+      emailPreferences: { taskUpdates: true, comments: true, reminders: true }
+    },
+    setUser: vi.fn(),
+    signOut: vi.fn()
+  };
+  apiFetch.mockResolvedValue({ user: { ...auth.user, emailPreferences: { taskUpdates: true, comments: true, reminders: false } } });
+  render(<Profile auth={auth} />);
+
+  fireEvent.click(screen.getByRole("switch", { name: "Email о сроках и просрочках" }));
+  fireEvent.click(screen.getByRole("button", { name: /Сохранить настройки/ }));
+
+  await waitFor(() => expect(apiFetch).toHaveBeenCalledWith("/auth/email-preferences", {
+    method: "PATCH",
+    body: JSON.stringify({ emailPreferences: { taskUpdates: true, comments: true, reminders: false } })
+  }));
+  expect(auth.setUser).toHaveBeenCalled();
+});

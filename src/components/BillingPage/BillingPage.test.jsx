@@ -131,3 +131,17 @@ test("test payment creates an order and confirms the subscription", async () => 
   ));
   await waitFor(() => expect(screen.getAllByText("Команда").length).toBeGreaterThan(1));
 });
+
+test("ordinary organization member cannot see payments or start checkout", async () => {
+  const payload = billingPayload();
+  payload.organizations[0].canManageBilling = false;
+  delete payload.organizations[0].subscription;
+  apiFetch.mockResolvedValueOnce(payload);
+
+  render(<BillingPage />);
+  expect(await screen.findByText("Просмотр тарифа")).toBeInTheDocument();
+  expect(screen.queryByText("История платежей")).not.toBeInTheDocument();
+  expect(screen.queryByText(/Провайдер:/)).not.toBeInTheDocument();
+  const teamCard = screen.getByRole("heading", { name: "Команда" }).closest(".ant-card");
+  expect(within(teamCard).getByRole("button", { name: /Только для администратора/ })).toBeDisabled();
+});

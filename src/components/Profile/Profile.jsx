@@ -1,5 +1,5 @@
-import { CameraOutlined, DeleteOutlined, LockOutlined, SaveOutlined, UserOutlined } from "@ant-design/icons";
-import { Alert, Avatar, Button, Card, Form, Input, Space, Typography, message } from "antd";
+import { CameraOutlined, DeleteOutlined, LockOutlined, MailOutlined, SaveOutlined, UserOutlined } from "@ant-design/icons";
+import { Alert, Avatar, Button, Card, Form, Input, Space, Switch, Typography, message } from "antd";
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "../../api.js";
 import { fullName } from "../../utils/users.js";
@@ -38,8 +38,10 @@ function resizeAvatarFile(file) {
 export function Profile({ auth }) {
   const [profileForm] = Form.useForm();
   const [passwordForm] = Form.useForm();
+  const [emailForm] = Form.useForm();
   const [avatarFailed, setAvatarFailed] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
+  const [emailSaving, setEmailSaving] = useState(false);
   const fileInputRef = useRef(null);
   const avatarUrl = Form.useWatch("avatarUrl", profileForm);
 
@@ -51,8 +53,13 @@ export function Profile({ auth }) {
       phone: auth.user?.phone || "",
       avatarUrl: auth.user?.avatarUrl || ""
     });
+    emailForm.setFieldsValue({
+      taskUpdates: auth.user?.emailPreferences?.taskUpdates !== false,
+      comments: auth.user?.emailPreferences?.comments !== false,
+      reminders: auth.user?.emailPreferences?.reminders !== false
+    });
     setAvatarFailed(false);
-  }, [auth.user, profileForm]);
+  }, [auth.user, emailForm, profileForm]);
 
   async function saveProfile(values) {
     try {
@@ -118,6 +125,22 @@ export function Profile({ auth }) {
       message.error(error.message);
     } finally {
       setPasswordSaving(false);
+    }
+  }
+
+  async function saveEmailPreferences(values) {
+    setEmailSaving(true);
+    try {
+      const data = await apiFetch("/auth/email-preferences", {
+        method: "PATCH",
+        body: JSON.stringify({ emailPreferences: values })
+      });
+      auth.setUser(data.user);
+      message.success("Настройки email сохранены");
+    } catch (error) {
+      message.error(error.message);
+    } finally {
+      setEmailSaving(false);
     }
   }
 
@@ -279,6 +302,54 @@ export function Profile({ auth }) {
               Изменить пароль
             </Button>
           </Form>
+        </Card>
+
+        <Card
+          className="profile__notifications-card"
+          title={
+            <Space>
+              <MailOutlined />
+              Email-уведомления
+            </Space>
+          }
+        >
+            <Typography.Paragraph type="secondary">
+              Выберите, какие рабочие письма получать. Приглашения, подтверждение email и письма безопасности отправляются всегда.
+            </Typography.Paragraph>
+            <Form form={emailForm} onFinish={saveEmailPreferences}>
+              <div className="profile__notification-list">
+                <div className="profile__notification-row">
+                  <div>
+                    <strong>Изменения задач</strong>
+                    <span>Назначение, проверка, возврат, закрытие и отмена.</span>
+                  </div>
+                  <Form.Item name="taskUpdates" valuePropName="checked" noStyle>
+                    <Switch aria-label="Email об изменениях задач" />
+                  </Form.Item>
+                </div>
+                <div className="profile__notification-row">
+                  <div>
+                    <strong>Новые комментарии</strong>
+                    <span>Письма инициатору, ответственному и наблюдателям задачи.</span>
+                  </div>
+                  <Form.Item name="comments" valuePropName="checked" noStyle>
+                    <Switch aria-label="Email о новых комментариях" />
+                  </Form.Item>
+                </div>
+                <div className="profile__notification-row">
+                  <div>
+                    <strong>Сроки и просрочки</strong>
+                    <span>Напоминания о приближении срока и просроченных задачах.</span>
+                  </div>
+                  <Form.Item name="reminders" valuePropName="checked" noStyle>
+                    <Switch aria-label="Email о сроках и просрочках" />
+                  </Form.Item>
+                </div>
+              </div>
+              <Button className="profile__notification-save" htmlType="submit" icon={<SaveOutlined />} loading={emailSaving}>
+                Сохранить настройки
+              </Button>
+            </Form>
         </Card>
       </div>
     </section>

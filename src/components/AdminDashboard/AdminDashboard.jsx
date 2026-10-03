@@ -13,7 +13,7 @@ import {
   UnlockOutlined,
   UserAddOutlined
 } from "@ant-design/icons";
-import { Tabs, Button, Card, DatePicker, Empty, Form, Input, Modal, Popconfirm, Progress, Segmented, Select, Space, Statistic, Table, Tag, Typography, message } from "antd";
+import { Tabs, Button, Card, DatePicker, Empty, Form, Input, InputNumber, Modal, Popconfirm, Progress, Segmented, Select, Space, Statistic, Table, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../../api.js";
@@ -42,6 +42,24 @@ const billingRequestLabels = {
   cancelled: ["Отменена", "default"]
 };
 
+const paymentOrderLabels = {
+  awaiting_payment: ["Ожидает оплаты", "gold"],
+  paid: ["Оплачен", "green"],
+  partially_refunded: ["Частичный возврат", "orange"],
+  refunded: ["Возвращён", "purple"],
+  expired: ["Истёк", "default"],
+  cancelled: ["Отменён", "default"],
+  failed: ["Ошибка", "red"]
+};
+
+const refundLabels = {
+  creating: ["Создаётся", "gold"],
+  pending: ["Обрабатывается", "blue"],
+  unknown: ["Нужна сверка", "red"],
+  succeeded: ["Выполнен", "green"],
+  failed: ["Отклонён", "red"]
+};
+
 function planLabel(plan) {
   return planLabels[plan] || [plan, "default"];
 }
@@ -52,6 +70,10 @@ function formatMoney(value) {
     currency: "RUB",
     maximumFractionDigits: 0
   }).format(value || 0);
+}
+
+function formatKopecks(value) {
+  return formatMoney((value || 0) / 100);
 }
 
 function MetricCard({ icon, title, value, hint, tone = "blue", suffix }) {
@@ -89,6 +111,7 @@ export function AdminDashboard({ currentUser, auth }) {
 function ServiceOverview({ currentUser }) {
   const [planForm] = Form.useForm();
   const [billingForm] = Form.useForm();
+  const [refundForm] = Form.useForm();
   const [periodDays, setPeriodDays] = useState(30);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -108,6 +131,12 @@ function ServiceOverview({ currentUser }) {
   const [billingRequest, setBillingRequest] = useState(null);
   const [billingModalOpen, setBillingModalOpen] = useState(false);
   const [billingSaving, setBillingSaving] = useState(false);
+  const [paymentOrders, setPaymentOrders] = useState([]);
+  const [paymentStatus, setPaymentStatus] = useState("all");
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [refundOrder, setRefundOrder] = useState(null);
+  const [refundModalOpen, setRefundModalOpen] = useState(false);
+  const [refundSaving, setRefundSaving] = useState(false);
 
   async function loadOverview(nextPeriod = periodDays) {
     setLoading(true);
@@ -169,10 +198,23 @@ function ServiceOverview({ currentUser }) {
     }
   }
 
+  async function loadPaymentOrders(status = paymentStatus) {
+    setPaymentsLoading(true);
+    try {
+      const result = await apiFetch(`/admin/payment-orders?status=${status}`);
+      setPaymentOrders(result.paymentOrders || []);
+    } catch (error) {
+      message.error(error.message);
+    } finally {
+      setPaymentsLoading(false);
+    }
+  }
+
   useEffect(() => {
     loadOverview();
     loadUsers({ page: 1 });
     loadBillingRequests("pending");
+    loadPaymentOrders("all");
   }, []);
 
   function changePeriod(value) {
@@ -430,6 +472,86 @@ function ServiceOverview({ currentUser }) {
     }
   ];
 
+  const paymentColumns = [
+    {
+      title: "Компания и заказ",
+      key: "company",
+      render: (_, order) => (
+        <Space direction="vertical" size={0}>
+          <Typography.Text strong>{order.organization?.name || "Компания удалена"}</Typography.Text>
+          <Typography.Text type="secondary">
+            {order.requestedBy ? fullName(order.requestedBy) : "Пользователь удалён"} · {order.planName}
+          </Typography.Text>
+        </Space>
+      )
+    },
+    {
+      title: "Оплата",
+      key: "payment",
+      render: (_, order) => {
+        const [label, color] = paymentOrderLabels[order.status] || [order.status, "default"];
+        return (
+          <Space direction="vertical" size={2}>
+            <Space wrap size={4}>
+              <Tag color={color}>{label}</Tag>
+              <Typography.Text strong>{formatKopecks(order.amountKopecks)}</Typography.Text>
+            </Space>
+            {order.refundedAmountKopecks > 0 && (
+              <Typography.Text type="secondary">
+                Возвращено {formatKopecks(order.refundedAmountKopecks)}
+              </Typography.Text>
+            )}
+          </Space>
+        );
+      }
+    },
+    {
+      title: "Дата",
+      dataIndex: "createdAt",
+      key: "createdAt",
+      render: (date) => dayjs(date).format("DD.MM.YYYY HH:mm")
+    },
+    {
+      title: "Возвраты",
+      key: "refunds",
+      render: (_, order) => order.refunds?.length ? (
+        <Space direction="vertical" size={2}>
+          {order.refunds.map((refund) => {
+            const [label, color] = refundLabels[refund.status] || [refund.status, "default"];
+            return (
+              <Space key={refund._id} wrap size={4}>
+                <Tag color={color}>{label}</Tag>
+                <Typography.Text>{formatKopecks(refund.amountKopecks)}</Typography.Text>
+                {refund.fiscalization?.receiptUrl && (
+                  <Typography.Link href={refund.fiscalization.receiptUrl} target="_blank" rel="noreferrer">
+                    Чек
+                  </Typography.Link>
+                )}
+              </Space>
+            );
+          })}
+        </Space>
+      ) : <Typography.Text type="secondary">Нет</Typography.Text>
+    },
+    {
+      title: "",
+      key: "action",
+      fixed: "right",
+      render: (_, order) => {
+        const remainingKopecks = order.amountKopecks - (order.refundedAmountKopecks || 0);
+        const hasUnresolvedRefund = order.refunds?.some((refund) => ["creating", "pending", "unknown"].includes(refund.status));
+        const canRefund = ["paid", "partially_refunded"].includes(order.status)
+          && order.payment?.provider === "tochka_sbp"
+          && order.payment?.rail === "sbp"
+          && remainingKopecks > 0
+          && !hasUnresolvedRefund;
+        return canRefund ? (
+          <Button danger onClick={() => openRefundModal(order)}>Оформить возврат</Button>
+        ) : null;
+      }
+    }
+  ];
+
   async function updateUserStatus(user, status) {
     setUpdatingUserId(user._id);
 
@@ -446,6 +568,48 @@ function ServiceOverview({ currentUser }) {
       message.error(error.message);
     } finally {
       setUpdatingUserId("");
+    }
+  }
+
+  function openRefundModal(order) {
+    const remainingRubles = (order.amountKopecks - (order.refundedAmountKopecks || 0)) / 100;
+    setRefundOrder(order);
+    refundForm.setFieldsValue({ amount: remainingRubles, reason: "Возврат оплаты тарифа Taskspot" });
+    setRefundModalOpen(true);
+  }
+
+  function closeRefundModal() {
+    setRefundModalOpen(false);
+    setRefundOrder(null);
+    refundForm.resetFields();
+  }
+
+  async function submitRefund() {
+    if (!refundOrder) return;
+    let values;
+    try {
+      values = await refundForm.validateFields();
+    } catch {
+      return;
+    }
+    setRefundSaving(true);
+    try {
+      const result = await apiFetch(`/admin/payment-orders/${refundOrder._id}/refunds`, {
+        method: "POST",
+        body: JSON.stringify({
+          amountKopecks: Math.round(values.amount * 100),
+          reason: values.reason,
+          idempotencyKey: globalThis.crypto?.randomUUID?.() || `refund-${Date.now()}`
+        })
+      });
+      if (["unknown", "failed"].includes(result.refund.status)) message.warning(result.message);
+      else message.success(result.message);
+      closeRefundModal();
+      await Promise.all([loadPaymentOrders(paymentStatus), loadOverview(periodDays)]);
+    } catch (error) {
+      message.error(error.message);
+    } finally {
+      setRefundSaving(false);
     }
   }
 
@@ -671,7 +835,13 @@ function ServiceOverview({ currentUser }) {
             <span className={data.operations.serverErrors24h ? "is-error" : "is-ok"}><ThunderboltOutlined />API за 24 ч: {data.operations.requests24h} запросов · {data.operations.serverErrorRate}% 5xx · среднее {data.operations.averageResponseMs} мс</span>
             <span className={data.operations.billingReady ? "is-ok" : "is-error"}><PayCircleOutlined />СБП {data.operations.billingReady ? "готова" : "не настроена"}</span>
             <span className={data.operations.fiscalizationFailed ? "is-error" : data.operations.fiscalizationPending ? "is-warning" : "is-ok"}><CheckCircleOutlined />Чеки: {data.operations.fiscalizationFailed} ошибок · {data.operations.fiscalizationPending} в очереди</span>
-            <span className={data.operations.emailFailed ? "is-error" : "is-ok"}><MailOutlined />Почта: {data.operations.emailFailed} ошибок · {data.operations.emailQueued} в очереди</span>
+            <span className={data.operations.refundUnknown || data.operations.refundFailed ? "is-error" : data.operations.refundPending ? "is-warning" : "is-ok"}>
+              <PayCircleOutlined />Возвраты: {data.operations.refundPending || 0} в обработке · {data.operations.refundUnknown || 0} требуют сверки · {data.operations.refundFailed || 0} отклонено
+            </span>
+            <span className={data.operations.emailFailed || data.operations.emailPrivacyRejected ? "is-error" : "is-ok"}>
+              <MailOutlined />Почта: {data.operations.emailFailed} ошибок · {data.operations.emailQueued} в очереди
+              {data.operations.emailPrivacyRejected ? ` · ${data.operations.emailPrivacyRejected} заблокировано проверкой доступа` : ""}
+            </span>
             <span className={data.organizations.expiredPaid ? "is-warning" : "is-ok"}><ClockCircleOutlined />Истекло платных тарифов: {data.organizations.expiredPaid}</span>
           </div> : <Empty description="Нет данных" />}
         </Card>
@@ -723,6 +893,37 @@ function ServiceOverview({ currentUser }) {
             pagination={billingRequests.length > 10 ? { pageSize: 10, showSizeChanger: false } : false}
             scroll={{ x: 980 }}
             locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Нет заявок" /> }}
+          />
+        </Card>
+        <Card
+          className="admin-dashboard__card--wide"
+          title="Платежи СБП и возвраты"
+          extra={
+            <Select
+              value={paymentStatus}
+              onChange={(value) => {
+                setPaymentStatus(value);
+                loadPaymentOrders(value);
+              }}
+              options={[
+                { label: "Все", value: "all" },
+                { label: "Оплаченные", value: "paid" },
+                { label: "Частично возвращённые", value: "partially_refunded" },
+                { label: "Возвращённые", value: "refunded" },
+                { label: "Ожидают оплаты", value: "awaiting_payment" },
+                { label: "Ошибки", value: "failed" }
+              ]}
+            />
+          }
+        >
+          <Table
+            columns={paymentColumns}
+            dataSource={paymentOrders}
+            rowKey="_id"
+            loading={paymentsLoading}
+            pagination={paymentOrders.length > 10 ? { pageSize: 10, showSizeChanger: false } : false}
+            scroll={{ x: 1050 }}
+            locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Нет платежей" /> }}
           />
         </Card>
         <Card title="Пользователи сервиса">
@@ -881,6 +1082,53 @@ function ServiceOverview({ currentUser }) {
               </Form.Item>
             </Form>
           </div>
+        )}
+      </Modal>
+
+      <Modal
+        title="Возврат оплаты по СБП"
+        open={refundModalOpen}
+        onCancel={closeRefundModal}
+        onOk={submitRefund}
+        confirmLoading={refundSaving}
+        okText="Отправить возврат"
+        okButtonProps={{ danger: true }}
+        cancelText="Отмена"
+        destroyOnHidden
+      >
+        {refundOrder && (
+          <Form form={refundForm} layout="vertical">
+            <Alert
+              type="warning"
+              showIcon
+              message={`${refundOrder.organization?.name || "Компания"} · ${refundOrder.planName}`}
+              description="После полного возврата оплаченный период будет отменён, а компания перейдёт на тариф Free. Операцию нельзя отменить."
+            />
+            <Form.Item
+              name="amount"
+              label="Сумма возврата, ₽"
+              rules={[
+                { required: true, message: "Укажите сумму возврата" },
+                {
+                  validator: (_, value) => {
+                    const maximum = (refundOrder.amountKopecks - (refundOrder.refundedAmountKopecks || 0)) / 100;
+                    return Number(value) > 0 && Number(value) <= maximum
+                      ? Promise.resolve()
+                      : Promise.reject(new Error(`Доступно не более ${formatMoney(maximum)}`));
+                  }
+                }
+              ]}
+            >
+              <InputNumber min={0.01} precision={2} step={100} className="admin-dashboard__full-width" />
+            </Form.Item>
+            <Form.Item
+              name="reason"
+              label="Основание возврата"
+              rules={[{ required: true, whitespace: true, message: "Укажите основание возврата" }]}
+            >
+              <Input.TextArea rows={3} maxLength={140} showCount />
+            </Form.Item>
+          </Form>
         )}
       </Modal>
     </section>
