@@ -145,3 +145,38 @@ test("ordinary organization member cannot see payments or start checkout", async
   const teamCard = screen.getByRole("heading", { name: "Команда" }).closest(".ant-card");
   expect(within(teamCard).getByRole("button", { name: /Только для администратора/ })).toBeDisabled();
 });
+
+test("team to business upgrade requires accepting the no-credit policy", async () => {
+  const order = {
+    _id: "upgrade-order",
+    targetPlan: "business",
+    planName: "Бизнес",
+    periodMonths: 1,
+    transitionType: "upgrade",
+    amountKopecks: 249000,
+    payment: { provider: "mock", status: "pending" }
+  };
+  apiFetch
+    .mockResolvedValueOnce(billingPayload(plans[1]))
+    .mockResolvedValueOnce({ paymentOrder: order });
+
+  render(<BillingPage />);
+  await screen.findByText("Тестовая компания");
+  const businessCard = screen.getByRole("heading", { name: "Бизнес" }).closest(".ant-card");
+  fireEvent.click(within(businessCard).getByRole("button", { name: /Оплатить/ }));
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).getByText("Переход на «Бизнес» произойдёт сразу")).toBeInTheDocument();
+  fireEvent.click(within(dialog).getByRole("button", { name: "Создать платёж" }));
+  expect(await within(dialog).findByText("Подтвердите условия немедленного перехода")).toBeInTheDocument();
+  expect(apiFetch).toHaveBeenCalledTimes(1);
+
+  fireEvent.click(within(dialog).getByRole("checkbox", { name: /остаток тарифа «Команда» не компенсируется/ }));
+  fireEvent.click(within(dialog).getByRole("button", { name: "Создать платёж" }));
+  await waitFor(() => expect(apiFetch).toHaveBeenLastCalledWith(
+    "/organizations/organization-1/payment-orders",
+    expect.objectContaining({
+      method: "POST",
+      body: expect.stringContaining('"acceptImmediateUpgradeNoCredit":true')
+    })
+  ));
+});

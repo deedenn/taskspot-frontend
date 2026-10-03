@@ -6,7 +6,7 @@ import {
   PayCircleOutlined,
   SafetyCertificateOutlined
 } from "@ant-design/icons";
-import { Alert, Button, Card, Form, Modal, Progress, Select, Space, Steps, Tag, Typography, message } from "antd";
+import { Alert, Button, Card, Checkbox, Form, Modal, Progress, Select, Space, Steps, Tag, Typography, message } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../../api.js";
 import { PageState } from "../PageState/PageState.jsx";
@@ -117,12 +117,13 @@ export function BillingPage() {
   const billingReady = data.billing?.ready ?? true;
   const activeProviderName = data.billing?.activeProvider?.name || "Тестовая оплата";
   const activeOrganizationId = active?.organization._id;
+  const isImmediateUpgrade = active?.plan.key === "team" && selectedPlan?.key === "business";
   const paymentTerminal = paymentOrder && ["expired", "cancelled", "failed", "refunded"].includes(paymentOrder.status);
   function openPayment(plan) {
     setSelectedPlan(plan);
     setPaymentOrder(null);
     setPaymentIdempotencyKey(paymentKey());
-    paymentForm.setFieldsValue({ periodMonths: 1 });
+    paymentForm.setFieldsValue({ periodMonths: 1, acceptImmediateUpgradeNoCredit: false });
     setPaymentOpen(true);
   }
 
@@ -191,7 +192,8 @@ export function BillingPage() {
         body: JSON.stringify({
           plan: selectedPlan.key,
           periodMonths: values.periodMonths,
-          idempotencyKey: paymentIdempotencyKey
+          idempotencyKey: paymentIdempotencyKey,
+          acceptImmediateUpgradeNoCredit: values.acceptImmediateUpgradeNoCredit === true
         })
       });
       setPaymentOrder(result.paymentOrder);
@@ -483,6 +485,14 @@ export function BillingPage() {
 
         {!paymentOrder ? (
           <Form form={paymentForm} layout="vertical">
+            {isImmediateUpgrade && (
+              <Alert
+                type="warning"
+                showIcon
+                message="Переход на «Бизнес» произойдёт сразу"
+                description="Неиспользованный остаток оплаченного периода тарифа «Команда» не переносится, не засчитывается в стоимость нового тарифа и не компенсируется. Новый оплаченный период «Бизнес» начнётся после подтверждения платежа."
+              />
+            )}
             <Form.Item name="periodMonths" label="Срок действия" rules={[{ required: true, message: "Выберите срок тарифа" }]}>
               <Select options={[
                 { label: "1 месяц", value: 1 },
@@ -491,6 +501,19 @@ export function BillingPage() {
                 { label: "12 месяцев", value: 12 }
               ]} />
             </Form.Item>
+            {isImmediateUpgrade && (
+              <Form.Item
+                name="acceptImmediateUpgradeNoCredit"
+                valuePropName="checked"
+                rules={[{
+                  validator: (_, value) => value
+                    ? Promise.resolve()
+                    : Promise.reject(new Error("Подтвердите условия немедленного перехода"))
+                }]}
+              >
+                <Checkbox>Я понимаю, что остаток тарифа «Команда» не компенсируется</Checkbox>
+              </Form.Item>
+            )}
             <div className="billing-page__request-total">
               <Typography.Text type="secondary">К оплате</Typography.Text>
               <Typography.Text strong>{formatMoney((selectedPlan?.monthlyPrice || 0) * periodMonths)}</Typography.Text>

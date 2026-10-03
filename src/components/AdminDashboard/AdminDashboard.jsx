@@ -6,6 +6,7 @@ import {
   HeartOutlined,
   MailOutlined,
   PayCircleOutlined,
+  ReloadOutlined,
   StopOutlined,
   RiseOutlined,
   TeamOutlined,
@@ -13,7 +14,7 @@ import {
   UnlockOutlined,
   UserAddOutlined
 } from "@ant-design/icons";
-import { Tabs, Button, Card, DatePicker, Empty, Form, Input, InputNumber, Modal, Popconfirm, Progress, Segmented, Select, Space, Statistic, Table, Tag, Typography, message } from "antd";
+import { Tabs, Alert, Button, Card, DatePicker, Descriptions, Empty, Form, Input, InputNumber, Modal, Popconfirm, Progress, Segmented, Select, Space, Statistic, Table, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../../api.js";
@@ -58,6 +59,13 @@ const refundLabels = {
   unknown: ["Нужна сверка", "red"],
   succeeded: ["Выполнен", "green"],
   failed: ["Отклонён", "red"]
+};
+
+const fiscalizationLabels = {
+  not_started: ["Не запускалась", "default"],
+  pending: ["Обрабатывается", "blue"],
+  succeeded: ["Чек сформирован", "green"],
+  failed: ["Ошибка", "red"]
 };
 
 function planLabel(plan) {
@@ -137,6 +145,10 @@ function ServiceOverview({ currentUser }) {
   const [refundOrder, setRefundOrder] = useState(null);
   const [refundModalOpen, setRefundModalOpen] = useState(false);
   const [refundSaving, setRefundSaving] = useState(false);
+  const [paymentDetail, setPaymentDetail] = useState(null);
+  const [paymentDetailOpen, setPaymentDetailOpen] = useState(false);
+  const [paymentDetailLoading, setPaymentDetailLoading] = useState(false);
+  const [fiscalizationRetrying, setFiscalizationRetrying] = useState("");
 
   async function loadOverview(nextPeriod = periodDays) {
     setLoading(true);
@@ -207,6 +219,45 @@ function ServiceOverview({ currentUser }) {
       message.error(error.message);
     } finally {
       setPaymentsLoading(false);
+    }
+  }
+
+  async function openPaymentDetail(order) {
+    setPaymentDetailOpen(true);
+    setPaymentDetailLoading(true);
+    try {
+      setPaymentDetail(await apiFetch(`/admin/payment-orders/${order._id}`));
+    } catch (error) {
+      message.error(error.message);
+      setPaymentDetailOpen(false);
+    } finally {
+      setPaymentDetailLoading(false);
+    }
+  }
+
+  async function retryFiscalization(refundId = "") {
+    const order = paymentDetail?.paymentOrder;
+    if (!order) return;
+    const retryKey = refundId || order._id;
+    setFiscalizationRetrying(retryKey);
+    try {
+      const result = await apiFetch(`/admin/payment-orders/${order._id}/fiscalization/retry`, {
+        method: "POST",
+        body: JSON.stringify(refundId ? { refundId } : {})
+      });
+      message.success(result.message);
+      const [detail] = await Promise.all([
+        apiFetch(`/admin/payment-orders/${order._id}`),
+        loadPaymentOrders(paymentStatus),
+        loadOverview(periodDays)
+      ]);
+      setPaymentDetail(detail);
+    } catch (error) {
+      message.error(error.message);
+      const detail = await apiFetch(`/admin/payment-orders/${order._id}`).catch(() => null);
+      if (detail) setPaymentDetail(detail);
+    } finally {
+      setFiscalizationRetrying("");
     }
   }
 
@@ -545,9 +596,12 @@ function ServiceOverview({ currentUser }) {
           && order.payment?.rail === "sbp"
           && remainingKopecks > 0
           && !hasUnresolvedRefund;
-        return canRefund ? (
-          <Button danger onClick={() => openRefundModal(order)}>Оформить возврат</Button>
-        ) : null;
+        return (
+          <Space wrap>
+            <Button onClick={() => openPaymentDetail(order)}>Подробнее</Button>
+            {canRefund && <Button danger onClick={() => openRefundModal(order)}>Оформить возврат</Button>}
+          </Space>
+        );
       }
     }
   ];
@@ -1083,6 +1137,134 @@ function ServiceOverview({ currentUser }) {
             </Form>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        title="Карточка платежа"
+        open={paymentDetailOpen}
+        onCancel={() => {
+          setPaymentDetailOpen(false);
+          setPaymentDetail(null);
+        }}
+        footer={<Button onClick={() => setPaymentDetailOpen(false)}>Закрыть</Button>}
+        width={920}
+        loading={paymentDetailLoading}
+        destroyOnHidden
+      >
+        {paymentDetail?.paymentOrder && (() => {
+          const order = paymentDetail.paymentOrder;
+          const fiscal = order.fiscalization || {};
+          const [fiscalLabel, fiscalColor] = fiscalizationLabels[fiscal.status] || [fiscal.status, "default"];
+          const canRetryReceipt = ["paid", "partially_refunded", "refunded"].includes(order.status)
+            && fiscal.status !== "succeeded";
+          return (
+            <Space direction="vertical" size={18} className="admin-dashboard__full-width">
+              <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }}>
+                <Descriptions.Item label="Заказ">{order._id}</Descriptions.Item>
+                <Descriptions.Item label="Компания">{order.organization?.name || "Компания удалена"}</Descriptions.Item>
+                <Descriptions.Item label="Пользователь">{order.requestedBy?.email || "Пользователь удалён"}</Descriptions.Item>
+                <Descriptions.Item label="Тариф">{order.planName} · {order.periodMonths} мес.</Descriptions.Item>
+                <Descriptions.Item label="Сумма">{formatKopecks(order.amountKopecks)}</Descriptions.Item>
+                <Descriptions.Item label="Провайдер">{order.payment?.provider || "—"}</Descriptions.Item>
+                <Descriptions.Item label="QR / операция">{order.payment?.providerPaymentId || "—"}<br />{order.payment?.operationId || "—"}</Descriptions.Item>
+                <Descriptions.Item label="Создан">{dayjs(order.createdAt).format("DD.MM.YYYY HH:mm")}</Descriptions.Item>
+              </Descriptions>
+
+              <Card
+                size="small"
+                title="Фискализация оплаты"
+                extra={canRetryReceipt && (
+                  <Button
+                    icon={<ReloadOutlined />}
+                    loading={fiscalizationRetrying === order._id}
+                    onClick={() => retryFiscalization()}
+                  >
+                    Повторить вручную
+                  </Button>
+                )}
+              >
+                <Space direction="vertical" className="admin-dashboard__full-width">
+                  <Space wrap>
+                    <Tag color={fiscalColor}>{fiscalLabel}</Tag>
+                    <Typography.Text>
+                      Попыток: {fiscal.attempts || 0}, автоматических: {fiscal.automaticAttempts || 0} / {paymentDetail.fiscalizationMaxAttempts}
+                    </Typography.Text>
+                    {fiscal.receiptUrl && <Typography.Link href={fiscal.receiptUrl} target="_blank" rel="noreferrer">Открыть чек</Typography.Link>}
+                  </Space>
+                  {fiscal.receiptEmailUsed && <Typography.Text type="secondary">Чек отправлен на {fiscal.receiptEmailUsed}</Typography.Text>}
+                  {fiscal.exhaustedAt && (
+                    <Alert
+                      type="error"
+                      showIcon
+                      message="Автоматические попытки исчерпаны"
+                      description={fiscal.adminNotifiedAt
+                        ? `Email-оповещение поставлено в очередь ${dayjs(fiscal.adminNotifiedAt).format("DD.MM.YYYY HH:mm")}`
+                        : "Оповещение администратора ожидает отправки"}
+                    />
+                  )}
+                  {fiscal.errorMessage && <Alert type="error" showIcon message={fiscal.errorCode || "Ошибка DigitalKassa"} description={fiscal.errorMessage} />}
+                  <Table
+                    size="small"
+                    rowKey={(row) => `${row.attempt}-${row.startedAt}`}
+                    pagination={false}
+                    dataSource={[...(fiscal.attemptLog || [])].reverse()}
+                    locale={{ emptyText: "Попыток пока нет" }}
+                    columns={[
+                      { title: "№", dataIndex: "attempt", width: 54 },
+                      { title: "Источник", dataIndex: "trigger", render: (value) => ({ webhook: "Webhook", worker: "Автоматически", manual: "Вручную" }[value] || value) },
+                      { title: "Действие", dataIndex: "action", render: (value) => value === "status" ? "Проверка статуса" : "Создание чека" },
+                      { title: "Результат", dataIndex: "status", render: (value) => <Tag color={value === "succeeded" ? "green" : value === "failed" ? "red" : "blue"}>{value}</Tag> },
+                      { title: "Время", dataIndex: "startedAt", render: (value) => dayjs(value).format("DD.MM.YYYY HH:mm:ss") },
+                      { title: "Ошибка", dataIndex: "errorMessage", render: (value, row) => value ? `${row.errorCode}: ${value}` : "—" }
+                    ]}
+                  />
+                </Space>
+              </Card>
+
+              {(order.refunds || []).map((refund) => {
+                const refundFiscal = refund.fiscalization || {};
+                const [label, color] = fiscalizationLabels[refundFiscal.status] || [refundFiscal.status, "default"];
+                return (
+                  <Card
+                    size="small"
+                    key={refund._id}
+                    title={`Возврат ${formatKopecks(refund.amountKopecks)}`}
+                    extra={refund.status === "succeeded" && refundFiscal.status !== "succeeded" && (
+                      <Button
+                        icon={<ReloadOutlined />}
+                        loading={fiscalizationRetrying === refund._id}
+                        onClick={() => retryFiscalization(refund._id)}
+                      >
+                        Повторить чек возврата
+                      </Button>
+                    )}
+                  >
+                    <Space direction="vertical">
+                      <Space wrap><Tag color={color}>{label}</Tag><Typography.Text>{refund.reason}</Typography.Text></Space>
+                      {refundFiscal.errorMessage && <Typography.Text type="danger">{refundFiscal.errorCode}: {refundFiscal.errorMessage}</Typography.Text>}
+                    </Space>
+                  </Card>
+                );
+              })}
+
+              <Card size="small" title="Журнал платежа">
+                <Table
+                  size="small"
+                  rowKey="_id"
+                  pagination={false}
+                  dataSource={paymentDetail.events || []}
+                  locale={{ emptyText: "Событий пока нет" }}
+                  columns={[
+                    { title: "Время", dataIndex: "occurredAt", render: (value) => dayjs(value).format("DD.MM.YYYY HH:mm:ss") },
+                    { title: "Событие", dataIndex: "type" },
+                    { title: "Источник", dataIndex: "actorType" },
+                    { title: "Данные", dataIndex: "payload", render: (value) => <Typography.Text code>{JSON.stringify(value || {})}</Typography.Text> }
+                  ]}
+                />
+              </Card>
+            </Space>
+          );
+        })()}
       </Modal>
 
       <Modal

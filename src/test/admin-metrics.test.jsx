@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { AdminDashboard } from "../components/AdminDashboard/AdminDashboard.jsx";
 import { apiFetch } from "../api.js";
@@ -18,6 +18,45 @@ beforeEach(() => {
   apiFetch.mockImplementation((path) => {
     if (path.startsWith("/admin/users")) return Promise.resolve({ users: [], pagination: { page: 1, limit: 10, total: 0 } });
     if (path.startsWith("/admin/billing-requests")) return Promise.resolve({ billingRequests: [] });
+    if (path === "/admin/payment-orders/order-1") return Promise.resolve({
+      fiscalizationMaxAttempts: 12,
+      paymentOrder: {
+        _id: "order-1",
+        organization: { name: "Компания" },
+        requestedBy: { name: "Иван", email: "buyer@example.com" },
+        planName: "Команда",
+        periodMonths: 1,
+        amountKopecks: 99000,
+        status: "paid",
+        createdAt: "2026-10-03T12:00:00.000Z",
+        payment: { provider: "tochka_sbp", providerPaymentId: "qrc-1", operationId: "operation-1" },
+        fiscalization: {
+          status: "failed",
+          attempts: 12,
+          automaticAttempts: 12,
+          errorCode: "DIGITALKASSA_TIMEOUT",
+          errorMessage: "DigitalKassa не ответила вовремя",
+          exhaustedAt: "2026-10-03T12:10:00.000Z",
+          adminNotifiedAt: "2026-10-03T12:11:00.000Z",
+          attemptLog: [{ attempt: 12, trigger: "worker", action: "create", status: "failed", startedAt: "2026-10-03T12:10:00.000Z", errorCode: "DIGITALKASSA_TIMEOUT", errorMessage: "Timeout" }]
+        },
+        refunds: []
+      },
+      events: [{ _id: "event-1", occurredAt: "2026-10-03T12:00:00.000Z", type: "PaymentSucceeded", actorType: "provider", payload: {} }]
+    });
+    if (path === "/admin/payment-orders/order-1/fiscalization/retry") return Promise.resolve({ message: "Повторная фискализация запущена" });
+    if (path.startsWith("/admin/payment-orders?")) return Promise.resolve({ paymentOrders: [{
+      _id: "order-1",
+      organization: { name: "Компания" },
+      requestedBy: { name: "Иван" },
+      planName: "Команда",
+      amountKopecks: 99000,
+      status: "paid",
+      createdAt: "2026-10-03T12:00:00.000Z",
+      payment: { provider: "tochka_sbp", rail: "sbp" },
+      fiscalization: { status: "failed" },
+      refunds: []
+    }] });
     return Promise.resolve({
       users: { total: 42, active: 18, inactive: 23, blocked: 1, newInPeriod: 7, activationRate: 43 },
       engagement: { dau: 8, wau: 14, mau: 18, dauMau: 44, wauMau: 78, activeOrganizations: 11, collaborativeOrganizations: 6, collaborationRate: 40, coverageStart: "2026-09-01" },
@@ -36,6 +75,20 @@ beforeEach(() => {
       recentUsers: []
     });
   });
+});
+
+it("opens payment diagnostics and allows a manual fiscalization retry", async () => {
+  render(<AdminDashboard currentUser={{ isSuperAdmin: true }} auth={{}} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Подробнее" }));
+  expect(await screen.findByText("Карточка платежа")).toBeInTheDocument();
+  expect(screen.getByText("Автоматические попытки исчерпаны")).toBeInTheDocument();
+  expect(screen.getByText("DIGITALKASSA_TIMEOUT")).toBeInTheDocument();
+  expect(screen.getByText("PaymentSucceeded")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /Повторить вручную/ }));
+  await waitFor(() => expect(apiFetch).toHaveBeenCalledWith(
+    "/admin/payment-orders/order-1/fiscalization/retry",
+    { method: "POST", body: "{}" }
+  ));
 });
 
 afterEach(() => {
