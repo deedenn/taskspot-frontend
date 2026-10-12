@@ -980,7 +980,7 @@ function ServiceOverview({ currentUser }) {
             locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Нет платежей" /> }}
           />
         </Card>
-        <Card title="Пользователи сервиса">
+        <Card className="admin-dashboard__card--wide" title="Пользователи сервиса">
           <div className="admin-dashboard__user-tools">
             <Input.Search
               allowClear

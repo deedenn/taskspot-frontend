@@ -106,4 +106,7 @@ it("shows engagement, money and operational health without an external analytics
   expect(screen.getByText("СБП готова")).toBeInTheDocument();
   expect(screen.getByText(/API за 24 ч: 840 запросов/)).toBeInTheDocument();
   expect(screen.getAllByText("+40% к прошлому периоду")).toHaveLength(2);
+  expect(screen.getByText("Пользователи сервиса").closest(".ant-card")).toHaveClass(
+    "admin-dashboard__card--wide"
+  );
 });
