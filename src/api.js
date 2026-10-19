@@ -26,11 +26,15 @@ export function limitErrorText(error) {
   const plan = error.data?.plan?.name;
   const base = error.data?.message || error.message || "Лимит текущего тарифа исчерпан";
 
-  if (usage?.limit !== undefined) {
-    return `${base}: ${usage.used} / ${usage.limit}${plan ? ` на тарифе «${plan}»` : ""}.`;
-  }
+  const details = usage?.limit !== undefined
+    ? `${base}: ${usage.used} / ${usage.limit}${plan ? ` на тарифе «${plan}»` : ""}.`
+    : base;
+  const actionText = error.data?.action || "Перейдите на другой тариф, чтобы продолжить работу.";
+  const action = /перейдите|смените|выберите|продлите/i.test(details)
+    ? ""
+    : ` ${actionText}`;
 
-  return base;
+  return `${details}${action}`;
 }
 
 export function getToken() {
@@ -79,7 +83,23 @@ export async function apiFetch(path, options = {}) {
     }
 
     if (!response.ok) {
-      throw new ApiError(data.message || "Request failed", { status: response.status, data });
+      const requestError = new ApiError(data.message || "Request failed", { status: response.status, data });
+
+      if (isLimitError(requestError)) {
+        requestError.message = limitErrorText(requestError);
+        window.dispatchEvent(new CustomEvent("taskspot:plan-limit", {
+          detail: {
+            message: requestError.message,
+            key: data.key,
+            reason: data.reason,
+            organization: data.organization,
+            plan: data.plan,
+            usage: data.usage
+          }
+        }));
+      }
+
+      throw requestError;
     }
 
     return data;

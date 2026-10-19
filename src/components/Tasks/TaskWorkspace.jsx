@@ -1,8 +1,8 @@
 import { CheckCircleOutlined, CommentOutlined, DeleteOutlined, EyeInvisibleOutlined, EyeOutlined, PaperClipOutlined, PlusOutlined, RollbackOutlined, StopOutlined } from "@ant-design/icons";
 import { Alert, App as AntApp, Button, Card, Drawer, Empty, Form, Grid, Input, List, Pagination, Select, Space, Spin, Switch, Tag, Tooltip, Typography, Upload } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { apiFetch, isLimitError, limitErrorText } from "../../api.js";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { apiFetch, isLimitError } from "../../api.js";
 import { fullName, projectAssigneeOptions, projectMemberOptions } from "../../utils/users.js";
 import { formatTaskDeadline, isTaskDeadlinePast, isTaskDeadlineSoon, taskDeadlinePayload } from "../../utils/taskDeadline.js";
 import { PageState } from "../PageState/PageState.jsx";
@@ -67,7 +67,6 @@ function isProjectArchived(project) {
 export function TaskWorkspace({ project, currentUser }) {
   const { modal, message } = AntApp.useApp();
   const location = useLocation();
-  const navigate = useNavigate();
   const [tasks, setTasks] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -167,19 +166,6 @@ export function TaskWorkspace({ project, currentUser }) {
     };
   }, [loadTasks]);
 
-  function showLimitDialog(error) {
-    if (!isLimitError(error)) return false;
-
-    modal.warning({
-      title: "Лимит тарифа исчерпан",
-      content: limitErrorText(error),
-      okText: "Перейти в тарифы",
-      onOk: () => navigate("/app/billing")
-    });
-
-    return true;
-  }
-
   async function createTask(values) {
     setCreatingTask(true);
     try {
@@ -209,7 +195,7 @@ export function TaskWorkspace({ project, currentUser }) {
 
         try {
           await uploadAttachmentForTask(data.task._id, file);
-        } catch (error) {
+        } catch {
           failedUploads.push(file.name);
         }
       }
@@ -224,7 +210,7 @@ export function TaskWorkspace({ project, currentUser }) {
         message.success(pendingAttachmentFiles.length ? "Задача создана, файлы добавлены" : "Задача создана");
       }
     } catch (error) {
-      if (!showLimitDialog(error)) {
+      if (!isLimitError(error)) {
         message.error(error.message);
       }
     } finally {

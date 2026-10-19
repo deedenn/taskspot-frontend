@@ -4,6 +4,8 @@ import {
   CheckOutlined,
   ClearOutlined,
   ClockCircleOutlined,
+  CloseOutlined,
+  CrownOutlined,
   DeleteOutlined,
   DownloadOutlined,
   DownOutlined,
@@ -46,7 +48,7 @@ import {
 import dayjs from "dayjs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { apiFetch, isLimitError, limitErrorText } from "../../api.js";
+import { apiFetch, isLimitError } from "../../api.js";
 import { useApiResource } from "../../hooks/useApiResource.js";
 import { fullName, projectAssigneeOptions, projectMemberOptions } from "../../utils/users.js";
 import { formatTaskDeadline, isTaskDeadlinePast, isTaskDeadlineSoon, taskDeadlinePayload } from "../../utils/taskDeadline.js";
@@ -55,7 +57,7 @@ import { PageState } from "../PageState/PageState.jsx";
 import { TaskDeadlineField } from "../Tasks/TaskDeadlineField.jsx";
 import "./Dashboard.css";
 
-const EMPTY_DASHBOARD_DATA = { all: [], initiated: [], assigned: [], observing: [], notifications: [] };
+const EMPTY_DASHBOARD_DATA = { all: [], initiated: [], assigned: [], observing: [], notifications: [], planReminders: [] };
 
 const statusLabels = {
   open: ["Открыта", "blue"],
@@ -170,6 +172,15 @@ function isProjectArchived(project) {
 
 function formatDateValue(date) {
   return date ? dayjs(date).valueOf() : Number.MAX_SAFE_INTEGER;
+}
+
+function planReminderStorageKey(reminder, userId) {
+  return `taskspot:plan-reminder:${userId || "user"}:${reminder.organizationId}:${reminder.expiresAt}`;
+}
+
+function remainingDaysText(days) {
+  if (days === 1) return "Остался 1 день";
+  return `Осталось ${days} дня`;
 }
 
 function TaskCategories({ task, categoryMap }) {
@@ -486,6 +497,7 @@ export function Dashboard({ currentUser }) {
   const [creatingTask, setCreatingTask] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [creatingFirstProject, setCreatingFirstProject] = useState(false);
+  const [dismissedPlanReminders, setDismissedPlanReminders] = useState(() => new Set());
   const [form] = Form.useForm();
   const [firstProjectForm] = Form.useForm();
   const [returnForm] = Form.useForm();
@@ -504,6 +516,13 @@ export function Dashboard({ currentUser }) {
     };
   }, []);
   const rawDashboardData = dashboardResource.data?.dashboard || EMPTY_DASHBOARD_DATA;
+  const planReminders = useMemo(
+    () => (rawDashboardData.planReminders || []).filter((reminder) => {
+      const key = planReminderStorageKey(reminder, currentUser?._id);
+      return !dismissedPlanReminders.has(key) && !localStorage.getItem(key);
+    }),
+    [currentUser?._id, dismissedPlanReminders, rawDashboardData.planReminders]
+  );
   const data = useMemo(
     () => normalizeDashboardData(rawDashboardData, currentUser?._id),
     [rawDashboardData, currentUser?._id]
@@ -551,6 +570,12 @@ export function Dashboard({ currentUser }) {
       message.error(error.message);
       return null;
     }
+  }
+
+  function dismissPlanReminder(reminder) {
+    const key = planReminderStorageKey(reminder, currentUser?._id);
+    localStorage.setItem(key, "dismissed");
+    setDismissedPlanReminders((current) => new Set([...current, key]));
   }
 
   const projectOptions = useMemo(
@@ -852,19 +877,6 @@ export function Dashboard({ currentUser }) {
     setDrawerOpen(true);
   }
 
-  function showLimitDialog(error) {
-    if (!isLimitError(error)) return false;
-
-    Modal.warning({
-      title: "Лимит тарифа исчерпан",
-      content: limitErrorText(error),
-      okText: "Перейти в тарифы",
-      onOk: () => navigate("/app/billing")
-    });
-
-    return true;
-  }
-
   async function createFirstProject(values) {
     const name = values.name?.trim();
 
@@ -893,7 +905,7 @@ export function Dashboard({ currentUser }) {
       await loadDashboard({ silent: true });
       message.success("Проект создан. Теперь можно добавить первую задачу.");
     } catch (error) {
-      if (!showLimitDialog(error)) {
+      if (!isLimitError(error)) {
         message.error(error.message || "Не удалось создать проект");
       }
     } finally {
@@ -955,7 +967,7 @@ export function Dashboard({ currentUser }) {
       setDrawerOpen(false);
       await loadDashboard();
     } catch (error) {
-      if (!showLimitDialog(error)) {
+      if (!isLimitError(error)) {
         message.error(error.message);
       }
     } finally {
@@ -1014,7 +1026,7 @@ export function Dashboard({ currentUser }) {
       message.success("Задача создана");
       void loadDashboard();
     } catch (error) {
-      if (!showLimitDialog(error)) {
+      if (!isLimitError(error)) {
         message.error(error.message || "Не удалось создать задачу. Попробуйте еще раз");
       }
     } finally {
@@ -1090,6 +1102,37 @@ export function Dashboard({ currentUser }) {
           )}
         </Space>
       </div>
+
+      {planReminders.map((reminder) => (
+        <aside className="dashboard__plan-reminder" key={`${reminder.organizationId}:${reminder.expiresAt}`}>
+          <span className="dashboard__plan-reminder-icon" aria-hidden="true">
+            <CrownOutlined />
+          </span>
+          <div className="dashboard__plan-reminder-copy">
+            <Typography.Text strong>
+              Тариф «{reminder.plan.name}» скоро закончится
+            </Typography.Text>
+            <Typography.Text type="secondary">
+              {remainingDaysText(reminder.daysRemaining)} — до {dayjs(reminder.expiresAt).format("DD.MM.YYYY")}.
+              {reminder.canManageBilling
+                ? " Продлите тариф, чтобы команда продолжила работу без ограничений."
+                : " Обратитесь к администратору компании для продления."}
+            </Typography.Text>
+          </div>
+          {reminder.canManageBilling && (
+            <Button className="dashboard__plan-reminder-action" onClick={() => navigate("/app/billing")}>
+              Продлить тариф
+            </Button>
+          )}
+          <Button
+            className="dashboard__plan-reminder-close"
+            type="text"
+            icon={<CloseOutlined />}
+            aria-label={`Скрыть напоминание о тарифе ${reminder.plan.name}`}
+            onClick={() => dismissPlanReminder(reminder)}
+          />
+        </aside>
+      ))}
 
       {error && (
         <PageState

@@ -17,7 +17,7 @@ import {
 import { Alert, Avatar, Button, Card, Checkbox, ColorPicker, Empty, Form, Input, Modal, Popconfirm, Segmented, Select, Space, Tag, Tooltip, Typography, Upload, message } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { apiFetch, isLimitError, limitErrorText } from "../../api.js";
+import { apiFetch, isLimitError } from "../../api.js";
 import { fullName } from "../../utils/users.js";
 import { PageState } from "../PageState/PageState.jsx";
 import { useInvitationEmailPolling } from "./useInvitationEmailPolling";
@@ -238,19 +238,6 @@ export function Projects({ user }) {
     };
   }, [projects]);
 
-  function showLimitDialog(error) {
-    if (!isLimitError(error)) return false;
-
-    Modal.warning({
-      title: "Лимит тарифа исчерпан",
-      content: limitErrorText(error),
-      okText: "Перейти в тарифы",
-      onOk: () => navigate("/app/billing")
-    });
-
-    return true;
-  }
-
   async function createProject(values) {
     try {
       const data = await apiFetch("/projects", {
@@ -263,7 +250,7 @@ export function Projects({ user }) {
       navigate(`/app/projects/${data.project._id}`);
       message.success("Проект создан");
     } catch (error) {
-      if (!showLimitDialog(error)) {
+      if (!isLimitError(error)) {
         message.error(error.message);
       }
     }
@@ -315,7 +302,7 @@ export function Projects({ user }) {
       updateProject(data.project);
       message.success("Проект восстановлен");
     } catch (error) {
-      if (!showLimitDialog(error)) {
+      if (!isLimitError(error)) {
         message.error(error.message);
       }
     } finally {
@@ -384,7 +371,7 @@ export function Projects({ user }) {
         message.warning("Приглашение создано, но письмо не отправилось");
       }
     } catch (error) {
-      if (!showLimitDialog(error)) {
+      if (!isLimitError(error)) {
         message.error(error.message);
       }
     }
@@ -423,7 +410,7 @@ export function Projects({ user }) {
     try {
       await navigator.clipboard.writeText(url);
       message.success("Ссылка приглашения скопирована");
-    } catch (error) {
+    } catch {
       message.error("Не удалось скопировать ссылку");
     }
   }

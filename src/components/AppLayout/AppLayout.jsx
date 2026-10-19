@@ -16,9 +16,9 @@ import {
   SnippetsOutlined,
   UserOutlined
 } from "@ant-design/icons";
-import { Badge, Button, Drawer, Dropdown, Empty, Grid, Layout, List, Menu, Typography, message } from "antd";
+import { App as AntApp, Badge, Button, Drawer, Dropdown, Empty, Grid, Layout, List, Menu, Typography } from "antd";
 import dayjs from "dayjs";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { apiFetch } from "../../api.js";
 import { fullName } from "../../utils/users.js";
@@ -78,9 +78,11 @@ function localizeNotificationMessage(messageText = "") {
 }
 
 export function AppLayout({ auth }) {
+  const { message, modal } = AntApp.useApp();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const lastLimitNotice = useRef({ signature: "", shownAt: 0 });
   const location = useLocation();
   const navigate = useNavigate();
   const screens = Grid.useBreakpoint();
@@ -159,6 +161,32 @@ export function AppLayout({ auth }) {
     auth.signOut();
     navigate("/", { replace: true });
   }
+
+  useEffect(() => {
+    if (isSuperAdmin) return undefined;
+
+    function showPlanLimit(event) {
+      const detail = event.detail || {};
+      const signature = [detail.organization?.id, detail.key, detail.usage?.used, detail.usage?.limit].join(":");
+      const now = Date.now();
+
+      if (lastLimitNotice.current.signature === signature && now - lastLimitNotice.current.shownAt < 1500) return;
+      lastLimitNotice.current = { signature, shownAt: now };
+
+      modal.confirm({
+        title: detail.reason === "subscription_expired"
+          ? "Срок оплаченного тарифа закончился"
+          : "Действие недоступно на текущем тарифе",
+        content: detail.message || "Лимит текущего тарифа исчерпан. Перейдите на другой тариф, чтобы продолжить работу.",
+        okText: "Перейти в тарифы",
+        cancelText: "Позже",
+        onOk: () => navigate("/app/billing")
+      });
+    }
+
+    window.addEventListener("taskspot:plan-limit", showPlanLimit);
+    return () => window.removeEventListener("taskspot:plan-limit", showPlanLimit);
+  }, [isSuperAdmin, modal, navigate]);
 
   async function loadNotifications({ silent = false } = {}) {
     if (isSuperAdmin) {

@@ -9,7 +9,10 @@ const user = { _id: "u", name: "Иван", lastName: "Иванов", email: "pri
 const project = { _id: "p", name: "Продажи", members: [{ user, role: "admin" }], categories: [], invitations: [] };
 const baseTask = { _id: "t", description: "Проверить документ", status: "open", priority: "medium", project,
   creator: { _id: "creator", name: "Анна" }, assignee: user, observers: [], categories: [], checklist: [], attachments: [], activities: [], comments: [] };
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+});
 beforeEach(() => {
   vi.clearAllMocks();
   window.matchMedia = (query) => ({ matches: query.includes("min-width"), media: query, onchange: null,
@@ -45,6 +48,36 @@ test("dashboard shows seven fixed-layout columns, avatar/name and inline complet
   await waitFor(() => expect(screen.getByRole("button", { name: /Статус задачи Проверить документ: На проверке/ })).toBeInTheDocument());
   expect(within(table).getByText("На проверке")).toBeInTheDocument();
 }, 20000);
+
+test("dashboard shows and remembers dismissal of the paid plan expiry reminder", async () => {
+  const reminder = {
+    organizationId: "organization",
+    organizationName: "Компания",
+    plan: { key: "team", name: "Команда" },
+    expiresAt: "2026-10-21T08:00:00.000Z",
+    daysRemaining: 2,
+    canManageBilling: true
+  };
+  apiFetch.mockImplementation(async (path) => {
+    if (path === "/dashboard") {
+      return { all: [baseTask], assigned: [baseTask], initiated: [], observing: [], planReminders: [reminder] };
+    }
+    if (path === "/projects") return { projects: [project] };
+    return {};
+  });
+
+  const view = render(<MemoryRouter><Dashboard currentUser={user} /></MemoryRouter>);
+  expect(await screen.findByText("Тариф «Команда» скоро закончится")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Продлить тариф" })).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Скрыть напоминание о тарифе Команда" }));
+  expect(screen.queryByText("Тариф «Команда» скоро закончится")).not.toBeInTheDocument();
+
+  view.unmount();
+  render(<MemoryRouter><Dashboard currentUser={user} /></MemoryRouter>);
+  await screen.findByText("Проверить документ");
+  expect(screen.queryByText("Тариф «Команда» скоро закончится")).not.toBeInTheDocument();
+}, 10000);
 test.each([
   ["archived project", { project: { ...project, archived: true, archivedAt: "2026-01-01" } }]
 ])("dashboard status is read-only for %s", async (_, change) => {

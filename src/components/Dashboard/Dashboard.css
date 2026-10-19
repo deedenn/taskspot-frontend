@@ -19,6 +19,59 @@
   justify-content: flex-end;
 }
 
+.dashboard__plan-reminder {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 18px;
+  padding: 14px 14px 14px 16px;
+  overflow: hidden;
+  border: 1px solid #f0d99d;
+  border-radius: 12px;
+  background: linear-gradient(110deg, #fffaf0 0%, #fffdf8 58%, #f7fbff 100%);
+  box-shadow: 0 10px 26px rgba(95, 68, 12, 0.06);
+}
+
+.dashboard__plan-reminder-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #fff0bd;
+  color: #9a6400;
+  font-size: 19px;
+}
+
+.dashboard__plan-reminder-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dashboard__plan-reminder-copy > .ant-typography {
+  margin: 0;
+}
+
+.dashboard__plan-reminder-action {
+  border-color: #d9ad43;
+  color: #805400;
+  background: #fffaf0;
+  font-weight: 600;
+}
+
+.dashboard__plan-reminder-action:hover {
+  border-color: #bd8613 !important;
+  color: #6d4800 !important;
+  background: #fff5d8 !important;
+}
+
+.dashboard__plan-reminder-close {
+  color: var(--text-muted);
+}
+
 .dashboard__export-button {
   border-color: #cbd8ed;
   color: var(--brand-blue-700);
@@ -777,6 +830,22 @@
 }
 
 @media (max-width: 720px) {
+  .dashboard__plan-reminder {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .dashboard__plan-reminder-action {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .dashboard__plan-reminder-close {
+    align-self: start;
+  }
+
   .dashboard__mobile-task-tags .dashboard__status-control--interactive {
     min-height: 44px;
   }
