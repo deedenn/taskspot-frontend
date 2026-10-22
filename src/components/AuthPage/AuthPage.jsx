@@ -3,6 +3,7 @@ import { Alert, Button, Card, Checkbox, Form, Input, Space, Typography } from "a
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { apiFetch } from "../../api.js";
+import { reachYandexGoal, YANDEX_METRIKA_GOALS } from "../../analytics/yandexMetrika.js";
 import { BrandLogo } from "../BrandLogo/BrandLogo.jsx";
 import "./AuthPage.css";
 
@@ -132,6 +133,10 @@ export function AuthPage({ mode, auth }) {
         const data = await apiFetch("/auth/register", {
           method: "POST",
           body: JSON.stringify({ ...values, termsAccepted: true, termsVersion: TERMS_VERSION })
+        });
+
+        reachYandexGoal(YANDEX_METRIKA_GOALS.registrationSubmitted, {
+          registration_source: invitationToken ? "invitation" : "direct"
         });
 
         if (data.requiresEmailVerification) {

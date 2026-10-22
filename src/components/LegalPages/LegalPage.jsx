@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { BrandLogo } from "../BrandLogo/BrandLogo.jsx";
-import { legalDocuments, legalOperator, TERMS_VERSION } from "./legalContent.js";
+import { legalDocuments, legalOperator, PRIVACY_VERSION, TERMS_VERSION } from "./legalContent.js";
 import "./LegalPage.css";
 
 export function LegalPage() {
@@ -54,7 +54,9 @@ export function LegalPage() {
           <span>Taskspot / Правовые документы</span>
           <h1>{legalDoc.title}</h1>
           <p>{legalDoc.lead}</p>
-          <small>Редакция от {TERMS_VERSION.split("-").reverse().join(".")}</small>
+          <small>
+            Редакция от {(slug === "privacy" ? PRIVACY_VERSION : TERMS_VERSION).split("-").reverse().join(".")}
+          </small>
         </div>
         <div className="legal-page__layout">
           <nav className="legal-page__contents" aria-label="Содержание документа">

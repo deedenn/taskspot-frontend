@@ -309,7 +309,7 @@ export function AppLayout({ auth }) {
   );
 
   return (
-    <Layout className="app-layout">
+    <Layout className="app-layout ym-hide-content">
       {!isMobile && (
         <Sider width={252} collapsible collapsed={collapsed} trigger={null} className="app-layout__sider">
           <Link to={homePath} className="app-layout__brand">

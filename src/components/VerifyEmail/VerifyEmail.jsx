@@ -3,6 +3,7 @@ import { Alert, Button, Card, Form, Input, Space, Spin, Typography } from "antd"
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { apiFetch, setToken } from "../../api.js";
+import { reachYandexGoal, YANDEX_METRIKA_GOALS } from "../../analytics/yandexMetrika.js";
 import { BrandLogo } from "../BrandLogo/BrandLogo.jsx";
 import "./VerifyEmail.css";
 
@@ -52,6 +53,11 @@ export function VerifyEmail({ auth }) {
     verifyToken(token)
       .then((data) => {
         if (cancelled) return;
+        const metrikaStorageKey = `taskspot_metrika_registration_completed:${data.user._id}`;
+        if (!sessionStorage.getItem(metrikaStorageKey)) {
+          reachYandexGoal(YANDEX_METRIKA_GOALS.registrationCompleted);
+          sessionStorage.setItem(metrikaStorageKey, "1");
+        }
         setToken(data.token);
         setAuthUser(data.user);
         sessionStorage.removeItem(CHECK_MAIL_STORAGE_KEY);

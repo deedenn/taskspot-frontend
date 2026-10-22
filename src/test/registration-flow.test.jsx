@@ -20,9 +20,13 @@ describe("registration and email verification flow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     sessionStorage.clear();
+    window.ym = vi.fn();
   });
 
-  afterEach(() => cleanup());
+  afterEach(() => {
+    cleanup();
+    delete window.ym;
+  });
 
   it("requires a separate acceptance before registration", async () => {
     render(<MemoryRouter initialEntries={["/register"]}><AuthPage mode="register" auth={{ user: null, signIn: vi.fn() }} /></MemoryRouter>);
@@ -62,6 +66,9 @@ describe("registration and email verification flow", () => {
     expect(JSON.parse(sessionStorage.getItem("taskspot_registration_check_mail"))).toMatchObject({
       email: "new@example.com",
       source: "register"
+    });
+    expect(window.ym).toHaveBeenCalledWith(113730343, "reachGoal", "registration_submitted", {
+      registration_source: "direct"
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Отправить письмо повторно" }));
@@ -116,6 +123,7 @@ describe("registration and email verification flow", () => {
     expect(setToken).toHaveBeenCalledWith("session-token");
     expect(auth.setUser).toHaveBeenCalledWith(expect.objectContaining({ _id: "user-1" }));
     expect(apiFetch).toHaveBeenCalledTimes(1);
+    expect(window.ym).toHaveBeenCalledWith(113730343, "reachGoal", "ym-register", undefined);
 
     fireEvent.click(screen.getByRole("button", { name: "Создать первую задачу" }));
     expect(screen.getByTestId("location")).toHaveTextContent("/app/projects/project-1/tasks");

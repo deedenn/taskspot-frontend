@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { App as AntApp, Spin } from "antd";
 import { apiFetch, getToken, setToken } from "./api.js";
+import { YandexMetrikaRouteTracker } from "./analytics/YandexMetrikaRouteTracker.jsx";
 import { AppLayout } from "./components/AppLayout/AppLayout.jsx";
 
 const AssigneeControl = lazy(() => import("./components/ControlPage/AssigneeControl.jsx").then((module) => ({ default: module.AssigneeControl })));
@@ -135,6 +136,7 @@ export function App() {
   return (
     <AntApp>
       <BrowserRouter>
+        <YandexMetrikaRouteTracker />
         <ProductActivity user={user} />
         <Routes>
           <Route path="/" element={<Suspense fallback={<RouteLoader />}><LandingPage user={user} /></Suspense>} />
