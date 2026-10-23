@@ -11,7 +11,8 @@
     "format": "prettier --check \"src/**/*.{js,jsx,css}\"",
     "format:write": "prettier --write \"src/**/*.{js,jsx,css}\"",
     "test": "vitest run --environment jsdom",
-    "test:smoke": "playwright test"
+    "test:smoke": "playwright test",
+    "screenshots:landing": "node scripts/capture-product-screens.mjs"
   },
   "dependencies": {
     "@ant-design/icons": "^5.6.1",

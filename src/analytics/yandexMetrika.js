@@ -1,6 +1,7 @@
 export const YANDEX_METRIKA_ID = 113730343;
 
 export const YANDEX_METRIKA_GOALS = {
+  landingCta: "landing_cta_click",
   registrationSubmitted: "registration_submitted",
   registrationCompleted: "ym-register"
 };

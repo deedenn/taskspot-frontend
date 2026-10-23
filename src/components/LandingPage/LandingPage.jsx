@@ -4,43 +4,109 @@ import {
   CheckCircleFilled,
   CheckOutlined,
   ClockCircleOutlined,
-  CloudSyncOutlined,
+  CommentOutlined,
   FileDoneOutlined,
   FileTextOutlined,
   FolderOpenOutlined,
   HistoryOutlined,
   MenuOutlined,
-  MobileOutlined,
+  PaperClipOutlined,
   ProjectOutlined,
   ReloadOutlined,
   RiseOutlined,
   SafetyCertificateOutlined,
-  SearchOutlined,
   TeamOutlined,
   ThunderboltOutlined,
-  UnorderedListOutlined
+  UnorderedListOutlined,
+  UserAddOutlined
 } from "@ant-design/icons";
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { reachYandexGoal, YANDEX_METRIKA_GOALS } from "../../analytics/yandexMetrika.js";
 import { BrandLogo } from "../BrandLogo/BrandLogo.jsx";
 import { LANDING_COPY, LANDING_FAQS as faqs, PRICING_PLANS as pricingPlans } from "./landingContent.js";
-import { DashboardScene, MobileScene, TaskScene } from "./LandingProductScenes.jsx";
 import "./LandingPage.css";
+
+const problems = [
+  {
+    icon: <CommentOutlined />,
+    title: "Поручения остаются в чатах",
+    text: "Задачи смешиваются с перепиской, а важные детали приходится искать вручную."
+  },
+  {
+    icon: <ClockCircleOutlined />,
+    title: "Сроки вспоминают слишком поздно",
+    text: "Без единого списка руководитель узнаёт о задержке, когда она уже стала проблемой."
+  },
+  {
+    icon: <FileDoneOutlined />,
+    title: "Результат приходится уточнять",
+    text: "Непонятно, что уже сделано, кто должен проверить работу и почему задачу вернули."
+  }
+];
 
 const workflow = [
   {
-    title: "Сформулируйте поручение",
-    text: "Добавьте срок, ответственного, наблюдателей, чек-лист и нужные файлы.",
+    title: "Поставьте задачу",
+    text: "Например: «Подготовить договор аренды». Укажите срок, ответственного и понятный чек-лист.",
+    status: "Открыта",
     icon: <FileTextOutlined />
   },
   {
-    title: "Не упустите отклонение",
-    text: "Смотрите задачи в фокусе, получайте уведомления и замечайте просрочки вовремя.",
-    icon: <ClockCircleOutlined />
+    title: "Следите за выполнением",
+    text: "Ответственный видит свою работу, отмечает пункты чек-листа и отправляет результат на проверку.",
+    status: "В работе",
+    icon: <UnorderedListOutlined />
   },
   {
     title: "Примите результат",
-    text: "Проверьте работу, завершите задачу или верните её на доработку с комментарием.",
+    text: "Проверьте файлы и комментарии. Закройте задачу или верните на доработку с пояснением.",
+    status: "На проверке",
     icon: <CheckCircleFilled />
+  }
+];
+
+const demoTabs = [
+  {
+    key: "manager",
+    label: "Руководитель",
+    title: "Вся работа команды — на одном экране",
+    text: "Проекты, ответственные, сроки и статусы собраны в рабочем списке. Просрочки и задачи на проверке видны сразу.",
+    image: "/screenshots/manager-dashboard.png",
+    alt: "Главный экран Taskspot с рабочим списком задач руководителя"
+  },
+  {
+    key: "employee",
+    label: "Сотрудник",
+    title: "Понятно, что делать сейчас",
+    text: "Сотрудник открывает список с телефона, видит сроки и переводит задачу по рабочему процессу без лишних уточнений.",
+    image: "/screenshots/employee-dashboard.png",
+    alt: "Мобильный рабочий список задач сотрудника в Taskspot"
+  },
+  {
+    key: "task",
+    label: "Карточка задачи",
+    title: "Контекст и результат остаются вместе",
+    text: "Постановка, роли, чек-лист, файлы, комментарии и история изменений хранятся в одной карточке.",
+    image: "/screenshots/task-card.png",
+    alt: "Карточка задачи Taskspot с ответственным, сроком, чек-листом и файлами"
+  }
+];
+
+const roleBenefits = [
+  {
+    eyebrow: "Для руководителя",
+    title: "Контроль без постоянных вопросов",
+    text: "Сразу видно, что просрочено, что ждёт проверки и как распределены задачи по команде.",
+    points: ["Единая картина по проектам", "Приёмка результата", "История изменений и комментариев"],
+    icon: <RiseOutlined />
+  },
+  {
+    eyebrow: "Для сотрудника",
+    title: "Ясный список и понятный результат",
+    text: "В задаче уже есть срок, чек-лист, файлы и критерии готовности — меньше уточнений и переключений.",
+    points: ["Свои задачи и сроки", "Чек-листы и вложения", "Быстрый статус «На проверке»"],
+    icon: <TeamOutlined />
   }
 ];
 
@@ -48,66 +114,78 @@ const capabilities = [
   {
     icon: <ProjectOutlined />,
     title: "Проекты и роли",
-    text: "Разделяйте работу по проектам. Назначайте владельцев, участников и наблюдателей."
+    text: "Разделяйте работу по проектам и назначайте администраторов, ответственных и наблюдателей."
   },
   {
-    icon: <SearchOutlined />,
-    title: "Поиск и календарь",
-    text: "Находите поручения по всей компании и смотрите сроки в календарном представлении."
+    icon: <ClockCircleOutlined />,
+    title: "Сроки и напоминания",
+    text: "Указывайте дату и точное время. Если время не задано, срок действует до конца дня."
   },
   {
     icon: <UnorderedListOutlined />,
-    title: "Чек-листы и файлы",
-    text: "Фиксируйте критерии готовности, прикладывайте документы и собирайте результат в задаче."
+    title: "Чек-листы",
+    text: "Фиксируйте критерии готовности и отмечайте выполненные шаги прямо в задаче."
+  },
+  {
+    icon: <PaperClipOutlined />,
+    title: "Файлы и комментарии",
+    text: "Храните материалы и обсуждение рядом с задачей, а не в разных чатах и папках."
+  },
+  {
+    icon: <SafetyCertificateOutlined />,
+    title: "Проверка результата",
+    text: "Принимайте выполненную работу или возвращайте её на доработку с обязательным комментарием."
   },
   {
     icon: <ReloadOutlined />,
     title: "Шаблоны и повторы",
-    text: "Сохраняйте типовые проекты и автоматизируйте регулярные поручения на платных тарифах."
-  },
-  {
-    icon: <BellOutlined />,
-    title: "Уведомления",
-    text: "Получайте сигналы о назначениях, изменениях, приближении срока и новых комментариях."
-  },
-  {
-    icon: <FileDoneOutlined />,
-    title: "Отчёты и CSV",
-    text: "Оценивайте выполнение по сотрудникам, динамику задач и выгружайте данные для анализа."
-  },
-  {
-    icon: <HistoryOutlined />,
-    title: "Журнал действий",
-    text: "Восстанавливайте контекст: кто изменил срок, статус или вернул результат на доработку."
-  },
-  {
-    icon: <MobileOutlined />,
-    title: "Работа с телефона",
-    text: "Открывайте задачи в мобильном клиенте, обновляйте статус и продолжайте работу при нестабильной сети."
+    text: "Сохраняйте типовые проекты и запускайте регулярные задачи на платных тарифах."
   }
 ];
 
 const audiences = [
   {
-    title: "Владельцу бизнеса",
-    text: "Понятная картина по поручениям без ручного сбора статусов в чатах.",
+    title: "Владельцу небольшого бизнеса",
+    text: "Поручения сотрудникам и подрядчикам остаются под контролем без сложной системы внедрения.",
     link: "/solutions/owner/"
   },
   {
     title: "Руководителю отдела",
-    text: "Сроки, загрузка ответственных и задачи, которые уже ждут проверки.",
+    text: "Сроки, нагрузка ответственных и результаты на проверке собраны в одном рабочем пространстве.",
     link: "/solutions/department/"
   },
   {
     title: "Операционной команде",
-    text: "Единый повторяемый процесс для точек, объектов, клиентов и внутренних работ.",
+    text: "Повторяемый процесс для точек, объектов, клиентов и ежедневных внутренних работ.",
     link: "/solutions/production/"
   }
 ];
 
-function CtaLink({ to, children, variant = "primary", className = "" }) {
+const startSteps = [
+  [<UserAddOutlined key="register" />, "Зарегистрируйтесь", "Подтвердите email — банковская карта не нужна."],
+  [
+    <FolderOpenOutlined key="project" />,
+    "Создайте проект",
+    "Первый проект появится автоматически. Переименуйте его под свою работу."
+  ],
+  [
+    <TeamOutlined key="team" />,
+    "Добавьте команду",
+    "Пригласите участников и поставьте первую задачу с ответственным и сроком."
+  ]
+];
+
+function trackLandingAction(placement, target) {
+  reachYandexGoal(YANDEX_METRIKA_GOALS.landingCta, { placement, target });
+}
+
+function CtaLink({ to, children, variant = "primary", className = "", placement = "unknown" }) {
   return (
-    <Link className={`landing__button landing__button--${variant} ${className}`.trim()} to={to}>
+    <Link
+      className={`landing__button landing__button--${variant} ${className}`.trim()}
+      to={to}
+      onClick={() => trackLandingAction(placement, to)}
+    >
       <span>{children}</span>
       {variant === "primary" && <ArrowRightOutlined aria-hidden="true" />}
     </Link>
@@ -117,7 +195,7 @@ function CtaLink({ to, children, variant = "primary", className = "" }) {
 function SectionHeading({ eyebrow, title, text, centered = false }) {
   return (
     <div className={`landing__section-heading${centered ? " landing__section-heading--centered" : ""}`}>
-      <p className="landing__eyebrow">{eyebrow}</p>
+      {eyebrow && <p className="landing__eyebrow">{eyebrow}</p>}
       <h2>{title}</h2>
       {text && <p className="landing__section-lead">{text}</p>}
     </div>
@@ -130,34 +208,52 @@ function pricingTarget(plan, user) {
 }
 
 export function LandingPage({ user }) {
+  const [demoTab, setDemoTab] = useState("manager");
   const primaryTarget = user ? "/app/dashboard" : "/register";
+  const activeDemo = demoTabs.find((tab) => tab.key === demoTab) || demoTabs[0];
+
+  function handleDemoTabKeyDown(event, tabIndex) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const nextIndex =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? demoTabs.length - 1
+          : (tabIndex + (event.key === "ArrowRight" ? 1 : -1) + demoTabs.length) % demoTabs.length;
+    const nextTab = demoTabs[nextIndex];
+    setDemoTab(nextTab.key);
+    document.getElementById(`landing-tab-${nextTab.key}`)?.focus();
+  }
 
   return (
     <main className="landing">
       <a className="landing__skip-link" href="#landing-content">
         К содержанию
       </a>
-
       <header className="landing__nav" aria-label="Основная навигация">
         <Link className="landing__brand" to="/" aria-label="Taskspot — главная">
           <BrandLogo variant="light" />
         </Link>
         <nav className="landing__nav-links" aria-label="Разделы страницы">
-          <a href="#product">Продукт</a>
+          <a href="#how-it-works">Как работает</a>
           <a href="#capabilities">Возможности</a>
+          <a href="#audiences">Для кого</a>
           <a href="#pricing">Тарифы</a>
-          <a href="/solutions/">Решения</a>
-          <a href="/resources/">Материалы</a>
         </nav>
         <div className="landing__actions">
           {user ? (
-            <CtaLink to="/app/dashboard">Открыть Taskspot</CtaLink>
+            <CtaLink to="/app/dashboard" placement="header-authenticated">
+              Открыть Taskspot
+            </CtaLink>
           ) : (
             <>
-              <CtaLink to="/login" variant="ghost">
+              <CtaLink to="/login" variant="ghost" placement="header-login">
                 Войти
               </CtaLink>
-              <CtaLink to="/register">Начать бесплатно</CtaLink>
+              <CtaLink to="/register" placement="header-register">
+                Начать бесплатно
+              </CtaLink>
             </>
           )}
         </div>
@@ -166,13 +262,16 @@ export function LandingPage({ user }) {
             <MenuOutlined />
           </summary>
           <nav aria-label="Мобильная навигация">
-            <a href="#product">Продукт</a>
+            <a href="#how-it-works">Как работает</a>
             <a href="#capabilities">Возможности</a>
+            <a href="#audiences">Для кого</a>
             <a href="#pricing">Тарифы</a>
-            <a href="/solutions/">Решения</a>
-            <a href="/resources/">Материалы</a>
             {!user && <Link to="/login">Войти</Link>}
-            <Link className="is-accent" to={primaryTarget}>
+            <Link
+              className="is-accent"
+              to={primaryTarget}
+              onClick={() => trackLandingAction("mobile-menu", primaryTarget)}
+            >
               {user ? "Открыть Taskspot" : "Начать бесплатно"}
             </Link>
           </nav>
@@ -181,162 +280,63 @@ export function LandingPage({ user }) {
 
       <div id="landing-content">
         <section className="landing__hero">
-          <div className="landing__hero-glow" aria-hidden="true" />
           <div className="landing__hero-copy">
-            <p className="landing__eyebrow">
-              <span>Новый порядок в работе</span> {LANDING_COPY.eyebrow}
-            </p>
-            <h1>
-              Поручения не теряются. <em>Результат виден.</em>
-            </h1>
+            <p className="landing__eyebrow">{LANDING_COPY.eyebrow}</p>
+            <h1>{LANDING_COPY.heading}</h1>
             <p className="landing__lead">{LANDING_COPY.lead}</p>
             <div className="landing__hero-actions">
-              <CtaLink to={primaryTarget}>{user ? "Перейти к задачам" : "Начать бесплатно"}</CtaLink>
-              <a className="landing__text-link" href="#product">
-                Посмотреть интерфейс <span>↓</span>
+              <CtaLink to={primaryTarget} placement="hero-primary">
+                {user ? "Перейти к задачам" : "Начать бесплатно"}
+              </CtaLink>
+              <a
+                className="landing__button landing__button--secondary"
+                href="#how-it-works"
+                onClick={() => trackLandingAction("hero-secondary", "#how-it-works")}
+              >
+                Посмотреть, как работает
               </a>
             </div>
             <ul className="landing__trust-list" aria-label="Условия старта">
               <li>
-                <CheckOutlined /> 0 ₽ для старта
+                <CheckOutlined /> Бесплатный тариф
               </li>
               <li>
                 <CheckOutlined /> Без банковской карты
               </li>
               <li>
-                <CheckOutlined /> Web и мобильный клиент
+                <CheckOutlined /> Для команды
               </li>
             </ul>
           </div>
-          <div className="landing__hero-scene">
-            <DashboardScene hero />
-            <div className="landing__floating-note landing__floating-note--left">
-              <ClockCircleOutlined />
-              <span>
-                <strong>Срок под контролем</strong>Напоминание отправлено
-              </span>
+          <figure className="landing__hero-screen">
+            <div className="landing__screen-top" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+              <span>taskspot.ru</span>
             </div>
-            <div className="landing__floating-note landing__floating-note--right">
-              <CheckCircleFilled />
+            <img src="/screenshots/manager-dashboard.png" alt="Главная Taskspot с реальным рабочим списком задач" />
+            <figcaption>
               <span>
-                <strong>Результат принят</strong>История сохранена
+                <ClockCircleOutlined /> Сроки и просрочки видны сразу
               </span>
-            </div>
-          </div>
+              <span>
+                <CheckCircleFilled /> Результат проходит проверку
+              </span>
+            </figcaption>
+          </figure>
         </section>
 
-        <section className="landing__promise" aria-label="Главная ценность Taskspot">
-          <p>Чат помнит разговор.</p>
-          <strong>Taskspot помнит договорённость.</strong>
-          <span>Кто отвечает → когда срок → что считать результатом → кто принял работу</span>
-        </section>
-
-        <section className="landing__workflow" id="product">
+        <section className="landing__problems">
           <SectionHeading
-            eyebrow="Простой рабочий цикл"
-            title="От поручения до принятого результата"
-            text="Без длинного внедрения: сотрудники видят свою работу, руководитель — точки внимания."
+            eyebrow="Знакомая ситуация"
+            title="Когда задачи живут в чатах, контроль держится в голове"
+            text="Taskspot собирает поручение, срок, ответственного и результат в одном понятном процессе."
             centered
           />
-          <div className="landing__workflow-grid">
-            {workflow.map((item, index) => (
+          <div className="landing__problem-grid">
+            {problems.map((item) => (
               <article key={item.title}>
-                <span className="landing__workflow-number">0{index + 1}</span>
-                <div className="landing__workflow-icon">{item.icon}</div>
-                <h3>{item.title}</h3>
-                <p>{item.text}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="landing__showcase">
-          <div className="landing__showcase-row">
-            <div className="landing__showcase-copy">
-              <p className="landing__eyebrow">Рабочая картина</p>
-              <h2>Руководитель сразу видит, где нужна реакция</h2>
-              <p>
-                На главном экране собраны задачи в работе, приближающиеся сроки, просрочки, проверка результата и
-                последние события команды.
-              </p>
-              <ul>
-                <li>
-                  <CheckCircleFilled /> Фокус на срочных и просроченных задачах
-                </li>
-                <li>
-                  <CheckCircleFilled /> Быстрый переход к задачам на проверке
-                </li>
-                <li>
-                  <CheckCircleFilled /> Контекст по проектам и участникам
-                </li>
-              </ul>
-            </div>
-            <div className="landing__showcase-visual">
-              <DashboardScene />
-            </div>
-          </div>
-
-          <div className="landing__showcase-row landing__showcase-row--reverse">
-            <div className="landing__showcase-copy">
-              <p className="landing__eyebrow">Вся работа внутри задачи</p>
-              <h2>Договорённости не растворяются в переписке</h2>
-              <p>
-                Описание, критерии готовности, сроки, ответственные, файлы и комментарии остаются рядом с поручением —
-                от постановки до приёмки.
-              </p>
-              <ul>
-                <li>
-                  <CheckCircleFilled /> Чек-лист делает результат однозначным
-                </li>
-                <li>
-                  <CheckCircleFilled /> Возврат на доработку сохраняет контекст
-                </li>
-                <li>
-                  <CheckCircleFilled /> Журнал фиксирует ключевые изменения
-                </li>
-              </ul>
-            </div>
-            <div className="landing__showcase-visual">
-              <TaskScene />
-            </div>
-          </div>
-
-          <div className="landing__mobile-feature">
-            <div className="landing__mobile-copy">
-              <p className="landing__eyebrow">Работа продолжается вне офиса</p>
-              <h2>Задачи всегда под рукой</h2>
-              <p>
-                Сотрудник может проверить срок, закрыть пункт чек-листа, отметить выполнение и ответить на комментарий с
-                телефона.
-              </p>
-              <div className="landing__mobile-benefits">
-                <span>
-                  <MobileOutlined /> Мобильный клиент
-                </span>
-                <span>
-                  <CloudSyncOutlined /> Работа при нестабильной сети
-                </span>
-                <span>
-                  <BellOutlined /> Уведомления о важных событиях
-                </span>
-              </div>
-            </div>
-            <div className="landing__phone-stage">
-              <div className="landing__phone-orbit" aria-hidden="true" />
-              <MobileScene />
-            </div>
-          </div>
-        </section>
-
-        <section className="landing__capabilities" id="capabilities">
-          <SectionHeading
-            eyebrow="Возможности"
-            title="Достаточно гибкости для процессов. Достаточно простоты для людей."
-            text="Taskspot закрывает ежедневный цикл поручений и не заставляет команду жить в громоздкой системе."
-          />
-          <div className="landing__capability-grid">
-            {capabilities.map((item, index) => (
-              <article key={item.title} className={index === 0 || index === 5 ? "is-wide" : ""}>
                 <span>{item.icon}</span>
                 <h3>{item.title}</h3>
                 <p>{item.text}</p>
@@ -345,22 +345,156 @@ export function LandingPage({ user }) {
           </div>
         </section>
 
-        <section className="landing__audiences">
+        <section className="landing__workflow" id="how-it-works">
           <SectionHeading
-            eyebrow="Сценарии"
-            title="Один процесс контроля — для разных команд"
-            text="Настройте проекты под свой контекст, сохранив единые правила постановки и приёмки задач."
+            eyebrow="Как работает Taskspot"
+            title="От постановки до принятого результата — три понятных шага"
+            text="Один рабочий цикл для руководителя и сотрудника, без таблиц и бесконечных уточнений в мессенджере."
+          />
+          <div className="landing__workflow-grid">
+            {workflow.map((item, index) => (
+              <article key={item.title}>
+                <div className="landing__workflow-top">
+                  <span className="landing__workflow-number">0{index + 1}</span>
+                  <span className="landing__workflow-icon">{item.icon}</span>
+                </div>
+                <h3>{item.title}</h3>
+                <p>{item.text}</p>
+                <span className={`landing__status landing__status--${index}`}>{item.status}</span>
+              </article>
+            ))}
+          </div>
+          <div className="landing__inline-action">
+            <CtaLink to={primaryTarget} variant="outline" placement="workflow">
+              {user ? "Открыть рабочий список" : "Попробовать на своей задаче"}
+            </CtaLink>
+          </div>
+        </section>
+
+        <section className="landing__demo" id="interface">
+          <SectionHeading
+            eyebrow="Настоящий интерфейс"
+            title="С первого экрана понятно, что происходит"
+            text="Ниже — реальные экраны действующего сервиса с безопасными демонстрационными данными."
+            centered
+          />
+          <div className="landing__demo-shell">
+            <div className="landing__demo-tabs" role="tablist" aria-label="Экраны Taskspot">
+              {demoTabs.map((tab, tabIndex) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  id={`landing-tab-${tab.key}`}
+                  role="tab"
+                  aria-selected={demoTab === tab.key}
+                  aria-controls={`landing-panel-${tab.key}`}
+                  tabIndex={demoTab === tab.key ? 0 : -1}
+                  onKeyDown={(event) => handleDemoTabKeyDown(event, tabIndex)}
+                  onClick={() => {
+                    setDemoTab(tab.key);
+                    trackLandingAction("interface-tab", tab.key);
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <div
+              className="landing__demo-panel"
+              id={`landing-panel-${activeDemo.key}`}
+              role="tabpanel"
+              aria-labelledby={`landing-tab-${activeDemo.key}`}
+            >
+              <div className="landing__demo-copy">
+                <p className="landing__eyebrow">{activeDemo.label}</p>
+                <h3>{activeDemo.title}</h3>
+                <p>{activeDemo.text}</p>
+                <CtaLink to={primaryTarget} variant="outline" placement={`demo-${activeDemo.key}`}>
+                  {user ? "Открыть Taskspot" : "Начать бесплатно"}
+                </CtaLink>
+              </div>
+              <figure className={`landing__demo-image landing__demo-image--${activeDemo.key}`}>
+                <img src={activeDemo.image} alt={activeDemo.alt} />
+              </figure>
+            </div>
+          </div>
+        </section>
+
+        <section className="landing__roles">
+          {roleBenefits.map((role) => (
+            <article key={role.eyebrow}>
+              <span className="landing__role-icon">{role.icon}</span>
+              <p className="landing__eyebrow">{role.eyebrow}</p>
+              <h2>{role.title}</h2>
+              <p>{role.text}</p>
+              <ul>
+                {role.points.map((point) => (
+                  <li key={point}>
+                    <CheckCircleFilled /> {point}
+                  </li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </section>
+
+        <section className="landing__capabilities" id="capabilities">
+          <SectionHeading
+            eyebrow="Возможности"
+            title="Всё для работы с задачами. Ничего лишнего."
+            text="Инструменты для ежедневной работы небольшой команды — от постановки до проверки результата."
+          />
+          <div className="landing__capability-grid">
+            {capabilities.map((item) => (
+              <article key={item.title}>
+                <span>{item.icon}</span>
+                <h3>{item.title}</h3>
+                <p>{item.text}</p>
+              </article>
+            ))}
+          </div>
+          <div className="landing__inline-action">
+            <CtaLink to={primaryTarget} variant="outline" placement="features">
+              {user ? "Перейти к задачам" : "Создать первую задачу"}
+            </CtaLink>
+          </div>
+        </section>
+
+        <section className="landing__audiences" id="audiences">
+          <SectionHeading
+            eyebrow="Для кого"
+            title="Простой контроль для команд, где важен результат"
+            text="Taskspot подходит небольшим командам, которые выросли из переписки, таблиц и устных договорённостей."
           />
           <div className="landing__audience-grid">
             {audiences.map((item, index) => (
-              <a href={item.link} key={item.title}>
+              <Link to={item.link} key={item.title}>
                 <span>0{index + 1}</span>
                 <h3>{item.title}</h3>
                 <p>{item.text}</p>
                 <em>
-                  Подробнее <ArrowRightOutlined />
+                  Посмотреть сценарий <ArrowRightOutlined />
                 </em>
-              </a>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section className="landing__start">
+          <SectionHeading
+            eyebrow="Простой старт"
+            title="От регистрации до первой задачи — несколько минут"
+            text="Начните с бесплатного тарифа и подключайте дополнительные возможности по мере роста команды."
+            centered
+          />
+          <div className="landing__start-grid">
+            {startSteps.map(([icon, title, text], index) => (
+              <article key={title}>
+                <span className="landing__start-number">{index + 1}</span>
+                <span className="landing__start-icon">{icon}</span>
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </article>
             ))}
           </div>
         </section>
@@ -369,7 +503,7 @@ export function LandingPage({ user }) {
           <SectionHeading
             eyebrow="Тарифы"
             title="Начните бесплатно. Увеличивайте лимиты по мере роста."
-            text="Основной рабочий процесс доступен сразу. Тариф действует на компанию, а не покупается отдельно для каждого сотрудника."
+            text="Тариф действует на всю компанию — отдельная лицензия для каждого сотрудника не нужна."
             centered
           />
           <div className="landing__pricing-grid">
@@ -380,7 +514,7 @@ export function LandingPage({ user }) {
               >
                 {plan.highlighted && (
                   <span className="landing__price-label">
-                    <ThunderboltOutlined /> Для регулярной работы
+                    <ThunderboltOutlined /> Выбор небольшой команды
                   </span>
                 )}
                 <div className="landing__price-head">
@@ -391,8 +525,18 @@ export function LandingPage({ user }) {
                   <strong>{plan.price}</strong>
                   {plan.period && <span>{plan.period}</span>}
                 </div>
-                <CtaLink to={pricingTarget(plan, user)} variant={plan.highlighted ? "primary" : "outline"}>
-                  {user ? (plan.key === "free" ? "Открыть Taskspot" : "Открыть тарифы") : "Начать бесплатно"}
+                <CtaLink
+                  to={pricingTarget(plan, user)}
+                  variant={plan.highlighted ? "primary" : "outline"}
+                  placement={`pricing-${plan.key}`}
+                >
+                  {user
+                    ? plan.key === "free"
+                      ? "Открыть Taskspot"
+                      : "Выбрать тариф"
+                    : plan.key === "free"
+                      ? "Начать бесплатно"
+                      : "Выбрать тариф"}
                 </CtaLink>
                 <div className="landing__price-divider" />
                 <ul>
@@ -429,11 +573,11 @@ export function LandingPage({ user }) {
 
         <section className="landing__resources">
           <div>
-            <p className="landing__eyebrow">Практика управления</p>
-            <h2>Полезные материалы без сложной теории</h2>
+            <p className="landing__eyebrow">Полезные материалы</p>
+            <h2>Практика управления без сложной теории</h2>
           </div>
           <div className="landing__resource-links">
-            <a href="/resources/delegation/">
+            <Link to="/resources/delegation/">
               <span>
                 <TeamOutlined />
               </span>
@@ -442,8 +586,8 @@ export function LandingPage({ user }) {
                 <strong>Как делегировать задачи сотрудникам</strong>
               </div>
               <ArrowRightOutlined />
-            </a>
-            <a href="/resources/task-register/">
+            </Link>
+            <Link to="/resources/task-register/">
               <span>
                 <FolderOpenOutlined />
               </span>
@@ -452,28 +596,30 @@ export function LandingPage({ user }) {
                 <strong>Как вести реестр поручений</strong>
               </div>
               <ArrowRightOutlined />
-            </a>
-            <a href="/resources/overdue-review/">
+            </Link>
+            <Link to="/resources/overdue-review/">
               <span>
-                <RiseOutlined />
+                <HistoryOutlined />
               </span>
               <div>
                 <small>Рабочий процесс</small>
                 <strong>Как разбирать просроченные поручения</strong>
               </div>
               <ArrowRightOutlined />
-            </a>
+            </Link>
           </div>
         </section>
 
         <section className="landing__final-cta">
-          <div className="landing__final-grid" aria-hidden="true" />
           <div>
-            <p className="landing__eyebrow">Первый проект можно запустить сегодня</p>
-            <h2>Верните поручениям ясность, а команде — рабочий ритм.</h2>
+            <p className="landing__eyebrow">Начните с одной задачи</p>
+            <h2>Наведите порядок в поручениях уже сегодня</h2>
+            <p>Первый проект и бесплатный тариф будут готовы сразу после подтверждения email.</p>
           </div>
           <div className="landing__final-action">
-            <CtaLink to={primaryTarget}>{user ? "Перейти в Taskspot" : "Начать бесплатно"}</CtaLink>
+            <CtaLink to={primaryTarget} placement="final">
+              {user ? "Перейти в Taskspot" : "Начать бесплатно"}
+            </CtaLink>
             {!user && <span>Без банковской карты</span>}
           </div>
         </section>
@@ -482,26 +628,26 @@ export function LandingPage({ user }) {
       <footer className="landing__footer">
         <div className="landing__footer-brand">
           <BrandLogo variant="light" />
-          <p>Контроль поручений от постановки до принятого результата.</p>
+          <p>Простой сервис задач и контроля поручений для небольших команд.</p>
         </div>
         <nav aria-label="Ссылки в подвале">
           <div>
             <strong>Продукт</strong>
+            <a href="#how-it-works">Как работает</a>
             <a href="#capabilities">Возможности</a>
             <a href="#pricing">Тарифы</a>
-            <Link to="/login">Войти</Link>
           </div>
           <div>
             <strong>Решения</strong>
-            <a href="/solutions/owner/">Владельцу</a>
-            <a href="/solutions/department/">Руководителю</a>
-            <a href="/solutions/production/">Операционной команде</a>
+            <Link to="/solutions/owner/">Владельцу</Link>
+            <Link to="/solutions/department/">Руководителю</Link>
+            <Link to="/solutions/production/">Операционной команде</Link>
           </div>
           <div>
             <strong>Материалы</strong>
-            <a href="/resources/">Все материалы</a>
-            <a href="/resources/delegation/">Делегирование</a>
-            <a href="/resources/task-register/">Реестр поручений</a>
+            <Link to="/resources/">Все материалы</Link>
+            <Link to="/resources/delegation/">Делегирование</Link>
+            <Link to="/resources/task-register/">Реестр поручений</Link>
           </div>
           <div>
             <strong>Правовая информация</strong>
